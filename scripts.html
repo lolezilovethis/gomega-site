@@ -126,30 +126,41 @@
     }
 
     window.addScript = async function () {
-      const title = document.getElementById("scriptTitle").value.trim();
-      const desc = document.getElementById("scriptDesc").value.trim();
-      const code = document.getElementById("scriptCode").value.trim();
-      const ads = document.getElementById("scriptAds").checked;
+  const title = document.getElementById("scriptTitle").value.trim();
+  const desc = document.getElementById("scriptDesc").value.trim();
+  const code = document.getElementById("scriptCode").value.trim();
+  const ads = document.getElementById("scriptAds").checked;
 
-      if (!title || !code) return alert("Title and Script URL are required.");
+  if (!title || !code) return alert("Title and Script URL are required.");
 
-      try {
-        await addDoc(collection(db, "scripts"), {
-          title,
-          description: desc,
-          code,
-          author: currentUserEmail,
-          ads,
-          timestamp: serverTimestamp()
-        });
+  const lastUpload = localStorage.getItem("lastUploadTime");
+  const now = Date.now();
+  const cooldown = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 
-        alert("Script added!");
-        await refreshScriptList();
-      } catch (error) {
-        console.error("Error adding script:", error);
-        alert("Failed to upload script. Please try again.");
-      }
-    }
+  if (lastUpload && now - parseInt(lastUpload) < cooldown) {
+    const remaining = Math.ceil((cooldown - (now - parseInt(lastUpload))) / (60 * 1000));
+    return alert(`⏳ Please wait ${remaining} minutes before uploading another script.`);
+  }
+
+  try {
+    await addDoc(collection(db, "scripts"), {
+      title,
+      description: desc,
+      code,
+      author: currentUserEmail,
+      ads,
+      timestamp: serverTimestamp()
+    });
+
+    localStorage.setItem("lastUploadTime", now.toString());
+    alert("Script added!");
+    await refreshScriptList();
+  } catch (error) {
+    console.error("Error adding script:", error);
+    alert("Failed to upload script. Please try again.");
+  }
+}
+
 
     window.logout = function () {
       signOut(auth).then(() => location.href = "index.html");
