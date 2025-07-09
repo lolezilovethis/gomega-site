@@ -3,36 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scripts – Gomega Watch</title>
+  <title>Scripts – Gomega.Watch</title>
   <link rel="stylesheet" href="style.css">
-
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
 </head>
 <body>
   <div class="container">
-    <h1>📜 Roblox Scripts</h1>
+    <h1>🧾 Roblox Scripts</h1>
 
     <div class="script-card">
       <h2>Rivals</h2>
-      <p>Autoload script for Rivals. Works on most executors.</p>
+      <p>loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()</p>
       <button onclick="copyScript(`loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()`)">📋 Copy Script</button>
     </div>
 
     <div class="script-card">
       <h2>Blox Fruits</h2>
-      <p>Universal Blox Fruits script. No key required.</p>
+      <p>loadstring(game:HttpGet('https://example.com/bloxfruits'))()</p>
       <button onclick="copyScript(`loadstring(game:HttpGet('https://example.com/bloxfruits'))()`)">📋 Copy Script</button>
     </div>
 
-    <div class="footer">
+    <footer>
       <a href="index.html">⬅ Back to Home</a>
-    </div>
+    </footer>
   </div>
 
   <script>
-    function copyScript(script) {
-      navigator.clipboard.writeText(script);
+    function copyScript(code) {
+      navigator.clipboard.writeText(code);
       alert("Script copied to clipboard!");
     }
   </script>
