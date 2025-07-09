@@ -3,95 +3,120 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scripts – Gomega.Watch</title>
+  <title>Scripts – Gomega Watch</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1>🧾 Roblox Scripts</h1>
+    <div style="text-align:right;">
+      <button onclick="logout()">🚪 Logout</button>
+    </div>
 
-    <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box">
+    <h1>🧾 Roblox Scripts</h1>
+    <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box" />
     <p id="scriptCount"></p>
 
-    <div id="addScriptArea"></div>
-
-    <div class="script-card">
-      <div>
-        <h2>Rivals <span class="badge verified">✔️ Verified</span></h2>
-        <p>loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()</p>
-      </div>
-      <button onclick="copyScript(`loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()`)">📋 Copy Script</button>
+    <div id="addScriptForm" style="display:none;">
+      <h3>Add New Script</h3>
+      <input id="scriptName" placeholder="Script Name">
+      <textarea id="scriptCode" placeholder="Script Code URL"></textarea>
+      <button onclick="addScript()">➕ Add Script</button>
     </div>
 
-    <div class="script-card">
-      <div>
-        <h2>Blox Fruits <span class="badge admin">Admin</span></h2>
-        <p>loadstring(game:HttpGet('https://example.com/bloxfruits'))()</p>
-      </div>
-      <button onclick="copyScript(`loadstring(game:HttpGet('https://example.com/bloxfruits'))()`)">📋 Copy Script</button>
-    </div>
+    <div id="scriptList"></div>
 
-    <footer>
-      <a href="index.html">⬅ Back to Home</a>
-    </footer>
+    <footer><a href="index.html">⬅ Back to Home</a></footer>
+
   </div>
 
-  <script>
-    const admins = ['admin1', 'admin2'];
-    const currentUser = localStorage.getItem("currentUser");
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { auth, db } from './firebase.js';
+    import {
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      orderBy,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const scriptList = document.getElementById("scriptList");
+    const scriptCount = document.getElementById("scriptCount");
+    const adminEmails = ['admin1@example.com', 'admin2@example.com'];
+
+    let allScripts = [];
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return location.href = "signin.html";
+
+      const isAdmin = adminEmails.includes(user.email);
+      if (isAdmin) document.getElementById("addScriptForm").style.display = "block";
+
+      const scriptsRef = collection(db, "scripts");
+      const q = query(scriptsRef, orderBy("timestamp", "desc"));
+      const snapshot = await getDocs(q);
+
+      allScripts = [];
+      snapshot.forEach(doc => {
+        allScripts.push(doc.data());
+      });
+
+      renderScripts(allScripts);
+    });
+
+    function renderScripts(scripts) {
+      scriptList.innerHTML = "";
+      scripts.forEach(s => {
+        const card = document.createElement("div");
+        card.className = "script-card";
+        card.innerHTML = `
+          <div>
+            <h2>${s.name} <span class="small gray">by ${s.author || 'Anonymous'}</span></h2>
+            <p>${s.code}</p>
+          </div>
+          <button onclick="copyScript(\`${s.code}\`)">📋 Copy</button>
+        `;
+        scriptList.appendChild(card);
+      });
+      scriptCount.textContent = `Total Scripts: ${scripts.length}`;
+    }
 
     function copyScript(code) {
       navigator.clipboard.writeText(code);
-      alert("Script copied to clipboard!");
+      alert("Copied to clipboard!");
     }
 
     function filterScripts() {
-      const input = document.getElementById("searchBox").value.toLowerCase();
-      const cards = document.querySelectorAll(".script-card");
-      let count = 0;
-
-      cards.forEach(card => {
-        const title = card.querySelector("h2").textContent.toLowerCase();
-        const visible = title.includes(input);
-        card.style.display = visible ? "block" : "none";
-        if (visible) count++;
-      });
-
-      document.getElementById("scriptCount").textContent = `Total Scripts: ${count}`;
+      const search = document.getElementById("searchBox").value.toLowerCase();
+      const filtered = allScripts.filter(s => s.name.toLowerCase().includes(search));
+      renderScripts(filtered);
     }
 
-    window.onload = function () {
-      filterScripts();
-
-      if (currentUser) {
-        const addArea = document.getElementById("addScriptArea");
-        addArea.innerHTML = `
-          <div class="add-form">
-            <h3>➕ Add Script</h3>
-            <input id="scriptTitle" placeholder="Script Name">
-            <input id="scriptCode" placeholder="Script Code or Link">
-            <button onclick="addScript()">Add Script</button>
-          </div>
-        `;
-      }
-    };
-
-    function addScript() {
-      const title = document.getElementById("scriptTitle").value.trim();
+    async function addScript() {
+      const name = document.getElementById("scriptName").value.trim();
       const code = document.getElementById("scriptCode").value.trim();
-      if (!title || !code) return alert("Please enter both fields.");
-      alert(`New script would be added:\nName: ${title}\nCode: ${code}`);
+
+      if (!name || !code) return alert("Both fields are required.");
+
+      await addDoc(collection(db, "scripts"), {
+        name,
+        code,
+        author: auth.currentUser.email,
+        timestamp: serverTimestamp()
+      });
+
+      alert("Script added!");
+      location.reload();
+    }
+
+    function logout() {
+      signOut(auth).then(() => location.href = "index.html");
     }
   </script>
 </body>
 </html>
-<div style="text-align: right; margin-bottom: 20px;">
-  <button onclick="logout()">🚪 Logout</button>
-</div>
-<script>
-  function logout() {
-    firebase.auth().signOut().then(() => {
-      window.location.href = "index.html";
-    });
-  }
-</script>
