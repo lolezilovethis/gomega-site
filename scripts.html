@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- ✅ Popunder script -->
+  <!-- ✅ Popunder Script -->
   <script type='text/javascript' src='//hidcolouredclink.com/b7/f1/42/b7f142495e4b7efd7498741c57f56c1d.js'></script>
 </head>
 <body>
@@ -55,8 +55,10 @@
       addDoc,
       getDocs,
       query,
+      where,
       orderBy,
-      serverTimestamp
+      serverTimestamp,
+      Timestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const scriptList = document.getElementById("scriptList");
@@ -126,41 +128,54 @@
     }
 
     window.addScript = async function () {
-  const title = document.getElementById("scriptTitle").value.trim();
-  const desc = document.getElementById("scriptDesc").value.trim();
-  const code = document.getElementById("scriptCode").value.trim();
-  const ads = document.getElementById("scriptAds").checked;
+      const title = document.getElementById("scriptTitle").value.trim();
+      const desc = document.getElementById("scriptDesc").value.trim();
+      const code = document.getElementById("scriptCode").value.trim();
+      const ads = document.getElementById("scriptAds").checked;
 
-  if (!title || !code) return alert("Title and Script URL are required.");
+      if (!title || !code) return alert("Title and Script URL are required.");
 
-  const lastUpload = localStorage.getItem("lastUploadTime");
-  const now = Date.now();
-  const cooldown = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+      const cooldown = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+      const scriptsRef = collection(db, "scripts");
 
-  if (lastUpload && now - parseInt(lastUpload) < cooldown) {
-    const remaining = Math.ceil((cooldown - (now - parseInt(lastUpload))) / (60 * 1000));
-    return alert(`⏳ Please wait ${remaining} minutes before uploading another script.`);
-  }
+      const userScriptsQuery = query(
+        scriptsRef,
+        where("author", "==", currentUserEmail),
+        orderBy("timestamp", "desc")
+      );
 
-  try {
-    await addDoc(collection(db, "scripts"), {
-      title,
-      description: desc,
-      code,
-      author: currentUserEmail,
-      ads,
-      timestamp: serverTimestamp()
-    });
+      const snapshot = await getDocs(userScriptsQuery);
+      const lastDoc = snapshot.docs[0];
 
-    localStorage.setItem("lastUploadTime", now.toString());
-    alert("Script added!");
-    await refreshScriptList();
-  } catch (error) {
-    console.error("Error adding script:", error);
-    alert("Failed to upload script. Please try again.");
-  }
-}
+      if (lastDoc) {
+        const lastTimestamp = lastDoc.data().timestamp?.toDate?.();
+        if (lastTimestamp) {
+          const now = new Date();
+          const diff = now - lastTimestamp;
+          if (diff < cooldown) {
+            const remaining = Math.ceil((cooldown - diff) / (60 * 1000));
+            return alert(`⏳ Please wait ${remaining} minutes before uploading another script.`);
+          }
+        }
+      }
 
+      try {
+        await addDoc(scriptsRef, {
+          title,
+          description: desc,
+          code,
+          author: currentUserEmail,
+          ads,
+          timestamp: serverTimestamp()
+        });
+
+        alert("✅ Script added!");
+        await refreshScriptList();
+      } catch (error) {
+        console.error("Error adding script:", error);
+        alert("Failed to upload script. Please try again.");
+      }
+    }
 
     window.logout = function () {
       signOut(auth).then(() => location.href = "index.html");
