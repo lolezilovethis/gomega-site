@@ -4,6 +4,7 @@
     signOut,
     onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
   import {
     collection,
     addDoc,
@@ -48,21 +49,25 @@
   });
 
   async function refreshScriptList() {
-    const scriptsRef = collection(db, "scripts");
-    const q = query(scriptsRef, orderBy("timestamp", "desc"));
-    const snapshot = await getDocs(q);
+    try {
+      const scriptsRef = collection(db, "scripts");
+      const q = query(scriptsRef, orderBy("timestamp", "desc"));
+      const snapshot = await getDocs(q);
 
-    allScripts = [];
-    scriptDocs = [];
+      allScripts = [];
+      scriptDocs = [];
 
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const id = docSnap.id;
-      scriptDocs.push({ id, ...data });
-      allScripts.push({ id, ...data });
-    });
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const id = docSnap.id;
+        scriptDocs.push({ id, ...data });
+        allScripts.push({ id, ...data });
+      });
 
-    renderScripts(allScripts);
+      renderScripts(allScripts);
+    } catch (err) {
+      console.error("Error loading scripts:", err);
+    }
   }
 
   function renderScripts(scripts) {
@@ -89,6 +94,7 @@
       card.appendChild(copyBtn);
       scriptList.appendChild(card);
     });
+
     scriptCount.textContent = `Total Scripts: ${scripts.length}`;
   }
 
@@ -121,7 +127,7 @@
     const search = document.getElementById("searchBox").value.toLowerCase();
     const filtered = allScripts.filter(s => s.title?.toLowerCase().includes(search));
     renderScripts(filtered);
-  }
+  };
 
   window.addScript = async function () {
     const title = document.getElementById("scriptTitle").value.trim();
@@ -131,36 +137,45 @@
 
     if (!title || !code) return alert("Title and Script URL are required.");
 
-    await addDoc(collection(db, "scripts"), {
-      title,
-      description: desc,
-      code,
-      author: currentUserEmail,
-      ads,
-      verified: true, // always publish
-      timestamp: serverTimestamp()
-    });
+    try {
+      await addDoc(collection(db, "scripts"), {
+        title,
+        description: desc,
+        code,
+        author: currentUserEmail,
+        ads,
+        verified: true, // 🔥 Auto-publish
+        timestamp: serverTimestamp()
+      });
 
-    alert("Script published for everyone!");
+      alert("Script published for everyone!");
 
-    // clear form
-    document.getElementById("scriptTitle").value = "";
-    document.getElementById("scriptDesc").value = "";
-    document.getElementById("scriptCode").value = "";
-    document.getElementById("scriptAds").checked = false;
+      document.getElementById("scriptTitle").value = "";
+      document.getElementById("scriptDesc").value = "";
+      document.getElementById("scriptCode").value = "";
+      document.getElementById("scriptAds").checked = false;
 
-    await refreshScriptList();
-  }
+      await refreshScriptList();
+    } catch (err) {
+      console.error("Failed to add script:", err);
+      alert("Something went wrong adding the script.");
+    }
+  };
 
   window.removeScript = async function () {
     const name = document.getElementById("removeScriptName").value.trim().toLowerCase();
     const scriptToDelete = scriptDocs.find(s => s.title?.toLowerCase() === name);
     if (!scriptToDelete) return alert("Script not found.");
 
-    await deleteDoc(doc(db, "scripts", scriptToDelete.id));
-    alert("Script removed!");
-    await refreshScriptList();
-  }
+    try {
+      await deleteDoc(doc(db, "scripts", scriptToDelete.id));
+      alert("Script removed!");
+      await refreshScriptList();
+    } catch (err) {
+      console.error("Failed to remove script:", err);
+      alert("Error deleting script.");
+    }
+  };
 
   window.banUser = function () {
     const email = document.getElementById("banEmail").value.trim();
@@ -171,7 +186,7 @@
       localStorage.setItem("bannedUsers", JSON.stringify(bans));
     }
     alert(`${email} has been banned.`);
-  }
+  };
 
   window.unbanUser = function () {
     const email = document.getElementById("unbanEmail").value.trim();
@@ -179,9 +194,9 @@
     const newList = bans.filter(e => e !== email);
     localStorage.setItem("bannedUsers", JSON.stringify(newList));
     alert(`${email} has been unbanned.`);
-  }
+  };
 
   window.logout = function () {
     signOut(auth).then(() => location.href = "index.html");
-  }
+  };
 </script>
