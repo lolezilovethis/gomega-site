@@ -41,6 +41,10 @@
     <footer><a href="index.html">⬅ Back to Home</a></footer>
   </div>
 
+  <!-- ✅ POPUNDER SCRIPT (fires on load) -->
+  <script type='text/javascript' src='//pl27122655.profitableratecpm.com/b7/f1/42/b7f142495e4b7efd7498741c57f56c1d.js'></script>
+
+  <!-- ✅ Main Script Logic -->
   <script type="module">
     if (localStorage.getItem("theme") === "dark") {
       document.documentElement.classList.add("dark");
@@ -126,29 +130,20 @@
       scriptCount.textContent = `Total Scripts: ${scripts.length}`;
     }
 
+    // ✅ Direct Link + Clipboard Logic
     window.copyScript = function (code, adsEnabled) {
       if (adsEnabled) {
-        alert("You need to watch 2 ads to unlock this script!");
-        showAdGate(() => {
+        alert("To unlock this script, you'll be redirected to an ad. Return after a few seconds.");
+        const adWindow = window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+
+        setTimeout(() => {
           navigator.clipboard.writeText(code);
-          alert("Copied to clipboard!");
-        });
+          alert("Script copied after ad link was opened!");
+        }, 3000); // 3-second wait for ad engagement
       } else {
         navigator.clipboard.writeText(code);
         alert("Copied to clipboard!");
       }
-    }
-
-    function showAdGate(callback) {
-      let adsWatched = 0;
-      const interval = setInterval(() => {
-        adsWatched++;
-        alert(`Ad ${adsWatched} watched...`);
-        if (adsWatched === 2) {
-          clearInterval(interval);
-          callback();
-        }
-      }, 1000);
     }
 
     window.filterScripts = function () {
