@@ -1,0 +1,34 @@
+<!-- settings.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings – Gomega Watch</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>⚙️ Settings</h1>
+    <label>
+      <input type="checkbox" id="darkToggle"> Enable Dark Mode
+    </label>
+
+    <footer><a href="index.html">⬅ Back to Home</a></footer>
+  </div>
+
+  <script>
+    const toggle = document.getElementById("darkToggle");
+    toggle.checked = localStorage.getItem("theme") === "dark";
+
+    toggle.addEventListener("change", () => {
+      document.documentElement.classList.toggle("dark");
+      localStorage.setItem("theme", toggle.checked ? "dark" : "light");
+    });
+
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+  </script>
+</body>
+</html>

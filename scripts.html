@@ -10,15 +10,24 @@
   <div class="container">
     <h1>🧾 Roblox Scripts</h1>
 
+    <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box">
+    <p id="scriptCount"></p>
+
+    <div id="addScriptArea"></div>
+
     <div class="script-card">
-      <h2>Rivals</h2>
-      <p>loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()</p>
+      <div>
+        <h2>Rivals <span class="badge verified">✔️ Verified</span></h2>
+        <p>loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()</p>
+      </div>
       <button onclick="copyScript(`loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()`)">📋 Copy Script</button>
     </div>
 
     <div class="script-card">
-      <h2>Blox Fruits</h2>
-      <p>loadstring(game:HttpGet('https://example.com/bloxfruits'))()</p>
+      <div>
+        <h2>Blox Fruits <span class="badge admin">Admin</span></h2>
+        <p>loadstring(game:HttpGet('https://example.com/bloxfruits'))()</p>
+      </div>
       <button onclick="copyScript(`loadstring(game:HttpGet('https://example.com/bloxfruits'))()`)">📋 Copy Script</button>
     </div>
 
@@ -28,9 +37,50 @@
   </div>
 
   <script>
+    const admins = ['admin1', 'admin2'];
+    const currentUser = localStorage.getItem("currentUser");
+
     function copyScript(code) {
       navigator.clipboard.writeText(code);
       alert("Script copied to clipboard!");
+    }
+
+    function filterScripts() {
+      const input = document.getElementById("searchBox").value.toLowerCase();
+      const cards = document.querySelectorAll(".script-card");
+      let count = 0;
+
+      cards.forEach(card => {
+        const title = card.querySelector("h2").textContent.toLowerCase();
+        const visible = title.includes(input);
+        card.style.display = visible ? "block" : "none";
+        if (visible) count++;
+      });
+
+      document.getElementById("scriptCount").textContent = `Total Scripts: ${count}`;
+    }
+
+    window.onload = function () {
+      filterScripts();
+
+      if (currentUser) {
+        const addArea = document.getElementById("addScriptArea");
+        addArea.innerHTML = `
+          <div class="add-form">
+            <h3>➕ Add Script</h3>
+            <input id="scriptTitle" placeholder="Script Name">
+            <input id="scriptCode" placeholder="Script Code or Link">
+            <button onclick="addScript()">Add Script</button>
+          </div>
+        `;
+      }
+    };
+
+    function addScript() {
+      const title = document.getElementById("scriptTitle").value.trim();
+      const code = document.getElementById("scriptCode").value.trim();
+      if (!title || !code) return alert("Please enter both fields.");
+      alert(`New script would be added:\nName: ${title}\nCode: ${code}`);
     }
   </script>
 </body>

@@ -1,0 +1,17 @@
+<input placeholder="Username to verify" id="verifyUser">
+<button onclick="grantVerified()">Verify User</button>
+
+<script>
+function grantVerified() {
+  const admin = localStorage.getItem("currentUser");
+  if (!['admin1', 'admin2'].includes(admin)) return alert("Access denied");
+
+  const target = document.getElementById("verifyUser").value;
+  const user = JSON.parse(localStorage.getItem("user_" + target));
+  if (!user) return alert("User not found");
+
+  user.verified = true;
+  localStorage.setItem("user_" + target, JSON.stringify(user));
+  alert("User verified.");
+}
+</script>

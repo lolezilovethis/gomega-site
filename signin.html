@@ -1,0 +1,20 @@
+<form onsubmit="signin(event)">
+  <input type="text" id="username" placeholder="Username" required>
+  <input type="password" id="password" placeholder="Password" required>
+  <button type="submit">Sign In</button>
+</form>
+
+<script>
+  function signin(e) {
+    e.preventDefault();
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+
+    const data = JSON.parse(localStorage.getItem("user_" + user));
+    if (!data || data.pass !== pass) return alert("Invalid login");
+
+    localStorage.setItem("currentUser", user);
+    alert("Welcome " + user);
+    location.href = "index.html";
+  }
+</script>
