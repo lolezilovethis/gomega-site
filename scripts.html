@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- ✅ Google AdSense Banner -->
+  <!-- ✅ Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
      crossorigin="anonymous"></script>
 
-  <!-- ✅ Adsterra Popunder (Replace YOUR_POPUNDER_KEY) -->
+  <!-- ✅ Adsterra Popunder -->
   <script type="text/javascript">
     atOptions = {
       'key' : '38ae975ca6aee7f0655f6d6a736017f2',
@@ -21,19 +21,19 @@
       'exit' : false
     };
   </script>
-  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/YOUR_POPUNDER_KEY/invoke.js"></script>
+  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
   <!-- ✅ Adsterra 468x60 Banner -->
   <script type="text/javascript">
     atOptions = {
-      'key' : 'YOUR_BANNER_KEY',
+      'key' : 'e778517b67e0c5512948681e8d2bea9a',
       'format' : 'iframe',
       'height' : 60,
       'width' : 468,
       'params' : {}
     };
   </script>
-  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/YOUR_BANNER_KEY/invoke.js"></script>
+  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/e778517b67e0c5512948681e8d2bea9a/invoke.js"></script>
 </head>
 
 <body>
@@ -43,7 +43,7 @@
       <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
     </div>
 
-    <!-- ✅ Google AdSense Unit -->
+    <!-- ✅ AdSense Banner -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-2566003301154558"
@@ -62,11 +62,12 @@
 
     <footer>
       <a href="index.html">⬅ Back to Home</a> |
-      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=YOUR_DIRECT_LINK_KEY" target="_blank">
-        Visit Gomega Watch Sponsored Link
+      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">
+        Sponsored Link
       </a>
     </footer>
 
+    <!-- ✅ ScriptBlox Integration + Ad Unlock Logic -->
     <script type="module">
       import { auth } from './js/firebase.js';
       import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -88,7 +89,7 @@
           renderScripts(allScripts);
         } catch (e) {
           console.error('Error loading trending:', e);
-          scriptList.innerHTML = `<p>Failed to load trending scripts. Try again later.</p>`;
+          scriptList.innerHTML = `<p>⚠️ Failed to load trending scripts. Try again later.</p>`;
         }
       }
 
@@ -113,10 +114,10 @@
 
       window.unlockScript = async function(i) {
         alert("Ad 1 of 2: Please interact with the ad and return.");
-        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=YOUR_DIRECT_LINK_KEY", "_blank");
+        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
         setTimeout(() => {
           alert("Ad 2 of 2: one more ad before unlocking.");
-          window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=YOUR_DIRECT_LINK_KEY", "_blank");
+          window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
           setTimeout(() => {
             document.getElementById(`copy-${i}`).style.display = "inline-block";
             alert("✅ You can now copy the script link!");
