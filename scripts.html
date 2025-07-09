@@ -5,35 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scripts – Gomega Watch</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
 </head>
 <body>
-  <header>
-    <h1>Available Roblox Scripts</h1>
-    <a href="index.html">← Back to Home</a>
-  </header>
+  <div class="container">
+    <h1>📜 Roblox Scripts</h1>
 
-  <main>
-    <div class="script">
-      <h2>🔥 Rivals Script</h2>
-      <code>loadstring(game:HttpGet("https://raw.githubusercontent.com/zeynwq/main/main/rivals1"))()</code>
-      <button onclick="alert('Watch 2 ads before this works 😎')">Get Script</button>
+    <div class="script-card">
+      <h2>Rivals</h2>
+      <p>Autoload script for Rivals. Works on most executors.</p>
+      <button onclick="copyScript(`loadstring(game:HttpGet('https://raw.githubusercontent.com/zeynwq/main/main/rivals1'))()`)">📋 Copy Script</button>
     </div>
 
-    <div class="script">
-      <h2>⚔️ Blox Fruits Script</h2>
-      <code>loadstring(game:HttpGet("https://raw.githubusercontent.com/zeynwq/main/main/blox"))()</code>
-      <button onclick="alert('Watch 2 ads before this works 😎')">Get Script</button>
+    <div class="script-card">
+      <h2>Blox Fruits</h2>
+      <p>Universal Blox Fruits script. No key required.</p>
+      <button onclick="copyScript(`loadstring(game:HttpGet('https://example.com/bloxfruits'))()`)">📋 Copy Script</button>
     </div>
 
-    <div class="script">
-      <h2>👑 King Legacy</h2>
-      <code>loadstring(game:HttpGet("https://raw.githubusercontent.com/zeynwq/main/main/king"))()</code>
-      <button onclick="alert('Watch 2 ads before this works 😎')">Get Script</button>
+    <div class="footer">
+      <a href="index.html">⬅ Back to Home</a>
     </div>
-  </main>
+  </div>
 
-  <footer>
-    <p>&copy; 2025 Gomega. Scripts provided as-is.</p>
-  </footer>
+  <script>
+    function copyScript(script) {
+      navigator.clipboard.writeText(script);
+      alert("Script copied to clipboard!");
+    }
+  </script>
 </body>
 </html>
