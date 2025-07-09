@@ -39,8 +39,11 @@
     <footer><a href="index.html">⬅ Back to Home</a></footer>
   </div>
 
-  <!-- Firebase SDK -->
   <script type="module">
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+
     import { auth, db } from './js/firebase.js';
     import {
       signOut,
@@ -70,6 +73,8 @@
       if (!user) return location.href = "signin.html";
 
       currentUserEmail = user.email;
+      localStorage.setItem("currentUser", user.email);
+
       if (bannedUsers.includes(user.email)) {
         alert("You are banned from using this site.");
         await signOut(auth);
@@ -113,18 +118,18 @@
       scriptCount.textContent = `Total Scripts: ${scripts.length}`;
     }
 
-    function copyScript(code) {
+    window.copyScript = function(code) {
       navigator.clipboard.writeText(code);
       alert("Copied to clipboard!");
     }
 
-    function filterScripts() {
+    window.filterScripts = function() {
       const search = document.getElementById("searchBox").value.toLowerCase();
       const filtered = allScripts.filter(s => s.name.toLowerCase().includes(search));
       renderScripts(filtered);
     }
 
-    async function addScript() {
+    window.addScript = async function () {
       const name = document.getElementById("scriptName").value.trim();
       const code = document.getElementById("scriptCode").value.trim();
 
@@ -142,7 +147,7 @@
       location.reload();
     }
 
-    async function removeScript() {
+    window.removeScript = async function () {
       const name = document.getElementById("removeScriptName").value.trim().toLowerCase();
       const scriptToDelete = scriptDocs.find(s => s.name.toLowerCase() === name);
       if (!scriptToDelete) return alert("Script not found.");
@@ -152,7 +157,7 @@
       location.reload();
     }
 
-    function banUser() {
+    window.banUser = function () {
       const email = document.getElementById("banEmail").value.trim();
       if (!email) return alert("Enter a valid email.");
       const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
@@ -163,7 +168,7 @@
       alert(`${email} has been banned.`);
     }
 
-    function unbanUser() {
+    window.unbanUser = function () {
       const email = document.getElementById("unbanEmail").value.trim();
       const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
       const newList = bans.filter(e => e !== email);
@@ -171,7 +176,7 @@
       alert(`${email} has been unbanned.`);
     }
 
-    function logout() {
+    window.logout = function () {
       signOut(auth).then(() => location.href = "index.html");
     }
   </script>

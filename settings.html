@@ -27,13 +27,18 @@
   </div>
 
   <script>
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+
     const toggle = document.getElementById("darkToggle");
     toggle.checked = localStorage.getItem("theme") === "dark";
+
     toggle.addEventListener("change", () => {
-      document.documentElement.classList.toggle("dark");
-      localStorage.setItem("theme", toggle.checked ? "dark" : "light");
+      const isDark = toggle.checked;
+      document.documentElement.classList.toggle("dark", isDark);
+      localStorage.setItem("theme", isDark ? "dark" : "light");
     });
-    if (toggle.checked) document.documentElement.classList.add("dark");
 
     function changePassword(e) {
       e.preventDefault();
