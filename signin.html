@@ -1,13 +1,11 @@
+<!-- signin.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In – Gomega</title>
-  <link rel="stylesheet" href="style.css">
-
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
@@ -20,22 +18,21 @@
     <p class="small">Don't have an account? <a href="signup.html">Sign up</a>.</p>
   </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      appId: "YOUR_APP_ID"
-    };
-    firebase.initializeApp(firebaseConfig);
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    function signin(e) {
+    window.signin = async function(e) {
       e.preventDefault();
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .then(() => location.href = "scripts.html")
-        .catch(err => alert(err.message));
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        location.href = "scripts.html";
+      } catch (err) {
+        alert(err.message);
+      }
     }
   </script>
 </body>
