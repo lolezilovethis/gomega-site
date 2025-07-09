@@ -22,7 +22,7 @@
   </script>
   <script src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
-  <!-- Adsterra 468x60 Banner -->
+  <!-- Adsterra Banner -->
   <script type="text/javascript">
     atOptions = {
       'key': 'e778517b67e0c5512948681e8d2bea9a',
@@ -39,7 +39,10 @@
   <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <button onclick="logout()">🚪 Logout</button>
-      <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
+      <div>
+        <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
+        <a href="add-script.html" title="Add Script" style="margin-left:10px;"><i class="fas fa-plus-circle fa-2x"></i></a>
+      </div>
     </div>
 
     <!-- AdSense -->
@@ -62,40 +65,33 @@
       <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored Link</a>
     </footer>
 
-    <!-- Script Block -->
     <script type="module">
       import { auth } from './js/firebase.js';
       import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+      import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-      let allScripts = [];
+      const db = getFirestore();
       const scriptList = document.getElementById("scriptList");
       const scriptCount = document.getElementById("scriptCount");
-
-      const SERPAPI_KEY = '652a98452530695e573031919afedcd7c5e47c137357efc09e8ab8c8eba80910';
+      let allScripts = [];
 
       onAuthStateChanged(auth, async user => {
         if (!user) return location.href = "signin.html";
         await loadScripts();
       });
 
-      async function loadScripts(query = 'roblox script site:pastebin.com OR site:github.com') {
-        scriptList.innerHTML = "<p>🔄 Fetching scripts...</p>";
+      async function loadScripts() {
+        scriptList.innerHTML = "<p>🔄 Loading scripts from database...</p>";
         try {
-          const res = await fetch(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&engine=google&api_key=${SERPAPI_KEY}`);
-          const data = await res.json();
-          const results = data.organic_results || [];
-
-          allScripts = results.map((item, index) => ({
-            title: item.title,
-            snippet: item.snippet || '',
-            link: item.link,
-            views: Math.floor(Math.random() * 20000) + 1000
-          }));
-
+          const snapshot = await getDocs(collection(db, "scripts"));
+          allScripts = [];
+          snapshot.forEach(doc => {
+            allScripts.push({ id: doc.id, ...doc.data() });
+          });
           renderScripts(allScripts);
         } catch (e) {
-          console.error('SerpAPI error:', e);
-          scriptList.innerHTML = `<p>⚠️ Could not load results. Try again later.</p>`;
+          console.error("Error loading scripts:", e);
+          scriptList.innerHTML = `<p>⚠️ Failed to load scripts.</p>`;
         }
       }
 
@@ -107,7 +103,7 @@
           card.innerHTML = `
             <div>
               <h2>${s.title}</h2>
-              <p class="small gray">${s.snippet} | Views: ${s.views}</p>
+              <p class="small gray">${s.description || ''} | Views: ${s.views}</p>
               <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
               <a id="copy-${i}" href="${s.link}" target="_blank" style="display:none;" class="btn-link">📜 View Script Source</a>
             </div>`;
@@ -131,11 +127,11 @@
 
       window.filterScripts = () => {
         const term = document.getElementById("searchBox").value.toLowerCase();
-        if (!term) {
-          renderScripts(allScripts);
-        } else {
-          loadScripts(`roblox script ${term} site:pastebin.com OR site:github.com`);
-        }
+        const filtered = allScripts.filter(s =>
+          s.title.toLowerCase().includes(term) ||
+          s.description?.toLowerCase().includes(term)
+        );
+        renderScripts(filtered);
       };
 
       window.logout = () => {
@@ -147,7 +143,6 @@
       };
     </script>
 
-    <!-- Quick dark mode CSS -->
     <style>
       .dark-mode {
         background-color: #121212;
