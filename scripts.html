@@ -7,8 +7,12 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- ✅ Popunder Script -->
+  <!-- Popunder Script -->
   <script type='text/javascript' src='//hidcolouredclink.com/b7/f1/42/b7f142495e4b7efd7498741c57f56c1d.js'></script>
+  
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
+     crossorigin="anonymous"></script>
 </head>
 <body>
   <div class="container">
@@ -17,18 +21,20 @@
       <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
     </div>
 
-    <h1>🧾 Roblox Scripts</h1>
+    <!-- AdSense Ad Unit -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-2566003301154558"
+         data-ad-slot="1234567890"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>
+       (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+
+    <h1>🧾 Trending Roblox Scripts</h1>
     <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box" />
     <p id="scriptCount"></p>
-
-    <div id="addScriptForm">
-      <h3>➕ Add New Script</h3>
-      <input id="scriptTitle" placeholder="Script Title">
-      <textarea id="scriptDesc" placeholder="Short Description"></textarea>
-      <textarea id="scriptCode" placeholder="Script Code URL"></textarea>
-      <label><input type="checkbox" id="scriptAds"> Enable Ads (💰)</label>
-      <button onclick="addScript()">Upload Script</button>
-    </div>
 
     <div id="scriptList"></div>
 
@@ -38,148 +44,82 @@
         Visit Gomega Watch Sponsored Link
       </a>
     </footer>
-  </div>
 
-  <script type="module">
-    if (localStorage.getItem("theme") === "dark") {
-      document.documentElement.classList.add("dark");
-    }
+    <script type="module">
+      import { auth } from './js/firebase.js';
+      import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    import { auth, db } from './js/firebase.js';
-    import {
-      signOut,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      collection,
-      addDoc,
-      getDocs,
-      query,
-      where,
-      orderBy,
-      serverTimestamp,
-      Timestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+      let allScripts = [];
+      const scriptList = document.getElementById("scriptList");
+      const scriptCount = document.getElementById("scriptCount");
 
-    const scriptList = document.getElementById("scriptList");
-    const scriptCount = document.getElementById("scriptCount");
-    let allScripts = [];
-    let currentUserEmail = "";
-
-    onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "signin.html";
-
-      currentUserEmail = user.email;
-      localStorage.setItem("currentUser", user.email);
-      await refreshScriptList();
-    });
-
-    async function refreshScriptList() {
-      const scriptsRef = collection(db, "scripts");
-      const q = query(scriptsRef, orderBy("timestamp", "desc"));
-      const snapshot = await getDocs(q);
-
-      allScripts = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        allScripts.push(data);
+      onAuthStateChanged(auth, async user => {
+        if (!user) return location.href = "signin.html";
+        await loadTrendingScripts();
       });
 
-      renderScripts(allScripts);
-    }
-
-    function renderScripts(scripts) {
-      scriptList.innerHTML = "";
-      scripts.forEach(s => {
-        const card = document.createElement("div");
-        card.className = "script-card";
-        const adNotice = s.ads ? '<span class="small gray">Ad Protected 💰</span>' : '';
-        card.innerHTML = `
-          <div>
-            <h2>${s.title || s.name}</h2>
-            <p class="small gray">${s.description || ''} ${adNotice}</p>
-            <p class="small">by ${s.author || 'Anonymous'}</p>
-            <button onclick="copyScript('${s.code}', ${s.ads})">📋 Copy</button>
-          </div>
-        `;
-        scriptList.appendChild(card);
-      });
-      scriptCount.textContent = `Total Scripts: ${scripts.length}`;
-    }
-
-    window.copyScript = function (code, adsEnabled) {
-      if (adsEnabled) {
-        alert("To unlock this script, you'll be redirected to an ad. Return after a few seconds.");
-        const adWindow = window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-        setTimeout(() => {
-          navigator.clipboard.writeText(code);
-          alert("Script copied after ad link was opened!");
-        }, 3000);
-      } else {
-        navigator.clipboard.writeText(code);
-        alert("Copied to clipboard!");
-      }
-    }
-
-    window.filterScripts = function () {
-      const search = document.getElementById("searchBox").value.toLowerCase();
-      const filtered = allScripts.filter(s => s.title?.toLowerCase().includes(search));
-      renderScripts(filtered);
-    }
-
-    window.addScript = async function () {
-      const title = document.getElementById("scriptTitle").value.trim();
-      const desc = document.getElementById("scriptDesc").value.trim();
-      const code = document.getElementById("scriptCode").value.trim();
-      const ads = document.getElementById("scriptAds").checked;
-
-      if (!title || !code) return alert("Title and Script URL are required.");
-
-      const cooldown = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-      const scriptsRef = collection(db, "scripts");
-
-      const userScriptsQuery = query(
-        scriptsRef,
-        where("author", "==", currentUserEmail),
-        orderBy("timestamp", "desc")
-      );
-
-      const snapshot = await getDocs(userScriptsQuery);
-      const lastDoc = snapshot.docs[0];
-
-      if (lastDoc) {
-        const lastTimestamp = lastDoc.data().timestamp?.toDate?.();
-        if (lastTimestamp) {
-          const now = new Date();
-          const diff = now - lastTimestamp;
-          if (diff < cooldown) {
-            const remaining = Math.ceil((cooldown - diff) / (60 * 1000));
-            return alert(`⏳ Please wait ${remaining} minutes before uploading another script.`);
-          }
+      async function loadTrendingScripts() {
+        try {
+          const res = await fetch('https://scriptblox.com/api/script/trending?max=20');
+          const json = await res.json();
+          allScripts = json.result.scripts;
+          renderScripts(allScripts);
+        } catch (e) {
+          console.error('Error loading trending:', e);
+          scriptList.innerHTML = `<p>Failed to load trending scripts. Try again later.</p>`;
         }
       }
 
-      try {
-        await addDoc(scriptsRef, {
-          title,
-          description: desc,
-          code,
-          author: currentUserEmail,
-          ads,
-          timestamp: serverTimestamp()
+      function renderScripts(scripts) {
+        scriptList.innerHTML = "";
+        scripts.forEach((s, i) => {
+          const card = document.createElement("div");
+          card.className = "script-card";
+          const adNotice = '<span class="small gray">Watch 2 ads to unlock 💰</span>';
+          card.innerHTML = `
+            <div>
+              <h2>${s.title}</h2>
+              <p class="small gray">${s.game.name} | Views: ${s.views} ${adNotice}</p>
+              <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
+              <button id="copy-${i}" style="display:none;" onclick="copyScript('${s.slug}')">📋 Copy Script Link</button>
+            </div>
+          `;
+          scriptList.appendChild(card);
         });
-
-        alert("✅ Script added!");
-        await refreshScriptList();
-      } catch (error) {
-        console.error("Error adding script:", error);
-        alert("Failed to upload script. Please try again.");
+        scriptCount.textContent = `Total Scripts: ${scripts.length}`;
       }
-    }
 
-    window.logout = function () {
-      signOut(auth).then(() => location.href = "index.html");
-    }
-  </script>
+      window.unlockScript = async function(i) {
+        alert("Ad 1 of 2: interact with this ad and return.");
+        window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+        setTimeout(() => {
+          alert("Ad 2 of 2: one more ad before unlocking.");
+          window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+          setTimeout(() => {
+            document.getElementById(`copy-${i}`).style.display = "inline-block";
+            alert("✅ You can now copy the script link!");
+          }, 3000);
+        }, 3000);
+      }
+
+      window.copyScript = function(slug) {
+        const url = `https://scriptblox.com/script/${slug}`;
+        navigator.clipboard.writeText(url);
+        alert("✅ Script link copied to clipboard!");
+      }
+
+      window.filterScripts = function() {
+        const term = document.getElementById("searchBox").value.toLowerCase();
+        const filtered = allScripts.filter(s => s.title.toLowerCase().includes(term)
+          || s.game.name.toLowerCase().includes(term)
+        );
+        renderScripts(filtered);
+      }
+
+      window.logout = function() {
+        signOut(auth).then(() => location.href = "index.html");
+      }
+    </script>
+  </div>
 </body>
 </html>
