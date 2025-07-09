@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- AdSense -->
+  <!-- Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
 
   <!-- Adsterra Popunder -->
@@ -22,7 +22,7 @@
   </script>
   <script src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
-  <!-- Adsterra Banner -->
+  <!-- Adsterra 468x60 Banner -->
   <script type="text/javascript">
     atOptions = {
       'key': 'e778517b67e0c5512948681e8d2bea9a',
@@ -42,6 +42,7 @@
       <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
     </div>
 
+    <!-- AdSense -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-2566003301154558"
@@ -61,86 +62,118 @@
       <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored Link</a>
     </footer>
 
+    <!-- Script Block -->
     <script type="module">
-  import { auth } from './js/firebase.js';
-  import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+      import { auth } from './js/firebase.js';
+      import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-  let allScripts = [];
-  const scriptList = document.getElementById("scriptList");
-  const scriptCount = document.getElementById("scriptCount");
+      let allScripts = [];
+      const scriptList = document.getElementById("scriptList");
+      const scriptCount = document.getElementById("scriptCount");
 
-  const SERPAPI_KEY = '652a98452530695e573031919afedcd7c5e47c137357efc09e8ab8c8eba80910';
+      const SERPAPI_KEY = '652a98452530695e573031919afedcd7c5e47c137357efc09e8ab8c8eba80910';
 
-  onAuthStateChanged(auth, async user => {
-    if (!user) return location.href = "signin.html";
-    await loadScripts();
-  });
+      onAuthStateChanged(auth, async user => {
+        if (!user) return location.href = "signin.html";
+        await loadScripts();
+      });
 
-  async function loadScripts(query = 'roblox script site:pastebin.com OR site:github.com') {
-    scriptList.innerHTML = "<p>🔄 Fetching scripts...</p>";
-    try {
-      const res = await fetch(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&engine=google&api_key=${SERPAPI_KEY}`);
-      const data = await res.json();
-      const results = data.organic_results || [];
+      async function loadScripts(query = 'roblox script site:pastebin.com OR site:github.com') {
+        scriptList.innerHTML = "<p>🔄 Fetching scripts...</p>";
+        try {
+          const res = await fetch(`https://serpapi.com/search.json?q=${encodeURIComponent(query)}&engine=google&api_key=${SERPAPI_KEY}`);
+          const data = await res.json();
+          const results = data.organic_results || [];
 
-      allScripts = results.map((item, index) => ({
-        title: item.title,
-        snippet: item.snippet || '',
-        link: item.link,
-        views: Math.floor(Math.random() * 20000) + 1000
-      }));
+          allScripts = results.map((item, index) => ({
+            title: item.title,
+            snippet: item.snippet || '',
+            link: item.link,
+            views: Math.floor(Math.random() * 20000) + 1000
+          }));
 
-      renderScripts(allScripts);
-    } catch (e) {
-      console.error('SerpAPI error:', e);
-      scriptList.innerHTML = `<p>⚠️ Could not load results. Try again later.</p>`;
-    }
-  }
+          renderScripts(allScripts);
+        } catch (e) {
+          console.error('SerpAPI error:', e);
+          scriptList.innerHTML = `<p>⚠️ Could not load results. Try again later.</p>`;
+        }
+      }
 
-  function renderScripts(scripts) {
-    scriptList.innerHTML = "";
-    scripts.forEach((s, i) => {
-      const card = document.createElement("div");
-      card.className = "script-card";
-      card.innerHTML = `
-        <div>
-          <h2>${s.title}</h2>
-          <p class="small gray">${s.snippet} | Views: ${s.views}</p>
-          <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
-          <a id="copy-${i}" href="${s.link}" target="_blank" style="display:none;" class="btn-link">📜 View Script Source</a>
-        </div>`;
-      scriptList.appendChild(card);
-    });
-    scriptCount.textContent = `Total Scripts: ${scripts.length}`;
-  }
+      function renderScripts(scripts) {
+        scriptList.innerHTML = "";
+        scripts.forEach((s, i) => {
+          const card = document.createElement("div");
+          card.className = "script-card";
+          card.innerHTML = `
+            <div>
+              <h2>${s.title}</h2>
+              <p class="small gray">${s.snippet} | Views: ${s.views}</p>
+              <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
+              <a id="copy-${i}" href="${s.link}" target="_blank" style="display:none;" class="btn-link">📜 View Script Source</a>
+            </div>`;
+          scriptList.appendChild(card);
+        });
+        scriptCount.textContent = `Total Scripts: ${scripts.length}`;
+      }
 
-  window.unlockScript = (i) => {
-    alert("Ad 1/2: interact and return.");
-    window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-    setTimeout(() => {
-      alert("Ad 2/2: one more.");
-      window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-      setTimeout(() => {
-        document.getElementById(`copy-${i}`).style.display = "inline-block";
-        alert("✅ Script unlocked!");
-      }, 3000);
-    }, 3000);
-  };
+      window.unlockScript = (i) => {
+        alert("Ad 1/2: interact and return.");
+        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+        setTimeout(() => {
+          alert("Ad 2/2: one more.");
+          window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+          setTimeout(() => {
+            document.getElementById(`copy-${i}`).style.display = "inline-block";
+            alert("✅ Script unlocked!");
+          }, 3000);
+        }, 3000);
+      };
 
-  window.filterScripts = () => {
-    const term = document.getElementById("searchBox").value.toLowerCase();
-    if (!term) {
-      renderScripts(allScripts);
-    } else {
-      loadScripts(`roblox script ${term} site:pastebin.com OR site:github.com`);
-    }
-  };
+      window.filterScripts = () => {
+        const term = document.getElementById("searchBox").value.toLowerCase();
+        if (!term) {
+          renderScripts(allScripts);
+        } else {
+          loadScripts(`roblox script ${term} site:pastebin.com OR site:github.com`);
+        }
+      };
 
-  window.logout = () => {
-    signOut(auth).then(() => location.href = "index.html");
-  };
+      window.logout = () => {
+        signOut(auth).then(() => location.href = "index.html");
+      };
 
-  window.toggleDarkMode = () => {
-    document.body.classList.toggle('dark-mode');
-  };
-</script>
+      window.toggleDarkMode = () => {
+        document.body.classList.toggle('dark-mode');
+      };
+    </script>
+
+    <!-- Quick dark mode CSS -->
+    <style>
+      .dark-mode {
+        background-color: #121212;
+        color: white;
+      }
+      .script-card {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 10px;
+        background: #f9f9f9;
+      }
+      .dark-mode .script-card {
+        background: #1e1e1e;
+        border-color: #333;
+      }
+      .btn-link {
+        display: inline-block;
+        margin-top: 5px;
+        background: #4caf50;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        text-decoration: none;
+      }
+    </style>
+  </div>
+</body>
+</html>
