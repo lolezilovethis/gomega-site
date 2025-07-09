@@ -7,30 +7,29 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- ✅ Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
-     crossorigin="anonymous"></script>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca‑pub‑2566003301154558" crossorigin="anonymous"></script>
 
-  <!-- ✅ Adsterra Popunder -->
+  <!-- Adsterra Popunder -->
   <script type="text/javascript">
     atOptions = {
-      'key' : '38ae975ca6aee7f0655f6d6a736017f2',
-      'format' : 'popunder',
-      'popup' : true,
-      'background' : false,
-      'exit' : false
+      'key': '38ae975ca6aee7f0655f6d6a736017f2',
+      'format': 'popunder',
+      'popup': true,
+      'background': false,
+      'exit': false
     };
   </script>
   <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
-  <!-- ✅ Adsterra 468x60 Banner -->
+  <!-- Adsterra 468×60 Banner -->
   <script type="text/javascript">
     atOptions = {
-      'key' : 'e778517b67e0c5512948681e8d2bea9a',
-      'format' : 'iframe',
-      'height' : 60,
-      'width' : 468,
-      'params' : {}
+      'key': 'e778517b67e0c5512948681e8d2bea9a',
+      'format': 'iframe',
+      'height': 60,
+      'width': 468,
+      'params': {}
     };
   </script>
   <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/e778517b67e0c5512948681e8d2bea9a/invoke.js"></script>
@@ -38,15 +37,15 @@
 
 <body>
   <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
       <button onclick="logout()">🚪 Logout</button>
       <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
     </div>
 
-    <!-- ✅ AdSense Banner -->
+    <!-- AdSense Banner -->
     <ins class="adsbygoogle"
          style="display:block"
-         data-ad-client="ca-pub-2566003301154558"
+         data-ad-client="ca‑pub‑2566003301154558"
          data-ad-slot="1234567890"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>
@@ -54,10 +53,9 @@
       (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
 
-    <h1>🧾 Trending Roblox Scripts</h1>
-    <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box" />
+    <h1>🧾 Roblox Scripts</h1>
+    <input id="searchBox" placeholder="Search scripts…" oninput="filterScripts()" class="search-box" />
     <p id="scriptCount"></p>
-
     <div id="scriptList"></div>
 
     <footer>
@@ -67,7 +65,6 @@
       </a>
     </footer>
 
-    <!-- ✅ ScriptBlox Integration + Ad Unlock Logic -->
     <script type="module">
       import { auth } from './js/firebase.js';
       import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -78,18 +75,18 @@
 
       onAuthStateChanged(auth, async user => {
         if (!user) return location.href = "signin.html";
-        await loadTrendingScripts();
+        await loadScripts();
       });
 
-      async function loadTrendingScripts() {
+      async function loadScripts() {
         try {
-          const res = await fetch('https://scriptblox.com/api/script/trending?max=20');
+          const res = await fetch('https://scriptblox.com/api/script/fetch?max=20&sortBy=views&order=desc');
           const json = await res.json();
           allScripts = json.result.scripts;
           renderScripts(allScripts);
         } catch (e) {
-          console.error('Error loading trending:', e);
-          scriptList.innerHTML = `<p>⚠️ Failed to load trending scripts. Try again later.</p>`;
+          console.error('Fetch scripts error:', e);
+          scriptList.innerHTML = `<p>⚠️ Could not load scripts. Please try again later.</p>`;
         }
       }
 
@@ -98,50 +95,50 @@
         scripts.forEach((s, i) => {
           const card = document.createElement("div");
           card.className = "script-card";
-          const adNotice = '<span class="small gray">Watch 2 ads to unlock 💰</span>';
+          const adNote = '<span class="small gray">Watch 2 ads to unlock 💰</span>';
           card.innerHTML = `
             <div>
               <h2>${s.title}</h2>
-              <p class="small gray">${s.game.name} | Views: ${s.views} ${adNotice}</p>
+              <p class="small gray">${s.game.name} | Views: ${s.views} ${adNote}</p>
               <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
               <button id="copy-${i}" style="display:none;" onclick="copyScript('${s.slug}')">📋 Copy Script Link</button>
-            </div>
-          `;
+            </div>`;
           scriptList.appendChild(card);
         });
         scriptCount.textContent = `Total Scripts: ${scripts.length}`;
       }
 
-      window.unlockScript = async function(i) {
-        alert("Ad 1 of 2: Please interact with the ad and return.");
+      window.unlockScript = (i) => {
+        alert("Ad 1/2: interact and return.");
         window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
         setTimeout(() => {
-          alert("Ad 2 of 2: one more ad before unlocking.");
+          alert("Ad 2/2: one more.");
           window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
           setTimeout(() => {
             document.getElementById(`copy-${i}`).style.display = "inline-block";
-            alert("✅ You can now copy the script link!");
+            alert("✅ Script unlocked!");
           }, 3000);
         }, 3000);
-      }
+      };
 
-      window.copyScript = function(slug) {
+      window.copyScript = (slug) => {
         const url = `https://scriptblox.com/script/${slug}`;
         navigator.clipboard.writeText(url);
-        alert("✅ Script link copied to clipboard!");
-      }
+        alert("✅ Copied to clipboard!");
+      };
 
-      window.filterScripts = function() {
+      window.filterScripts = () => {
         const term = document.getElementById("searchBox").value.toLowerCase();
-        const filtered = allScripts.filter(s => s.title.toLowerCase().includes(term)
-          || s.game.name.toLowerCase().includes(term)
+        const filtered = allScripts.filter(s =>
+          s.title.toLowerCase().includes(term) ||
+          s.game.name.toLowerCase().includes(term)
         );
         renderScripts(filtered);
-      }
+      };
 
-      window.logout = function() {
+      window.logout = () => {
         signOut(auth).then(() => location.href = "index.html");
-      }
+      };
     </script>
   </div>
 </body>
