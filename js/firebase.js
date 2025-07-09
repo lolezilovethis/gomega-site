@@ -7,7 +7,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
   authDomain: "gomega-65e3f.firebaseapp.com",
   projectId: "gomega-65e3f",
-  storageBucket: "gomega-65e3f.appspot.com",
+  storageBucket: "gomega-65e3f.appspot.com", // ✅ fixed here
   messagingSenderId: "212961835634",
   appId: "1:212961835634:web:12330a07ff79668ea060eb",
   measurementId: "G-B9JYLXVQT6"
