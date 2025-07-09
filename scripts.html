@@ -1,165 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scripts – Gomega Watch</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-</head>
-<body>
-  <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <button onclick="logout()">🚪 Logout</button>
-      <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
-    </div>
+<script type="module">
+  import { auth, db } from './js/firebase.js';
+  import {
+    signOut,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    serverTimestamp,
+    deleteDoc,
+    doc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    <h1>🧾 Roblox Scripts</h1>
-    <input type="text" id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" class="search-box" />
-    <p id="scriptCount"></p>
+  const scriptList = document.getElementById("scriptList");
+  const scriptCount = document.getElementById("scriptCount");
+  const adminEmails = ['admin1@example.com', 'admin2@example.com'];
+  let allScripts = [];
+  let scriptDocs = [];
+  let currentUserEmail = "";
 
-    <div id="addScriptForm">
-      <h3>➕ Add New Script</h3>
-      <input id="scriptTitle" placeholder="Script Title">
-      <textarea id="scriptDesc" placeholder="Short Description"></textarea>
-      <textarea id="scriptCode" placeholder="Script Code URL"></textarea>
-      <label><input type="checkbox" id="scriptAds"> Enable Ads (💰)</label>
-      <button onclick="addScript()">Upload Script</button>
-    </div>
+  const bannedUsers = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
 
-    <div id="adminPanel" style="display: none;">
-      <h3>🛠️ Admin Panel</h3>
-      <input id="removeScriptName" placeholder="Script Name to Remove">
-      <button onclick="removeScript()">❌ Remove Script</button>
-      <input id="banEmail" placeholder="Email to Ban">
-      <button onclick="banUser()">🚫 Ban User</button>
-      <input id="unbanEmail" placeholder="Email to Unban">
-      <button onclick="unbanUser()">✅ Unban User</button>
-    </div>
+  onAuthStateChanged(auth, async user => {
+    if (!user) return location.href = "signin.html";
 
-    <div id="scriptList"></div>
-    <footer><a href="index.html">⬅ Back to Home</a></footer>
-  </div>
+    currentUserEmail = user.email;
+    localStorage.setItem("currentUser", user.email);
 
-  <!-- ✅ POPUNDER SCRIPT (fires on load) -->
-  <script type='text/javascript' src='//pl27122655.profitableratecpm.com/b7/f1/42/b7f142495e4b7efd7498741c57f56c1d.js'></script>
-
-  <!-- ✅ Main Script Logic -->
-  <script type="module">
-    if (localStorage.getItem("theme") === "dark") {
-      document.documentElement.classList.add("dark");
+    if (bannedUsers.includes(user.email)) {
+      alert("You are banned from using this site.");
+      await signOut(auth);
+      location.href = "index.html";
+      return;
     }
 
-    import { auth, db } from './js/firebase.js';
-    import {
-      signOut,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      collection,
-      addDoc,
-      getDocs,
-      query,
-      orderBy,
-      serverTimestamp,
-      deleteDoc,
-      doc
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    const isAdmin = adminEmails.includes(user.email);
+    if (isAdmin) document.getElementById("adminPanel").style.display = "block";
 
-    const scriptList = document.getElementById("scriptList");
-    const scriptCount = document.getElementById("scriptCount");
-    const adminEmails = ['admin1@example.com', 'admin2@example.com'];
-    let allScripts = [];
-    let scriptDocs = [];
-    let currentUserEmail = "";
+    await refreshScriptList();
+  });
 
-    const bannedUsers = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
+  window.addScript = async function () {
+    const title = document.getElementById("scriptTitle").value.trim();
+    const desc = document.getElementById("scriptDesc").value.trim();
+    const code = document.getElementById("scriptCode").value.trim();
+    const ads = document.getElementById("scriptAds").checked;
 
-    onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "signin.html";
+    if (!title || !code) return alert("Title and Script URL are required.");
 
-      currentUserEmail = user.email;
-      localStorage.setItem("currentUser", user.email);
-
-      if (bannedUsers.includes(user.email)) {
-        alert("You are banned from using this site.");
-        await signOut(auth);
-        location.href = "index.html";
-        return;
-      }
-
-      const isAdmin = adminEmails.includes(user.email);
-      if (isAdmin) document.getElementById("adminPanel").style.display = "block";
-
-      await refreshScriptList();
-    });
-
-    async function refreshScriptList() {
-      const scriptsRef = collection(db, "scripts");
-      const q = query(scriptsRef, orderBy("timestamp", "desc"));
-      const snapshot = await getDocs(q);
-
-      allScripts = [];
-      scriptDocs = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        scriptDocs.push({ id: docSnap.id, ...data });
-        allScripts.push(data);
-      });
-
-      renderScripts(allScripts);
-    }
-
-    function renderScripts(scripts) {
-      scriptList.innerHTML = "";
-      scripts.forEach(s => {
-        const card = document.createElement("div");
-        card.className = "script-card";
-        const verifiedBadge = s.verified ? '✅' : '';
-        const adNotice = s.ads ? '<span class="small gray">Ad Protected 💰</span>' : '';
-        card.innerHTML = `
-          <div>
-            <h2>${s.title || s.name} ${verifiedBadge}</h2>
-            <p class="small gray">${s.description || ''} ${adNotice}</p>
-            <p class="small">by ${s.author || 'Anonymous'}</p>
-            <button onclick="copyScript('${s.code}', ${s.ads})">📋 Copy</button>
-          </div>
-        `;
-        scriptList.appendChild(card);
-      });
-      scriptCount.textContent = `Total Scripts: ${scripts.length}`;
-    }
-
-    // ✅ Direct Link + Clipboard Logic
-    window.copyScript = function (code, adsEnabled) {
-      if (adsEnabled) {
-        alert("To unlock this script, you'll be redirected to an ad. Return after a few seconds.");
-        const adWindow = window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-
-        setTimeout(() => {
-          navigator.clipboard.writeText(code);
-          alert("Script copied after ad link was opened!");
-        }, 3000); // 3-second wait for ad engagement
-      } else {
-        navigator.clipboard.writeText(code);
-        alert("Copied to clipboard!");
-      }
-    }
-
-    window.filterScripts = function () {
-      const search = document.getElementById("searchBox").value.toLowerCase();
-      const filtered = allScripts.filter(s => s.title?.toLowerCase().includes(search));
-      renderScripts(filtered);
-    }
-
-    window.addScript = async function () {
-      const title = document.getElementById("scriptTitle").value.trim();
-      const desc = document.getElementById("scriptDesc").value.trim();
-      const code = document.getElementById("scriptCode").value.trim();
-      const ads = document.getElementById("scriptAds").checked;
-
-      if (!title || !code) return alert("Title and Script URL are required.");
-
+    try {
       await addDoc(collection(db, "scripts"), {
         title,
         description: desc,
@@ -169,43 +61,101 @@
         verified: true,
         timestamp: serverTimestamp()
       });
-
       alert("Script added!");
       await refreshScriptList();
+    } catch (err) {
+      alert("Failed to upload script. Check console.");
+      console.error("Add script error:", err);
     }
+  };
 
-    window.removeScript = async function () {
-      const name = document.getElementById("removeScriptName").value.trim().toLowerCase();
-      const scriptToDelete = scriptDocs.find(s => s.title?.toLowerCase() === name);
-      if (!scriptToDelete) return alert("Script not found.");
+  async function refreshScriptList() {
+    const scriptsRef = collection(db, "scripts");
+    const q = query(scriptsRef, orderBy("timestamp", "desc"));
+    const snapshot = await getDocs(q);
 
-      await deleteDoc(doc(db, "scripts", scriptToDelete.id));
-      alert("Script removed!");
-      await refreshScriptList();
+    allScripts = [];
+    scriptDocs = [];
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      scriptDocs.push({ id: docSnap.id, ...data });
+      allScripts.push(data);
+    });
+
+    renderScripts(allScripts);
+  }
+
+  function renderScripts(scripts) {
+    scriptList.innerHTML = "";
+    scripts.forEach(s => {
+      const card = document.createElement("div");
+      card.className = "script-card";
+      const verifiedBadge = s.verified ? '✅' : '';
+      const adNotice = s.ads ? '<span class="small gray">Ad Protected 💰</span>' : '';
+      card.innerHTML = `
+        <div>
+          <h2>${s.title || s.name} ${verifiedBadge}</h2>
+          <p class="small gray">${s.description || ''} ${adNotice}</p>
+          <p class="small">by ${s.author || 'Anonymous'}</p>
+          <button onclick="copyScript('${s.code}', ${s.ads})">📋 Copy</button>
+        </div>
+      `;
+      scriptList.appendChild(card);
+    });
+    scriptCount.textContent = `Total Scripts: ${scripts.length}`;
+  }
+
+  window.copyScript = function (code, adsEnabled) {
+    if (adsEnabled) {
+      alert("To unlock this script, you'll be redirected to an ad. Return after a few seconds.");
+      const adWindow = window.open("https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
+
+      setTimeout(() => {
+        navigator.clipboard.writeText(code);
+        alert("Script copied after ad link was opened!");
+      }, 3000); // 3-second wait
+    } else {
+      navigator.clipboard.writeText(code);
+      alert("Copied to clipboard!");
     }
+  };
 
-    window.banUser = function () {
-      const email = document.getElementById("banEmail").value.trim();
-      if (!email) return alert("Enter a valid email.");
-      const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
-      if (!bans.includes(email)) {
-        bans.push(email);
-        localStorage.setItem("bannedUsers", JSON.stringify(bans));
-      }
-      alert(`${email} has been banned.`);
-    }
+  window.filterScripts = function () {
+    const search = document.getElementById("searchBox").value.toLowerCase();
+    const filtered = allScripts.filter(s => s.title?.toLowerCase().includes(search));
+    renderScripts(filtered);
+  };
 
-    window.unbanUser = function () {
-      const email = document.getElementById("unbanEmail").value.trim();
-      const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
-      const newList = bans.filter(e => e !== email);
-      localStorage.setItem("bannedUsers", JSON.stringify(newList));
-      alert(`${email} has been unbanned.`);
-    }
+  window.removeScript = async function () {
+    const name = document.getElementById("removeScriptName").value.trim().toLowerCase();
+    const scriptToDelete = scriptDocs.find(s => s.title?.toLowerCase() === name);
+    if (!scriptToDelete) return alert("Script not found.");
 
-    window.logout = function () {
-      signOut(auth).then(() => location.href = "index.html");
+    await deleteDoc(doc(db, "scripts", scriptToDelete.id));
+    alert("Script removed!");
+    await refreshScriptList();
+  };
+
+  window.banUser = function () {
+    const email = document.getElementById("banEmail").value.trim();
+    if (!email) return alert("Enter a valid email.");
+    const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
+    if (!bans.includes(email)) {
+      bans.push(email);
+      localStorage.setItem("bannedUsers", JSON.stringify(bans));
     }
-  </script>
-</body>
-</html>
+    alert(`${email} has been banned.`);
+  };
+
+  window.unbanUser = function () {
+    const email = document.getElementById("unbanEmail").value.trim();
+    const bans = JSON.parse(localStorage.getItem("bannedUsers") || "[]");
+    const newList = bans.filter(e => e !== email);
+    localStorage.setItem("bannedUsers", JSON.stringify(newList));
+    alert(`${email} has been unbanned.`);
+  };
+
+  window.logout = function () {
+    signOut(auth).then(() => location.href = "index.html");
+  };
+</script>
