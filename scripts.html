@@ -1,8 +1,4 @@
 <script type="module">
-  if (localStorage.getItem("theme") === "dark") {
-    document.documentElement.classList.add("dark");
-  }
-
   import { auth, db } from './js/firebase.js';
   import {
     signOut,
@@ -18,6 +14,10 @@
     deleteDoc,
     doc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.classList.add("dark");
+  }
 
   const scriptList = document.getElementById("scriptList");
   const scriptCount = document.getElementById("scriptCount");
@@ -57,8 +57,9 @@
 
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      scriptDocs.push({ id: docSnap.id, ...data });
-      allScripts.push({ id: docSnap.id, ...data });
+      const id = docSnap.id;
+      scriptDocs.push({ id, ...data });
+      allScripts.push({ id, ...data });
     });
 
     renderScripts(allScripts);
@@ -76,15 +77,22 @@
           <h2>${s.title || 'Untitled'} ${verifiedBadge}</h2>
           <p class="small gray">${s.description || 'No description.'} ${adNotice}</p>
           <p class="small">by ${s.author || 'Anonymous'}</p>
-          <button onclick="copyScript(\`${s.code}\`, ${!!s.ads})">📋 Copy</button>
         </div>
       `;
+
+      const copyBtn = document.createElement("button");
+      copyBtn.textContent = "📋 Copy";
+      copyBtn.addEventListener("click", () => {
+        copyScript(s.code, !!s.ads);
+      });
+
+      card.appendChild(copyBtn);
       scriptList.appendChild(card);
     });
     scriptCount.textContent = `Total Scripts: ${scripts.length}`;
   }
 
-  window.copyScript = function (code, adsEnabled) {
+  function copyScript(code, adsEnabled) {
     if (adsEnabled) {
       alert("You need to watch 2 ads to unlock this script!");
       showAdGate(() => {
@@ -129,11 +137,13 @@
       code,
       author: currentUserEmail,
       ads,
-      verified: true, // ✅ Always publish publicly
+      verified: true, // always publish
       timestamp: serverTimestamp()
     });
 
     alert("Script published for everyone!");
+
+    // clear form
     document.getElementById("scriptTitle").value = "";
     document.getElementById("scriptDesc").value = "";
     document.getElementById("scriptCode").value = "";
