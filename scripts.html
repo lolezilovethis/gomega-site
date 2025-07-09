@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca‑pub‑2566003301154558" crossorigin="anonymous"></script>
+  <!-- AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
 
   <!-- Adsterra Popunder -->
   <script type="text/javascript">
@@ -20,9 +20,9 @@
       'exit': false
     };
   </script>
-  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
+  <script src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
-  <!-- Adsterra 468×60 Banner -->
+  <!-- Adsterra Banner -->
   <script type="text/javascript">
     atOptions = {
       'key': 'e778517b67e0c5512948681e8d2bea9a',
@@ -32,7 +32,7 @@
       'params': {}
     };
   </script>
-  <script type="text/javascript" src="https://www.profitabledisplaynetwork.com/e778517b67e0c5512948681e8d2bea9a/invoke.js"></script>
+  <script src="https://www.profitabledisplaynetwork.com/e778517b67e0c5512948681e8d2bea9a/invoke.js"></script>
 </head>
 
 <body>
@@ -42,27 +42,23 @@
       <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
     </div>
 
-    <!-- AdSense Banner -->
     <ins class="adsbygoogle"
          style="display:block"
-         data-ad-client="ca‑pub‑2566003301154558"
+         data-ad-client="ca-pub-2566003301154558"
          data-ad-slot="1234567890"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>
-    <script>
-      (adsbygoogle = window.adsbygoogle || []).push({});
-    </script>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
 
-    <h1>Roblox Scripts</h1>
+    <h1>🧾 Roblox Scripts</h1>
     <input id="searchBox" placeholder="Search scripts…" oninput="filterScripts()" class="search-box" />
+    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
     <p id="scriptCount"></p>
-    <div id="scriptList"></div>
+    <div id="scriptList"><p>🔄 Loading scripts...</p></div>
 
     <footer>
       <a href="index.html">⬅ Back to Home</a> |
-      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">
-        Sponsored Link
-      </a>
+      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored Link</a>
     </footer>
 
     <script type="module">
@@ -80,9 +76,16 @@
 
       async function loadScripts() {
         try {
-          const res = await fetch('https://scriptblox.com/api/script/fetch?max=20&sortBy=views&order=desc');
+          const res = await fetch(`https://api.duckduckgo.com/?q=roblox+scripts&format=json&pretty=1`);
           const json = await res.json();
-          allScripts = json.result.scripts;
+
+          // Simulating a response for illustration; replace this with a real web search API like Bing or SerpAPI.
+          allScripts = (json.RelatedTopics || []).map((item, index) => ({
+            title: item.Text || `Script ${index + 1}`,
+            link: item.FirstURL || "#",
+            views: Math.floor(Math.random() * 10000),
+          }));
+
           renderScripts(allScripts);
         } catch (e) {
           console.error('Fetch scripts error:', e);
@@ -95,13 +98,12 @@
         scripts.forEach((s, i) => {
           const card = document.createElement("div");
           card.className = "script-card";
-          const adNote = '<span class="small gray">Watch 2 ads to unlock 💰</span>';
           card.innerHTML = `
             <div>
               <h2>${s.title}</h2>
-              <p class="small gray">${s.game.name} | Views: ${s.views} ${adNote}</p>
+              <p class="small gray">Views: ${s.views} | 🔓 Unlock after 2 ads</p>
               <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
-              <button id="copy-${i}" style="display:none;" onclick="copyScript('${s.slug}')">📋 Copy Script Link</button>
+              <a id="copy-${i}" href="${s.link}" target="_blank" style="display:none;" class="btn-link">📜 View Script Source</a>
             </div>`;
           scriptList.appendChild(card);
         });
@@ -121,17 +123,10 @@
         }, 3000);
       };
 
-      window.copyScript = (slug) => {
-        const url = `https://scriptblox.com/script/${slug}`;
-        navigator.clipboard.writeText(url);
-        alert("✅ Copied to clipboard!");
-      };
-
       window.filterScripts = () => {
         const term = document.getElementById("searchBox").value.toLowerCase();
         const filtered = allScripts.filter(s =>
-          s.title.toLowerCase().includes(term) ||
-          s.game.name.toLowerCase().includes(term)
+          s.title.toLowerCase().includes(term)
         );
         renderScripts(filtered);
       };
@@ -139,7 +134,38 @@
       window.logout = () => {
         signOut(auth).then(() => location.href = "index.html");
       };
+
+      window.toggleDarkMode = () => {
+        document.body.classList.toggle('dark-mode');
+      };
     </script>
+
+    <style>
+      .dark-mode {
+        background-color: #121212;
+        color: white;
+      }
+      .script-card {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 10px;
+        background: #f9f9f9;
+      }
+      .dark-mode .script-card {
+        background: #1e1e1e;
+        border-color: #333;
+      }
+      .btn-link {
+        display: inline-block;
+        margin-top: 5px;
+        background: #4caf50;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        text-decoration: none;
+      }
+    </style>
   </div>
 </body>
 </html>
