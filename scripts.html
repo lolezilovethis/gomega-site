@@ -85,3 +85,13 @@
   </script>
 </body>
 </html>
+<div style="text-align: right; margin-bottom: 20px;">
+  <button onclick="logout()">🚪 Logout</button>
+</div>
+<script>
+  function logout() {
+    firebase.auth().signOut().then(() => {
+      window.location.href = "index.html";
+    });
+  }
+</script>

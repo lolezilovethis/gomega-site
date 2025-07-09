@@ -6,6 +6,10 @@
   <title>Gomega.Watch</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/logo.png" type="image/png">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 </head>
 <body>
   <div class="container center">
@@ -13,10 +17,24 @@
     <h1>Welcome to <span class="highlight">Gomega.Watch</span></h1>
     <p class="subtitle">Get the latest Roblox scripts – fast, free & safe.</p>
 
-    <div class="button-group">
+    <div class="button-group" id="authButtons">
       <a href="signup.html" class="btn">📝 Sign Up</a>
       <a href="signin.html" class="btn secondary">🔑 Sign In</a>
     </div>
   </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) window.location.href = "scripts.html";
+    });
+  </script>
 </body>
 </html>

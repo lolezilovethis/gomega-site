@@ -3,35 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In – Gomega Watch</title>
+  <title>Sign In – Gomega</title>
   <link rel="stylesheet" href="style.css">
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 </head>
 <body>
   <div class="container center">
     <h1>Sign In</h1>
     <form onsubmit="signin(event)">
-      <input type="text" id="username" placeholder="Username" required>
+      <input type="text" id="email" placeholder="Email" required>
       <input type="password" id="password" placeholder="Password" required>
       <button type="submit">Sign In</button>
     </form>
-    <p class="small">Don’t have an account? <a href="signup.html">Sign up here</a>.</p>
+    <p class="small">Don't have an account? <a href="signup.html">Sign up</a>.</p>
   </div>
 
   <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+
     function signin(e) {
       e.preventDefault();
-      const user = document.getElementById("username").value;
-      const pass = document.getElementById("password").value;
-
-      const data = JSON.parse(localStorage.getItem("user_" + user));
-      if (!data || data.pass !== pass) {
-        alert("Invalid username or password.");
-        return;
-      }
-
-      localStorage.setItem("currentUser", user);
-      alert("Welcome back, " + user + "!");
-      window.location.href = "scripts.html";
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(() => location.href = "scripts.html")
+        .catch(err => alert(err.message));
     }
   </script>
 </body>
