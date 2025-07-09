@@ -20,8 +20,10 @@
 
     <div id="addScriptForm">
       <h3>➕ Add New Script</h3>
-      <input id="scriptName" placeholder="Script Name">
+      <input id="scriptTitle" placeholder="Script Title">
+      <textarea id="scriptDesc" placeholder="Short Description"></textarea>
       <textarea id="scriptCode" placeholder="Script Code URL"></textarea>
+      <label><input type="checkbox" id="scriptAds"> Enable Ads (💰)</label>
       <button onclick="addScript()">Upload Script</button>
     </div>
 
@@ -62,7 +64,7 @@
 
     const scriptList = document.getElementById("scriptList");
     const scriptCount = document.getElementById("scriptCount");
-    const adminEmails = ['divedyacoub1@gmail.com', 'divedyacoub9@gmail.com'];
+    const adminEmails = ['admin1@example.com', 'admin2@example.com'];
     let allScripts = [];
     let scriptDocs = [];
     let currentUserEmail = "";
@@ -85,6 +87,10 @@
       const isAdmin = adminEmails.includes(user.email);
       if (isAdmin) document.getElementById("adminPanel").style.display = "block";
 
+      await refreshScriptList();
+    });
+
+    async function refreshScriptList() {
       const scriptsRef = collection(db, "scripts");
       const q = query(scriptsRef, orderBy("timestamp", "desc"));
       const snapshot = await getDocs(q);
@@ -93,12 +99,12 @@
       scriptDocs = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        allScripts.push(data);
         scriptDocs.push({ id: docSnap.id, ...data });
+        allScripts.push(data);
       });
 
       renderScripts(allScripts);
-    });
+    }
 
     function renderScripts(scripts) {
       scriptList.innerHTML = "";
@@ -106,55 +112,81 @@
         const card = document.createElement("div");
         card.className = "script-card";
         const verifiedBadge = s.verified ? '✅' : '';
+        const adNotice = s.ads ? '<span class="small gray">Ad Protected 💰</span>' : '';
         card.innerHTML = `
           <div>
-            <h2>${s.name} <span class="small gray">by ${s.author || 'Anonymous'} ${verifiedBadge}</span></h2>
-            <p>${s.code}</p>
+            <h2>${s.title || s.name} ${verifiedBadge}</h2>
+            <p class="small gray">${s.description || ''} ${adNotice}</p>
+            <p class="small">by ${s.author || 'Anonymous'}</p>
+            <button onclick="copyScript('${s.code}', ${s.ads})">📋 Copy</button>
           </div>
-          <button onclick="copyScript(\`${s.code}\`)">📋 Copy</button>
         `;
         scriptList.appendChild(card);
       });
       scriptCount.textContent = `Total Scripts: ${scripts.length}`;
     }
 
-    window.copyScript = function(code) {
-      navigator.clipboard.writeText(code);
-      alert("Copied to clipboard!");
+    window.copyScript = function (code, adsEnabled) {
+      if (adsEnabled) {
+        alert("You need to watch 2 ads to unlock this script!");
+        showAdGate(() => {
+          navigator.clipboard.writeText(code);
+          alert("Copied to clipboard!");
+        });
+      } else {
+        navigator.clipboard.writeText(code);
+        alert("Copied to clipboard!");
+      }
     }
 
-    window.filterScripts = function() {
+    function showAdGate(callback) {
+      let adsWatched = 0;
+      const interval = setInterval(() => {
+        adsWatched++;
+        alert(`Ad ${adsWatched} watched...`);
+        if (adsWatched === 2) {
+          clearInterval(interval);
+          callback();
+        }
+      }, 1000);
+    }
+
+    window.filterScripts = function () {
       const search = document.getElementById("searchBox").value.toLowerCase();
-      const filtered = allScripts.filter(s => s.name.toLowerCase().includes(search));
+      const filtered = allScripts.filter(s => s.title?.toLowerCase().includes(search));
       renderScripts(filtered);
     }
 
     window.addScript = async function () {
-      const name = document.getElementById("scriptName").value.trim();
+      const title = document.getElementById("scriptTitle").value.trim();
+      const desc = document.getElementById("scriptDesc").value.trim();
       const code = document.getElementById("scriptCode").value.trim();
+      const ads = document.getElementById("scriptAds").checked;
 
-      if (!name || !code) return alert("Both fields are required.");
+      if (!title || !code) return alert("Title and Script URL are required.");
 
       await addDoc(collection(db, "scripts"), {
-        name,
+        title,
+        description: desc,
         code,
         author: currentUserEmail,
+        ads,
         verified: false,
         timestamp: serverTimestamp()
       });
 
       alert("Script added!");
-      location.reload();
+      await refreshScriptList();
     }
 
     window.removeScript = async function () {
       const name = document.getElementById("removeScriptName").value.trim().toLowerCase();
-      const scriptToDelete = scriptDocs.find(s => s.name.toLowerCase() === name);
+      const scriptToDelete = scriptDocs.find(s => s.title?.toLowerCase() === name);
       if (!scriptToDelete) return alert("Script not found.");
 
       await deleteDoc(doc(db, "scripts", scriptToDelete.id));
       alert("Script removed!");
-      location.reload();
+      await refreshScriptList();
     }
 
     window.banUser = function () {
