@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,12 +20,25 @@
   </div>
 
   <script type="module">
-    import { auth } from './js/firebase.js';
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
     onAuthStateChanged(auth, user => {
       if (user) window.location.href = "scripts.html";
     });
+
+    const theme = localStorage.getItem("theme");
+    if (theme === "dark") document.documentElement.classList.add("dark");
   </script>
 </body>
 </html>

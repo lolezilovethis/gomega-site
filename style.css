@@ -4,6 +4,7 @@
   --accent: #3b82f6;
   --bg-card: #fff;
 }
+
 .dark {
   --bg: #121212;
   --text: #f0f0f0;
@@ -162,8 +163,9 @@ footer {
 .toggle-switch input:checked + .slider:before {
   transform: translateX(26px);
 }
+
 .script-card {
-  background: var(--bg-light);
+  background: var(--bg-card);
   border: 1px solid #ccc;
   border-radius: 10px;
   padding: 15px;
