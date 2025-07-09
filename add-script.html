@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Script – Gomega Watch</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🆕 Add New Script</h1>
+    <form id="scriptForm">
+      <label>Title: <input type="text" id="title" required></label><br><br>
+      <label>Description: <input type="text" id="description"></label><br><br>
+      <label>Views: <input type="number" id="views" value="0"></label><br><br>
+      <label>Script Code:</label><br>
+      <textarea id="code" rows="10" cols="50" required></textarea><br><br>
+      <button type="submit">Download Script JSON</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById("scriptForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const script = {
+        title: document.getElementById("title").value.trim(),
+        description: document.getElementById("description").value.trim(),
+        views: parseInt(document.getElementById("views").value.trim()),
+        code: document.getElementById("code").value.trim()
+      };
+      const blob = new Blob([JSON.stringify(script, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${script.title.toLowerCase().replace(/\s+/g, "-")}.json`;
+      a.click();
+    });
+  </script>
+</body>
+</html>

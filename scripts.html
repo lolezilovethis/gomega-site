@@ -22,7 +22,7 @@
   </script>
   <script src="https://www.profitabledisplaynetwork.com/38ae975ca6aee7f0655f6d6a736017f2/invoke.js"></script>
 
-  <!-- Adsterra Banner -->
+  <!-- Adsterra 468x60 Banner -->
   <script type="text/javascript">
     atOptions = {
       'key': 'e778517b67e0c5512948681e8d2bea9a',
@@ -38,14 +38,14 @@
 <body>
   <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <button onclick="logout()">🚪 Logout</button>
+      <button onclick="window.location.href='index.html'">⬅ Back</button>
       <div>
         <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
-        <a href="add-script.html" title="Add Script" style="margin-left:10px;"><i class="fas fa-plus-circle fa-2x"></i></a>
+        <a href="add-script.html" title="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
       </div>
     </div>
 
-    <!-- AdSense -->
+    <!-- AdSense Banner -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-2566003301154558"
@@ -61,93 +61,64 @@
     <div id="scriptList"><p>🔄 Loading scripts...</p></div>
 
     <footer>
-      <a href="index.html">⬅ Back to Home</a> |
       <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored Link</a>
     </footer>
 
-    <script type="module">
-      import { auth } from './js/firebase.js';
-      import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-      import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-      const db = getFirestore();
-      const scriptList = document.getElementById("scriptList");
-      const scriptCount = document.getElementById("scriptCount");
+    <script>
       let allScripts = [];
 
-      onAuthStateChanged(auth, async user => {
-        if (!user) return location.href = "signin.html";
-        await loadScripts();
-      });
-
       async function loadScripts() {
-        scriptList.innerHTML = "<p>🔄 Loading scripts from database...</p>";
         try {
-          const snapshot = await getDocs(collection(db, "scripts"));
-          allScripts = [];
-          snapshot.forEach(doc => {
-            allScripts.push({ id: doc.id, ...doc.data() });
-          });
+          const res = await fetch("scripts/index.json");
+          const scriptFiles = await res.json();
+          const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
+          allScripts = await Promise.all(promises);
           renderScripts(allScripts);
         } catch (e) {
-          console.error("Error loading scripts:", e);
-          scriptList.innerHTML = `<p>⚠️ Failed to load scripts.</p>`;
+          console.error("Failed to load scripts:", e);
+          document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
         }
       }
 
       function renderScripts(scripts) {
-        scriptList.innerHTML = "";
-        scripts.forEach((s, i) => {
-          const card = document.createElement("div");
-          card.className = "script-card";
-          card.innerHTML = `
-            <div>
-              <h2>${s.title}</h2>
-              <p class="small gray">${s.description || ''} | Views: ${s.views}</p>
-              <button onclick="unlockScript(${i})">🔓 Unlock Script</button>
-              <a id="copy-${i}" href="${s.link}" target="_blank" style="display:none;" class="btn-link">📜 View Script Source</a>
-            </div>`;
-          scriptList.appendChild(card);
+        const list = document.getElementById("scriptList");
+        const count = document.getElementById("scriptCount");
+        list.innerHTML = "";
+        scripts.forEach(s => {
+          const div = document.createElement("div");
+          div.className = "script-card";
+          div.innerHTML = `
+            <h2>${s.title}</h2>
+            <p class="small gray">${s.description || ""} | Views: ${s.views || 0}</p>
+            <pre style="white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:8px;">${s.code}</pre>
+          `;
+          list.appendChild(div);
         });
-        scriptCount.textContent = `Total Scripts: ${scripts.length}`;
+        count.textContent = `Total Scripts: ${scripts.length}`;
       }
 
-      window.unlockScript = (i) => {
-        alert("Ad 1/2: interact and return.");
-        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-        setTimeout(() => {
-          alert("Ad 2/2: one more.");
-          window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2", "_blank");
-          setTimeout(() => {
-            document.getElementById(`copy-${i}`).style.display = "inline-block";
-            alert("✅ Script unlocked!");
-          }, 3000);
-        }, 3000);
-      };
-
-      window.filterScripts = () => {
+      function filterScripts() {
         const term = document.getElementById("searchBox").value.toLowerCase();
         const filtered = allScripts.filter(s =>
           s.title.toLowerCase().includes(term) ||
-          s.description?.toLowerCase().includes(term)
+          (s.description && s.description.toLowerCase().includes(term))
         );
         renderScripts(filtered);
-      };
+      }
 
-      window.logout = () => {
-        signOut(auth).then(() => location.href = "index.html");
-      };
-
-      window.toggleDarkMode = () => {
+      function toggleDarkMode() {
         document.body.classList.toggle('dark-mode');
-      };
+      }
+
+      loadScripts();
     </script>
 
     <style>
-      .dark-mode {
+      body.dark-mode {
         background-color: #121212;
         color: white;
       }
+
       .script-card {
         border: 1px solid #ccc;
         padding: 10px;
@@ -155,18 +126,24 @@
         border-radius: 10px;
         background: #f9f9f9;
       }
+
       .dark-mode .script-card {
         background: #1e1e1e;
         border-color: #333;
       }
-      .btn-link {
-        display: inline-block;
-        margin-top: 5px;
-        background: #4caf50;
-        color: white;
-        padding: 5px 10px;
-        border-radius: 5px;
-        text-decoration: none;
+
+      .search-box {
+        padding: 10px;
+        width: 100%;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+
+      footer {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 14px;
       }
     </style>
   </div>
