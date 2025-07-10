@@ -15,12 +15,21 @@
       <input type="password" id="password" placeholder="Password" required>
       <button type="submit">Sign Up</button>
     </form>
+
+    <p class="small">Or sign up with:</p>
+    <button onclick="googleSignup()">🔒 Google Sign Up</button>
+
     <p class="small">Already have an account? <a href="signin.html">Sign in</a>.</p>
   </div>
 
   <script type="module">
-    import { auth } from './js/firebase.js';
-    import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { auth, provider } from './js/firebase.js';
+    import {
+      createUserWithEmailAndPassword,
+      sendEmailVerification,
+      signOut,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     window.signup = async function(e) {
       e.preventDefault();
@@ -28,8 +37,27 @@
       const password = document.getElementById("password").value;
 
       try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        location.href = "scripts.html";
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(userCred.user);
+        alert("📧 Verification email sent. Please check your inbox.");
+        await signOut(auth);
+        location.href = "verify.html";
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    window.googleSignup = async function() {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        if (!result.user.emailVerified) {
+          await sendEmailVerification(result.user);
+          alert("📧 Verification email sent to your Google account.");
+          await signOut(auth);
+          location.href = "verify.html";
+        } else {
+          location.href = "scripts.html";
+        }
       } catch (err) {
         alert(err.message);
       }
