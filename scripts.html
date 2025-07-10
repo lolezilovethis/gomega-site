@@ -141,7 +141,10 @@
       try {
         const res = await fetch("scripts/index.json");
         const scriptFiles = await res.json();
-        const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
+        const promises = scriptFiles.map(async file => {
+          const script = await fetch(`scripts/${file}`).then(res => res.json());
+          return script;
+        });
         allScripts = await Promise.all(promises);
         renderScripts(allScripts);
       } catch (err) {
@@ -200,18 +203,13 @@
 
       try {
         const fileEntry = allScripts.find(s => s.title === title);
-        if (!fileEntry || !fileEntry.filename) return alert("❌ Script file not found.");
-
-        const script = await fetch(`scripts/${fileEntry.filename}`).then(res => {
-          if (!res.ok) throw new Error("Script not found.");
-          return res.json();
-        });
+        if (!fileEntry || !fileEntry.code) return alert("❌ Script not found.");
 
         codeBox.style.display = "block";
-        codeBox.textContent = script.code;
+        codeBox.textContent = fileEntry.code;
 
         try {
-          await navigator.clipboard.writeText(script.code);
+          await navigator.clipboard.writeText(fileEntry.code);
           alert("✅ Script copied to clipboard!");
         } catch {
           alert("⚠️ Could not copy. Please copy manually.");
