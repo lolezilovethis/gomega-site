@@ -3,6 +3,7 @@
   --text: #111;
   --accent: #3b82f6;
   --bg-card: #fff;
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .dark {
@@ -10,6 +11,7 @@
   --text: #f0f0f0;
   --accent: #60a5fa;
   --bg-card: #1f1f1f;
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
 
 body {
@@ -18,12 +20,23 @@ body {
   background: var(--bg);
   color: var(--text);
   transition: background 0.3s, color 0.3s;
+  perspective: 1000px;
 }
 
 .container {
-  max-width: 500px;
-  margin: 0 auto;
-  padding: 30px 20px;
+  max-width: 600px;
+  margin: 50px auto;
+  padding: 30px 25px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  border-radius: 16px;
+  transform: rotateX(0deg);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.container:hover {
+  transform: rotateX(1deg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
 }
 
 .center {
@@ -33,49 +46,55 @@ body {
 .logo {
   width: 100px;
   margin-bottom: 20px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: 2.2rem;
   margin-bottom: 10px;
-}
-
-h3 {
-  margin-top: 30px;
-  margin-bottom: 10px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
 
 .subtitle {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   margin-bottom: 30px;
   color: gray;
 }
 
-input {
+input, textarea {
   width: 100%;
   padding: 12px;
   margin: 8px 0;
   font-size: 1rem;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid #ccc;
   background: var(--bg-card);
   color: var(--text);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 button {
   padding: 12px 20px;
-  width: 100%;
   font-size: 1rem;
   background-color: var(--accent);
   border: none;
   color: white;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   margin-top: 10px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 button:hover {
-  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 a {
@@ -98,10 +117,17 @@ a:hover {
   background-color: var(--accent);
   color: white;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 10px;
   text-align: center;
   text-decoration: none;
   font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
 }
 
 .btn.secondary {
@@ -111,6 +137,8 @@ a:hover {
 footer {
   margin-top: 30px;
   font-size: 0.9rem;
+  text-align: center;
+  opacity: 0.7;
 }
 
 .small {
@@ -119,7 +147,6 @@ footer {
   margin-top: 10px;
 }
 
-/* Toggle switch for dark mode */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -167,12 +194,16 @@ footer {
 .script-card {
   background: var(--bg-card);
   border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 15px;
+  border-radius: 12px;
+  padding: 20px;
   margin: 10px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.3s;
+}
+
+.script-card:hover {
+  transform: scale(1.01);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
 }
 
 @media (min-width: 600px) {
@@ -185,8 +216,10 @@ footer {
 
 .search-box {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   margin: 15px 0;
   font-size: 1rem;
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
 }
