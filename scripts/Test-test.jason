@@ -1,5 +1,5 @@
 {
-  "title": "Test",
-  "description": "ignore this",
-  "code": "loadstring(game:HttpGet('https://pastebin.com/raw/XYZ123'))()"
+  "title": "test-testt",
+  "description": "Allows flying in most games.",
+  "code": "-- Fly Script Code Here\nlocal player = game.Players.LocalPlayer"
 }
