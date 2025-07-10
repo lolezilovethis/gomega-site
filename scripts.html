@@ -13,8 +13,8 @@
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <button onclick="window.location.href='index.html'">⬅ Back</button>
       <div>
-        <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
-        <a href="add-script.html" title="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
+        <a href="settings.html" aria-label="Settings"><i class="fas fa-gear fa-2x"></i></a>
+        <a href="add-script.html" title="Add Script" aria-label="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
       </div>
     </div>
 
@@ -22,7 +22,7 @@
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-2566003301154558"
-         data-ad-slot="1234567890"
+         data-ad-slot="YOUR-ACTUAL-AD-SLOT-ID-HERE"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
@@ -39,8 +39,12 @@
     </footer>
   </div>
 
-  <script>
+  <script defer>
     let allScripts = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadScripts();
+    });
 
     async function loadScripts() {
       try {
@@ -61,14 +65,13 @@
       list.innerHTML = "";
 
       scripts.forEach(s => {
-        const safeId = s.title.toLowerCase().replace(/\s+/g, "-");
-
+        const safeId = `${s.title.toLowerCase().replace(/\s+/g, "-")}-${Math.random().toString(36).substr(2, 5)}`;
         const div = document.createElement("div");
         div.className = "script-card";
         div.innerHTML = `
           <h2>${s.title}</h2>
           <p class="small gray">${s.description || ""} | Views: <span id="views-${safeId}">${s.views || 0}</span></p>
-          <button onclick="getScript('${s.title}')">📥 Get Script</button>
+          <button onclick="getScript('${s.title}', '${safeId}')">📥 Get Script</button>
           <pre id="code-${safeId}" style="display:none; background:#f2f2f2; padding:10px; border-radius:8px; white-space:pre-wrap;"></pre>
         `;
         list.appendChild(div);
@@ -90,15 +93,14 @@
       document.body.classList.toggle('dark-mode');
     }
 
-    async function getScript(title) {
-      const safeId = title.toLowerCase().replace(/\s+/g, '-');
-      const filename = `${safeId}.json`;
+    async function getScript(title, safeId) {
+      const filename = `${title.toLowerCase().replace(/\s+/g, '-')}.json`;
       const codeBox = document.getElementById(`code-${safeId}`);
 
       if (!confirm("You must view 3 ads to unlock the script. Click OK to begin.")) return;
 
       for (let i = 0; i < 3; i++) {
-        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?=71cc264ea7a7deaffc057c222bc73431", "_blank");
+        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=71cc264ea7a7deaffc057c222bc73431", "_blank");
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
@@ -113,7 +115,6 @@
 
         const script = await fetch(`scripts/${filename}`).then(res => res.json());
 
-        // Show code and update views
         codeBox.style.display = "block";
         codeBox.textContent = script.code;
         document.getElementById(`views-${safeId}`).textContent = script.views;
@@ -130,8 +131,6 @@
         console.error(err);
       }
     }
-
-    loadScripts();
   </script>
 
   <style>
