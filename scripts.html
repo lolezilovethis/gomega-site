@@ -130,7 +130,7 @@
         allScripts = await Promise.all(promises);
         renderScripts(allScripts);
       } catch (err) {
-        document.getElementById("scriptList").innerHTML = "<p> Error loading scripts.</p>";
+        document.getElementById("scriptList").innerHTML = "<p> !Error loading scripts.</p>";
         console.error(err);
       }
     }
