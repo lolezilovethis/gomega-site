@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scripts – Gomega Watch</title>
   <link rel="stylesheet" href="style.css">
@@ -10,14 +10,16 @@
 </head>
 <body>
   <div class="container">
+    <!-- Header -->
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <button onclick="window.location.href='index.html'">⬅ Back</button>
       <div>
-        <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
+        <a href="settings.html" title="Settings"><i class="fas fa-gear fa-2x"></i></a>
         <a href="add-script.html" title="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
       </div>
     </div>
 
+    <!-- AdSense Banner -->
     <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-2566003301154558"
@@ -26,163 +28,170 @@
          data-full-width-responsive="true"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
 
+    <!-- Title and Search -->
     <h1>🧾 Roblox Scripts</h1>
     <input id="searchBox" placeholder="Search scripts…" oninput="filterScripts()" class="search-box" />
-    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
+    <button onclick="toggleDarkMode()">🌓 Toggle Dark Mode</button>
     <p id="scriptCount"></p>
     <div id="scriptList"><p>🔄 Loading scripts...</p></div>
 
     <footer>
-      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored Link</a>
+      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
     </footer>
+  </div>
 
-    <script>
-      let allScripts = [];
+  <script>
+    let allScripts = [];
 
-      async function loadScripts() {
-        try {
-          const res = await fetch("scripts/index.json");
-          const scriptFiles = await res.json();
-          const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
-          allScripts = await Promise.all(promises);
-          renderScripts(allScripts);
-        } catch (e) {
-          console.error("Failed to load scripts:", e);
-          document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
-        }
+    async function loadScripts() {
+      try {
+        const res = await fetch("scripts/index.json");
+        const scriptFiles = await res.json();
+        const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
+        allScripts = await Promise.all(promises);
+        renderScripts(allScripts);
+      } catch (e) {
+        console.error("❌ Failed to load scripts:", e);
+        document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
       }
+    }
 
-      function renderScripts(scripts) {
-        const list = document.getElementById("scriptList");
-        const count = document.getElementById("scriptCount");
-        list.innerHTML = "";
+    function renderScripts(scripts) {
+      const list = document.getElementById("scriptList");
+      const count = document.getElementById("scriptCount");
+      list.innerHTML = "";
 
-        scripts.forEach((s, index) => {
-          const div = document.createElement("div");
-          div.className = "script-card";
+      scripts.forEach(script => {
+        const safeId = script.title.toLowerCase().replace(/\s+/g, '-');
+        const div = document.createElement("div");
+        div.className = "script-card";
+        div.innerHTML = `
+          <h2>${script.title}</h2>
+          <p class="small gray">${script.description || ""} | Views: <span id="views-${safeId}">${script.views || 0}</span></p>
+          <button onclick="getScript('${script.title}')">📥 Get Script</button>
+          <pre id="code-${safeId}" style="display:none; white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:8px;"></pre>
+        `;
+        list.appendChild(div);
+      });
 
-          div.innerHTML = `
-            <h2>${s.title}</h2>
-            <p class="small gray" id="views-${index}">Views: ${s.views || 0}</p>
-            <button onclick="startAdRedirect(${index})">📜 Get Script</button>
-            <pre id="code-${index}" style="display:none; white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:8px;">${s.code}</pre>
-          `;
+      count.textContent = `Total Scripts: ${scripts.length}`;
+    }
 
-          list.appendChild(div);
+    async function getScript(title) {
+      const safeId = title.toLowerCase().replace(/\s+/g, '-');
+      const filename = `${safeId}.json`;
+
+      try {
+        const script = await fetch(`scripts/${filename}`).then(res => res.json());
+
+        const confirmAd = confirm("Watch 3 ads to unlock this script?");
+        if (!confirmAd) return;
+
+        // Simulated ad wait
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Update views on server
+        await fetch("/update-view-count", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: script.title })
         });
 
-        count.textContent = `Total Scripts: ${scripts.length}`;
-      }
+        // Re-fetch updated view count
+        const updated = await fetch(`scripts/${filename}`).then(res => res.json());
+        document.getElementById(`views-${safeId}`).textContent = updated.views;
 
-      function filterScripts() {
-        const term = document.getElementById("searchBox").value.toLowerCase();
-        const filtered = allScripts.filter(s =>
-          s.title.toLowerCase().includes(term) ||
-          (s.description && s.description.toLowerCase().includes(term))
-        );
-        renderScripts(filtered);
-      }
+        // Show code
+        const codeBox = document.getElementById(`code-${safeId}`);
+        codeBox.style.display = "block";
+        codeBox.textContent = updated.code;
 
-      function toggleDarkMode() {
-        document.body.classList.toggle('dark-mode');
-      }
-
-      async function startAdRedirect(index) {
-        const adLinks = [
-          "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
-          "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
-          "https://hidcolouredclink.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2"
-        ];
-
-        let current = 0;
-        const nextAd = () => {
-          if (current < adLinks.length) {
-            window.open(adLinks[current], "_blank");
-            current++;
-            setTimeout(nextAd, 1500);
-          } else {
-            showScript(index);
-          }
-        };
-        nextAd();
-      }
-
-      async function showScript(index) {
-        const pre = document.getElementById(`code-${index}`);
-        const code = pre.textContent;
-
-        pre.style.display = "block";
-
+        // Clipboard copy
         try {
-          await navigator.clipboard.writeText(code);
+          await navigator.clipboard.writeText(updated.code);
           alert("✅ Script copied to clipboard!");
-
-          allScripts[index].views = (allScripts[index].views || 0) + 1;
-          document.getElementById(`views-${index}`).textContent = `Views: ${allScripts[index].views}`;
-
-          await fetch(`/update-view-count`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: allScripts[index].title })
-          });
-
-        } catch (e) {
-          console.error("Failed to copy or update views", e);
+        } catch {
+          alert("⚠️ Could not copy. Please copy manually.");
         }
-      }
 
-      loadScripts();
-    </script>
-
-    <style>
-      body.dark-mode {
-        background-color: #121212;
-        color: white;
+      } catch (err) {
+        alert("❌ Error unlocking script.");
+        console.error(err);
       }
+    }
 
-      .script-card {
-        border: 1px solid #ccc;
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 10px;
-        background: #f9f9f9;
-      }
+    function filterScripts() {
+      const term = document.getElementById("searchBox").value.toLowerCase();
+      const filtered = allScripts.filter(s =>
+        s.title.toLowerCase().includes(term) ||
+        (s.description && s.description.toLowerCase().includes(term))
+      );
+      renderScripts(filtered);
+    }
 
-      .dark-mode .script-card {
-        background: #1e1e1e;
-        border-color: #333;
-      }
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    }
 
-      .script-card button {
-        background: #3b82f6;
-        color: white;
-        padding: 10px 15px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 1rem;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
+    // Apply dark mode if previously set
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark-mode");
+    }
 
-      .script-card button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      }
+    loadScripts();
+  </script>
 
-      .search-box {
-        padding: 10px;
-        width: 100%;
-        margin-bottom: 15px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-      }
+  <style>
+    body.dark-mode {
+      background-color: #121212;
+      color: white;
+    }
 
-      footer {
-        margin-top: 30px;
-        text-align: center;
-        font-size: 14px;
-      }
-    </style>
-  </div>
+    .script-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+
+    .dark-mode .script-card {
+      background: #1e1e1e;
+      border-color: #333;
+    }
+
+    .search-box {
+      padding: 10px;
+      width: 100%;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .btn {
+      background: var(--accent, #3b82f6);
+      color: white;
+      padding: 10px;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin: 20px 0;
+    }
+
+    .small.gray {
+      font-size: 0.9rem;
+      color: gray;
+    }
+  </style>
 </body>
 </html>
