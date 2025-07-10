@@ -10,6 +10,11 @@
   <div class="container center">
     <h1>⚙️ Settings</h1>
 
+    <!-- Show user info -->
+    <h3>👤 Account</h3>
+    <p id="userEmail">Loading...</p>
+    <p id="emailStatus"></p>
+
     <!-- Theme toggle -->
     <h3>🌗 Dark Mode</h3>
     <label class="toggle-switch">
@@ -20,14 +25,21 @@
     <!-- Change password -->
     <h3>🔒 Change Password</h3>
     <form onsubmit="changePassword(event)">
-      <input type="password" id="oldPass" placeholder="Current Password" required>
       <input type="password" id="newPass" placeholder="New Password" required>
-      <button type="submit">Change Password</button>
+      <button type="submit">Update Password</button>
     </form>
 
+    <!-- Resend verification -->
+    <h3>📧 Email Verification</h3>
+    <button onclick="resendVerification()">Resend Verification Email</button>
+
     <!-- Clear local data -->
-    <h3>🧼 Clear Data</h3>
-    <button onclick="clearLocalData()">Clear All User Data</button>
+    <h3>🧼 Clear Local Data</h3>
+    <button onclick="clearLocalData()">Clear All Local Data</button>
+
+    <!-- Delete account -->
+    <h3>🗑️ Delete Account</h3>
+    <button onclick="deleteAccount()">Delete My Account</button>
 
     <!-- Logout -->
     <h3>🚪 Log Out</h3>
@@ -42,53 +54,93 @@
     </footer>
   </div>
 
-  <script>
-    // Set theme on load
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    import {
+      sendEmailVerification,
+      updatePassword,
+      deleteUser,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    // Dark mode
+    const toggle = document.getElementById("darkToggle");
     if (localStorage.getItem("theme") === "dark") {
       document.documentElement.classList.add("dark");
+      toggle.checked = true;
     }
-
-    // Handle theme toggle
-    const toggle = document.getElementById("darkToggle");
-    toggle.checked = localStorage.getItem("theme") === "dark";
     toggle.addEventListener("change", () => {
       const isDark = toggle.checked;
       document.documentElement.classList.toggle("dark", isDark);
       localStorage.setItem("theme", isDark ? "dark" : "light");
     });
 
-    // Password changer
-    function changePassword(e) {
-      e.preventDefault();
-      const user = localStorage.getItem("currentUser");
-      const oldPass = document.getElementById("oldPass").value;
-      const newPass = document.getElementById("newPass").value;
-      const data = JSON.parse(localStorage.getItem("user_" + user));
-
-      if (!data || data.pass !== oldPass) {
-        return alert("❌ Old password is incorrect.");
+    // Show user info
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        location.href = "signin.html";
+      } else {
+        document.getElementById("userEmail").textContent = `Email: ${user.email}`;
+        document.getElementById("emailStatus").textContent = user.emailVerified
+          ? "✅ Email Verified"
+          : "⚠️ Email Not Verified";
       }
+    });
 
-      data.pass = newPass;
-      localStorage.setItem("user_" + user, JSON.stringify(data));
-      alert("✅ Password changed!");
-    }
+    // Change password
+    window.changePassword = async function(e) {
+      e.preventDefault();
+      const newPass = document.getElementById("newPass").value;
+      const user = auth.currentUser;
 
-    // Clear user data
-    function clearLocalData() {
+      try {
+        await updatePassword(user, newPass);
+        alert("✅ Password updated successfully!");
+      } catch (err) {
+        alert("❌ " + err.message);
+      }
+    };
+
+    // Resend verification
+    window.resendVerification = async function() {
+      const user = auth.currentUser;
+      if (!user) return alert("No user logged in.");
+      try {
+        await sendEmailVerification(user);
+        alert("📧 Verification email sent again.");
+      } catch (err) {
+        alert("❌ " + err.message);
+      }
+    };
+
+    // Logout
+    window.logout = async function() {
+      await signOut(auth);
+      alert("👋 Logged out successfully.");
+      location.href = "signin.html";
+    };
+
+    // Delete account
+    window.deleteAccount = async function() {
+      if (!confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
+      try {
+        await deleteUser(auth.currentUser);
+        alert("🗑️ Account deleted.");
+        location.href = "signup.html";
+      } catch (err) {
+        alert("❌ " + err.message);
+      }
+    };
+
+    // Clear local storage
+    window.clearLocalData = function() {
       if (confirm("Are you sure you want to clear all local data?")) {
         localStorage.clear();
         alert("✅ Local storage cleared.");
-        window.location.href = "index.html";
+        location.reload();
       }
-    }
-
-    // Log out
-    function logout() {
-      localStorage.removeItem("currentUser");
-      alert("🚪 Logged out.");
-      window.location.href = "signin.html";
-    }
+    };
   </script>
 </body>
 </html>
