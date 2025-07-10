@@ -39,7 +39,7 @@
       try {
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
         await sendEmailVerification(userCred.user);
-        alert("📧 Verification email sent. Please check your inbox.");
+        alert("📧 Verification email sent. Please check your inbox or spam folder.");
         await signOut(auth);
         location.href = "verify.html";
       } catch (err) {
