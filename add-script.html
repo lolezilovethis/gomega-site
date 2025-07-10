@@ -3,36 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <title>Add Script – Gomega Watch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container center">
     <h1>🆕 Add New Script</h1>
     <form id="scriptForm">
-      <label>Title: <input type="text" id="title" required></label><br><br>
-      <label>Description: <input type="text" id="description"></label><br><br>
-      <label>Views: <input type="number" id="views" value="0"></label><br><br>
-      <label>Script Code:</label><br>
-      <textarea id="code" rows="10" cols="50" required></textarea><br><br>
-      <button type="submit">Download Script JSON</button>
+      <label>
+        Title:<br>
+        <input type="text" id="title" placeholder="Example: Auto Farm" required>
+      </label><br><br>
+
+      <label>
+        Description:<br>
+        <input type="text" id="description" placeholder="Short description (optional)">
+      </label><br><br>
+
+      <label>
+        Script Code:<br>
+        <textarea id="code" rows="10" placeholder="Paste Lua script here..." required></textarea>
+      </label><br><br>
+
+      <button type="submit">💾 Save Script JSON</button>
     </form>
+
+    <p id="successMsg" style="color:green; margin-top:20px;"></p>
   </div>
 
   <script>
-    document.getElementById("scriptForm").addEventListener("submit", function(e) {
+    document.getElementById("scriptForm").addEventListener("submit", async function(e) {
       e.preventDefault();
+
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const code = document.getElementById("code").value.trim();
+
+      if (!title || !code) {
+        alert("❌ Title and Code are required.");
+        return;
+      }
+
       const script = {
-        title: document.getElementById("title").value.trim(),
-        description: document.getElementById("description").value.trim(),
-        views: parseInt(document.getElementById("views").value.trim()),
-        code: document.getElementById("code").value.trim()
+        title,
+        description,
+        views: 0,
+        code
       };
+
+      const filename = `${title.toLowerCase().replace(/\s+/g, "-")}.json`;
       const blob = new Blob([JSON.stringify(script, null, 2)], { type: "application/json" });
+
+      // Offer download to user
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${script.title.toLowerCase().replace(/\s+/g, "-")}.json`;
+      a.download = filename;
       a.click();
+
+      // Optional: POST to backend to save (if using backend)
+      try {
+        await fetch('/scripts/' + filename, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(script)
+        });
+
+        // Also update index.json (if your server supports it)
+        await fetch('/update-index', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename })
+        });
+
+        document.getElementById("successMsg").textContent = "✅ Script saved successfully to server.";
+      } catch (err) {
+        console.warn("Server save failed:", err);
+        document.getElementById("successMsg").textContent = "✅ Script JSON file downloaded locally.";
+      }
     });
   </script>
 </body>
