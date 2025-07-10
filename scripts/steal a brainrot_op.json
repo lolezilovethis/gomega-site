@@ -1,0 +1,5 @@
+{
+    "title": "OP Script (Steal a Brainrot)",
+    "description": "Powerful script for Steal a Brainrot (Key required)",
+    "code": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/7d8a2a1a9a562a403b52532e58a14065.lua\"))()"
+  }

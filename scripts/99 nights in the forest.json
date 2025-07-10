@@ -1,0 +1,5 @@
+ {
+    "title": "99 Nights in the Forest",
+    "description": "Script for 99 Nights in the Forest game",
+    "code": "loadstring(game:HttpGet(\"https://pandadevelopment.net/virtual/file/2ed004f44a63f42d\"))()"
+  }

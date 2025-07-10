@@ -1,0 +1,5 @@
+{
+    "title": "Infinite Jump (Steal a Brainrot)",
+    "description": "Jump infinitely in Steal a Brainrot",
+    "code": "loadstring(game:HttpGet(\"https://pastefy.app/AHeQea76/raw\"))()"
+  }

@@ -1,0 +1,5 @@
+ {
+    "title": "DOORS Script",
+    "description": "Key required - Explore DOORS with script",
+    "code": "loadstring(game:HttpGet(\"https://orbitsc.net/doors\"))()"
+  }

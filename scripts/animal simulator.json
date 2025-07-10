@@ -1,0 +1,5 @@
+{
+"title": "Animal Simulator Script",
+    "description": "Basic script for Animal Simulator",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Bebo-Mods/BeboScripts/main/AnimalSimulator.lua\"))()"
+  }

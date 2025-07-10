@@ -1,0 +1,5 @@
+ {
+    "title": "Rivals Script",
+    "description": "Execute Rivals script",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/zeynwq/main/main/rivals1\"))()"
+  }

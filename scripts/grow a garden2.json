@@ -1,0 +1,5 @@
+ {
+    "title": "Grow a Garden ScriptV2",
+    "description": "Script for Grow A Garden game",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/nootmaus/GrowAAGarden/refs/heads/main/mauscripts\"))()"
+  }

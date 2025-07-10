@@ -1,0 +1,5 @@
+{
+    "title": "Haptic Hub (Steal a Brainrot)",
+    "description": "Hub script for Steal a Brainrot game",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Haptic81/HapticHub/refs/heads/main/HapticHub.luau\", true))()"
+  }

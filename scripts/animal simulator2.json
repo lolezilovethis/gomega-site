@@ -1,0 +1,5 @@
+{
+    "title": "Animal Simulator Script v2",
+    "description": "Alternative Animal Simulator script",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/CasperFlyModz/discord.gg-rips/main/AnimalSimulator.lua\"))()"
+  }

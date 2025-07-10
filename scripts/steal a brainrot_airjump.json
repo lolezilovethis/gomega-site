@@ -1,0 +1,5 @@
+ {
+    "title": "Air Jump (Steal a Brainrot)",
+    "description": "Enables air jumping in Steal a Brainrot",
+    "code": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Sufyan123-bit/Scripts/refs/heads/main/stealsbrainrotmainscript.lua\", true))()"
+  }

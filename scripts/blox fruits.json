@@ -1,0 +1,5 @@
+{
+    "title": "Blox Fruits Script",
+    "description": "Auto join team + Blox Fruits features",
+    "code": "_G.settings = {\n    autoLoadConfig = false,\n    joinTeam = \"Pirates\"\n}\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/RO-HUB-CODEX/RO-HUB/refs/heads/main/bloxfruits.lua\"))()"
+  }
