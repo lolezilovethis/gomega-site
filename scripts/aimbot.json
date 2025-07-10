@@ -1,6 +1,5 @@
 {
   "title": "Arsenal Aimbot",
   "description": "Lock-on aimbot for Arsenal",
-  "views": 215,
   "code": "loadstring(game:HttpGet('https://pastebin.com/raw/XYZ123'))()"
 }
