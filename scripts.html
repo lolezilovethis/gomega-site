@@ -1,142 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html ⚡ lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <title>Scripts – Gomega Watch</title>
+  <link rel="canonical" href="index.html">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
-</head>
-<body>
-  <div class="container">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <button onclick="window.location.href='index.html'">⬅ Back</button>
-      <div>
-        <a href="settings.html" aria-label="Settings"><i class="fas fa-gear fa-2x"></i></a>
-        <a href="add-script.html" title="Add Script" aria-label="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
-      </div>
-    </div>
 
-    <!-- AdSense Banner -->
-    <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-2566003301154558"
-         data-ad-slot="YOUR-ACTUAL-AD-SLOT-ID-HERE"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-
-    <h1>🧾 Roblox Scripts</h1>
-    <input id="searchBox" placeholder="Search scripts…" oninput="filterScripts()" class="search-box" />
-    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
-    <p id="scriptCount"></p>
-    <div id="scriptList"><p>🔄 Loading scripts...</p></div>
-
-    <footer>
-      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a> |
-      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored</a>
-    </footer>
-  </div>
-
-  <script defer>
-    let allScripts = [];
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadScripts();
-    });
-
-    async function loadScripts() {
-      try {
-        const res = await fetch("scripts/index.json");
-        const scriptFiles = await res.json();
-        const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
-        allScripts = await Promise.all(promises);
-        renderScripts(allScripts);
-      } catch (e) {
-        console.error("Failed to load scripts:", e);
-        document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
+  <!-- AMP Boilerplate -->
+  <style amp-boilerplate>
+    body {
+      -webkit-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
+      -moz-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
+      -ms-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
+      animation: -amp-start 8s steps(1,end) 0s 1 normal both;
+    }
+    @-webkit-keyframes -amp-start {
+      from { visibility: hidden; }
+      to { visibility: visible; }
+    }
+    @-moz-keyframes -amp-start {
+      from { visibility: hidden; }
+      to { visibility: visible; }
+    }
+    @-ms-keyframes -amp-start {
+      from { visibility: hidden; }
+      to { visibility: visible; }
+    }
+    @keyframes -amp-start {
+      from { visibility: hidden; }
+      to { visibility: visible; }
+    }
+  </style>
+  <noscript>
+    <style amp-boilerplate>
+      body {
+        -webkit-animation: none;
+        -moz-animation: none;
+        -ms-animation: none;
+        animation: none;
       }
-    }
+    </style>
+  </noscript>
 
-    function renderScripts(scripts) {
-      const list = document.getElementById("scriptList");
-      const count = document.getElementById("scriptCount");
-      list.innerHTML = "";
+  <!-- AMP runtime -->
+  <script async src="https://cdn.ampproject.org/v0.js"></script>
 
-      scripts.forEach(s => {
-        const safeId = `${s.title.toLowerCase().replace(/\s+/g, "-")}-${Math.random().toString(36).substr(2, 5)}`;
-        const div = document.createElement("div");
-        div.className = "script-card";
-        div.innerHTML = `
-          <h2>${s.title}</h2>
-          <p class="small gray">${s.description || ""} | Views: <span id="views-${safeId}">${s.views || 0}</span></p>
-          <button onclick="getScript('${s.title}', '${safeId}')">📥 Get Script</button>
-          <pre id="code-${safeId}" style="display:none; background:#f2f2f2; padding:10px; border-radius:8px; white-space:pre-wrap;"></pre>
-        `;
-        list.appendChild(div);
-      });
-
-      count.textContent = `Total Scripts: ${scripts.length}`;
-    }
-
-    function filterScripts() {
-      const term = document.getElementById("searchBox").value.toLowerCase();
-      const filtered = allScripts.filter(s =>
-        s.title.toLowerCase().includes(term) ||
-        (s.description && s.description.toLowerCase().includes(term))
-      );
-      renderScripts(filtered);
-    }
-
-    function toggleDarkMode() {
-      document.body.classList.toggle('dark-mode');
-    }
-
-    async function getScript(title, safeId) {
-      const filename = `${title.toLowerCase().replace(/\s+/g, '-')}.json`;
-      const codeBox = document.getElementById(`code-${safeId}`);
-
-      if (!confirm("You must view 3 ads to unlock the script. Click OK to begin.")) return;
-
-      for (let i = 0; i < 3; i++) {
-        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=71cc264ea7a7deaffc057c222bc73431", "_blank");
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-
-      try {
-        const updateRes = await fetch("/update-view-count", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title })
-        });
-
-        if (!updateRes.ok) throw new Error("View update failed");
-
-        const script = await fetch(`scripts/${filename}`).then(res => res.json());
-
-        codeBox.style.display = "block";
-        codeBox.textContent = script.code;
-        document.getElementById(`views-${safeId}`).textContent = script.views;
-
-        try {
-          await navigator.clipboard.writeText(script.code);
-          alert("✅ Script copied to clipboard!");
-        } catch {
-          alert("⚠️ Could not copy. Please copy manually.");
-        }
-
-      } catch (err) {
-        alert("❌ Error unlocking script.");
-        console.error(err);
-      }
-    }
+  <!-- AMP Auto Ads library (Step 1) -->
+  <script async custom-element="amp-auto-ads"
+          src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js">
   </script>
 
-  <style>
-    body.dark-mode {
-      background-color: #121212;
-      color: white;
+  <!-- Font Awesome not supported in AMP, so this will be removed -->
+
+  <!-- Custom styles must be within <style amp-custom> -->
+  <style amp-custom>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #fff;
+      color: #000;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
     }
 
     .script-card {
@@ -145,11 +73,6 @@
       margin: 10px 0;
       border-radius: 10px;
       background: #f9f9f9;
-    }
-
-    .dark-mode .script-card {
-      background: #1e1e1e;
-      border-color: #333;
     }
 
     .search-box {
@@ -176,10 +99,6 @@
       margin-top: 10px;
     }
 
-    button:hover {
-      opacity: 0.9;
-    }
-
     pre {
       font-family: monospace;
       font-size: 0.95rem;
@@ -191,5 +110,33 @@
       color: gray;
     }
   </style>
+</head>
+
+<body>
+
+  <!-- AMP Auto Ads (Step 2) -->
+  <amp-auto-ads type="adsense"
+      data-ad-client="ca-pub-2566003301154558">
+  </amp-auto-ads>
+
+  <div class="container">
+    <h1>🧾 Roblox Scripts</h1>
+
+    <input class="search-box" placeholder="Search scripts…" disabled />
+    <button disabled>🌓 Dark Mode</button>
+    <p>Total Scripts: AMP pages cannot run JavaScript</p>
+
+    <div class="script-card">
+      <h2>Example Script</h2>
+      <p class="small gray">This is a placeholder script card.</p>
+      <button disabled>📥 Get Script</button>
+      <pre style="background:#f2f2f2; padding:10px; border-radius:8px;">-- Script content disabled in AMP</pre>
+    </div>
+
+    <footer>
+      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a> |
+      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored</a>
+    </footer>
+  </div>
 </body>
 </html>
