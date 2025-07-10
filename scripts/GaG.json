@@ -1,0 +1,5 @@
+{
+  "title": "grow a garden",
+  "description": "Grow a garden op script.",
+  "code": "loadstring(game:HttpGet('https://lunor.dev/loader'))()"
+}
