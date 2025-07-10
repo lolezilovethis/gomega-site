@@ -1,18 +1,82 @@
 [
-  "99-nights-in-the-forest.json",
-  "animal-simulator.json",
-  "animal-simulator2.json",
-  "arsenal-aimbot.json",
-  "blox-fruits.json",
-  "doors.json",
-  "fly-script.json",
-  "grow-a-garden.json",
-  "grow-a-garden2.json",
-  "murder-mystery-2.json",
-  "rivals.json",
-  "steal-a-brainrot_airjump.json",
-  "steal-a-brainrot_haptichub.json",
-  "steal-a-brainrot_infinitejump.json",
-  "steal-a-brainrot_op.json",
-  "test-test.json"
+  {
+    "title": "99 Nights in the Forest",
+    "description": "Explore and survive mysterious nights.",
+    "filename": "99-nights-in-the-forest.json"
+  },
+  {
+    "title": "Animal Simulator",
+    "description": "OP animal powers script.",
+    "filename": "animal-simulator.json"
+  },
+  {
+    "title": "Animal Simulator 2",
+    "description": "Continuation with new features.",
+    "filename": "animal-simulator2.json"
+  },
+  {
+    "title": "Arsenal Aimbot",
+    "description": "Auto aim and wallbang.",
+    "filename": "arsenal-aimbot.json"
+  },
+  {
+    "title": "Blox Fruits",
+    "description": "Auto farm and teleport features.",
+    "filename": "blox-fruits.json"
+  },
+  {
+    "title": "Doors",
+    "description": "ESP and god mode in Doors.",
+    "filename": "doors.json"
+  },
+  {
+    "title": "Fly Script",
+    "description": "Hold space to fly.",
+    "filename": "fly-script.json"
+  },
+  {
+    "title": "Grow a Garden",
+    "description": "Auto garden script.",
+    "filename": "grow-a-garden.json"
+  },
+  {
+    "title": "Grow a Garden 2",
+    "description": "Part 2 of the garden farming script.",
+    "filename": "grow-a-garden2.json"
+  },
+  {
+    "title": "Murder Mystery 2",
+    "description": "Knife ESP and sheriff hack.",
+    "filename": "murder-mystery-2.json"
+  },
+  {
+    "title": "Rivals",
+    "description": "OP rivals script.",
+    "filename": "rivals.json"
+  },
+  {
+    "title": "Brainrot Airjump",
+    "description": "Airjump script.",
+    "filename": "steal-a-brainrot_airjump.json"
+  },
+  {
+    "title": "Brainrot HapticHub",
+    "description": "Main UI + hub features.",
+    "filename": "steal-a-brainrot_haptichub.json"
+  },
+  {
+    "title": "Brainrot Infinite Jump",
+    "description": "Infinite jump mode.",
+    "filename": "steal-a-brainrot_infinitejump.json"
+  },
+  {
+    "title": "Brainrot OP",
+    "description": "Godmode OP script.",
+    "filename": "steal-a-brainrot_op.json"
+  },
+  {
+    "title": "Test Test",
+    "description": "Testing script output.",
+    "filename": "test-test.json"
+  }
 ]
