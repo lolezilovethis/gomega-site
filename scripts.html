@@ -1,92 +1,39 @@
 <!DOCTYPE html>
-<html ⚡ lang="en">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scripts – Gomega Watch</title>
-  <link rel="canonical" href="index.html">
+
+  <!-- AdSense Auto Ads -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
+          crossorigin="anonymous"></script>
+
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-  <!-- AMP Boilerplate -->
-  <style amp-boilerplate>
-    body {
-      -webkit-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
-      -moz-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
-      -ms-animation: -amp-start 8s steps(1,end) 0s 1 normal both;
-      animation: -amp-start 8s steps(1,end) 0s 1 normal both;
-    }
-    @-webkit-keyframes -amp-start {
-      from { visibility: hidden; }
-      to { visibility: visible; }
-    }
-    @-moz-keyframes -amp-start {
-      from { visibility: hidden; }
-      to { visibility: visible; }
-    }
-    @-ms-keyframes -amp-start {
-      from { visibility: hidden; }
-      to { visibility: visible; }
-    }
-    @keyframes -amp-start {
-      from { visibility: hidden; }
-      to { visibility: visible; }
-    }
-  </style>
-  <noscript>
-    <style amp-boilerplate>
-      body {
-        -webkit-animation: none;
-        -moz-animation: none;
-        -ms-animation: none;
-        animation: none;
-      }
-    </style>
-  </noscript>
-
-  <!-- AMP runtime -->
-  <script async src="https://cdn.ampproject.org/v0.js"></script>
-
-  <!-- AMP Auto Ads library (Step 1) -->
-  <script async custom-element="amp-auto-ads"
-          src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js">
-  </script>
-
-  <!-- Font Awesome not supported in AMP, so this will be removed -->
-
-  <!-- Custom styles must be within <style amp-custom> -->
-  <style amp-custom>
+  <style>
     body {
       font-family: sans-serif;
       padding: 20px;
-      background: #fff;
-      color: #000;
-    }
-
-    .container {
       max-width: 800px;
       margin: auto;
     }
 
     .script-card {
       border: 1px solid #ccc;
-      padding: 10px;
-      margin: 10px 0;
+      padding: 15px;
+      margin-bottom: 20px;
       border-radius: 10px;
       background: #f9f9f9;
     }
 
     .search-box {
-      padding: 10px;
       width: 100%;
-      margin-bottom: 15px;
+      padding: 10px;
+      margin-bottom: 20px;
       border-radius: 8px;
       border: 1px solid #ccc;
-    }
-
-    footer {
-      margin-top: 30px;
-      text-align: center;
-      font-size: 14px;
     }
 
     button {
@@ -99,44 +46,120 @@
       margin-top: 10px;
     }
 
-    pre {
-      font-family: monospace;
-      font-size: 0.95rem;
-      overflow-x: auto;
+    button:hover {
+      opacity: 0.9;
     }
 
-    .small {
-      font-size: 0.85rem;
-      color: gray;
+    pre {
+      background: #f2f2f2;
+      padding: 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 14px;
     }
   </style>
 </head>
-
 <body>
 
-  <!-- AMP Auto Ads (Step 2) -->
-  <amp-auto-ads type="adsense"
-      data-ad-client="ca-pub-2566003301154558">
-  </amp-auto-ads>
+  <h1>🧾 Roblox Scripts</h1>
+  <input class="search-box" id="searchBox" placeholder="Search scripts…" oninput="filterScripts()">
+  <p id="scriptCount"></p>
+  <div id="scriptList"><p>🔄 Loading scripts...</p></div>
 
-  <div class="container">
-    <h1>🧾 Roblox Scripts</h1>
+  <footer>
+    <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
+  </footer>
 
-    <input class="search-box" placeholder="Search scripts…" disabled />
-    <button disabled>🌓 Dark Mode</button>
-    <p>Total Scripts: AMP pages cannot run JavaScript</p>
+  <script>
+    let allScripts = [];
 
-    <div class="script-card">
-      <h2>Example Script</h2>
-      <p class="small gray">This is a placeholder script card.</p>
-      <button disabled>📥 Get Script</button>
-      <pre style="background:#f2f2f2; padding:10px; border-radius:8px;">-- Script content disabled in AMP</pre>
-    </div>
+    async function loadScripts() {
+      try {
+        const res = await fetch("scripts/index.json");
+        const scriptFiles = await res.json();
+        const promises = scriptFiles.map(file => fetch(`scripts/${file}`).then(res => res.json()));
+        allScripts = await Promise.all(promises);
+        renderScripts(allScripts);
+      } catch (err) {
+        document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
+        console.error(err);
+      }
+    }
 
-    <footer>
-      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a> |
-      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored</a>
-    </footer>
-  </div>
+    function renderScripts(scripts) {
+      const list = document.getElementById("scriptList");
+      const count = document.getElementById("scriptCount");
+      list.innerHTML = "";
+
+      scripts.forEach(script => {
+        const id = script.title.toLowerCase().replace(/\s+/g, "-");
+
+        const div = document.createElement("div");
+        div.className = "script-card";
+        div.innerHTML = `
+          <h2>${script.title}</h2>
+          <p>${script.description || "No description."}</p>
+          <button onclick="unlockScript('${script.title}', '${id}')">📥 Get Script</button>
+          <pre id="code-${id}" style="display:none;"></pre>
+        `;
+        list.appendChild(div);
+      });
+
+      count.textContent = `Total Scripts: ${scripts.length}`;
+    }
+
+    function filterScripts() {
+      const term = document.getElementById("searchBox").value.toLowerCase();
+      const filtered = allScripts.filter(s =>
+        s.title.toLowerCase().includes(term) ||
+        (s.description && s.description.toLowerCase().includes(term))
+      );
+      renderScripts(filtered);
+    }
+
+    async function unlockScript(title, id) {
+      const codeBox = document.getElementById(`code-${id}`);
+
+      if (!confirm("You must view 4 ads to unlock the script. Click OK to begin.")) return;
+
+      const adUrls = [
+        "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
+        "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
+        "https://hidcolouredclink.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2",
+        "https://hidcolouredclink.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2"
+      ];
+
+      for (let i = 0; i < adUrls.length; i++) {
+        window.open(adUrls[i], "_blank");
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Delay between opens
+      }
+
+      try {
+        const filename = `${title.toLowerCase().replace(/\s+/g, "-")}.json`;
+        const script = await fetch(`scripts/${filename}`).then(res => res.json());
+
+        codeBox.style.display = "block";
+        codeBox.textContent = script.code;
+
+        try {
+          await navigator.clipboard.writeText(script.code);
+          alert("✅ Script copied to clipboard!");
+        } catch {
+          alert("⚠️ Could not copy. Please copy manually.");
+        }
+      } catch (err) {
+        alert("❌ Failed to load script.");
+        console.error(err);
+      }
+    }
+
+    loadScripts();
+  </script>
 </body>
 </html>
