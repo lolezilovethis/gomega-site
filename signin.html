@@ -62,5 +62,48 @@
       }
     }
   </script>
+  <canvas id="hoverParticles" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1;"></canvas>
+<script>
+const canvas = document.getElementById("hoverParticles");
+const ctx = canvas.getContext("2d");
+let particles = [];
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+function createParticle(x, y) {
+  particles.push({
+    x, y,
+    radius: Math.random() * 2 + 1,
+    speedX: Math.random() * 2 - 1,
+    speedY: Math.random() * 2 - 1,
+    life: 60
+  });
+}
+
+document.addEventListener("mousemove", e => {
+  for (let i = 0; i < 3; i++) createParticle(e.clientX, e.clientY);
+});
+
+function animateParticles() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach((p, i) => {
+    p.x += p.speedX;
+    p.y += p.speedY;
+    p.life -= 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(0, 217, 255, ${p.life / 60})`;
+    ctx.fill();
+    if (p.life <= 0) particles.splice(i, 1);
+  });
+  requestAnimationFrame(animateParticles);
+}
+animateParticles();
+</script>
 </body>
 </html>
