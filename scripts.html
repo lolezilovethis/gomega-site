@@ -10,11 +10,10 @@
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <button onclick="window.location.href='index.html'">⬅ Back</button>
       <div>
-        <a href="settings.html" title="Settings"><i class="fas fa-gear fa-2x"></i></a>
+        <a href="settings.html"><i class="fas fa-gear fa-2x"></i></a>
         <a href="add-script.html" title="Add Script"><i class="fas fa-plus-circle fa-2x"></i></a>
       </div>
     </div>
@@ -28,15 +27,15 @@
          data-full-width-responsive="true"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
 
-    <!-- Title and Search -->
     <h1>🧾 Roblox Scripts</h1>
     <input id="searchBox" placeholder="Search scripts…" oninput="filterScripts()" class="search-box" />
-    <button onclick="toggleDarkMode()">🌓 Toggle Dark Mode</button>
+    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
     <p id="scriptCount"></p>
     <div id="scriptList"><p>🔄 Loading scripts...</p></div>
 
     <footer>
-      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
+      <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a> |
+      <a href="https://www.profitabledisplaynetwork.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2" target="_blank">Sponsored</a>
     </footer>
   </div>
 
@@ -51,7 +50,7 @@
         allScripts = await Promise.all(promises);
         renderScripts(allScripts);
       } catch (e) {
-        console.error("❌ Failed to load scripts:", e);
+        console.error("Failed to load scripts:", e);
         document.getElementById("scriptList").innerHTML = "<p>⚠️ Error loading scripts.</p>";
       }
     }
@@ -61,63 +60,21 @@
       const count = document.getElementById("scriptCount");
       list.innerHTML = "";
 
-      scripts.forEach(script => {
-        const safeId = script.title.toLowerCase().replace(/\s+/g, '-');
+      scripts.forEach(s => {
+        const safeId = s.title.toLowerCase().replace(/\s+/g, "-");
+
         const div = document.createElement("div");
         div.className = "script-card";
         div.innerHTML = `
-          <h2>${script.title}</h2>
-          <p class="small gray">${script.description || ""} | Views: <span id="views-${safeId}">${script.views || 0}</span></p>
-          <button onclick="getScript('${script.title}')">📥 Get Script</button>
-          <pre id="code-${safeId}" style="display:none; white-space:pre-wrap; background:#f2f2f2; padding:10px; border-radius:8px;"></pre>
+          <h2>${s.title}</h2>
+          <p class="small gray">${s.description || ""} | Views: <span id="views-${safeId}">${s.views || 0}</span></p>
+          <button onclick="getScript('${s.title}')">📥 Get Script</button>
+          <pre id="code-${safeId}" style="display:none; background:#f2f2f2; padding:10px; border-radius:8px; white-space:pre-wrap;"></pre>
         `;
         list.appendChild(div);
       });
 
       count.textContent = `Total Scripts: ${scripts.length}`;
-    }
-
-    async function getScript(title) {
-      const safeId = title.toLowerCase().replace(/\s+/g, '-');
-      const filename = `${safeId}.json`;
-
-      try {
-        const script = await fetch(`scripts/${filename}`).then(res => res.json());
-
-        const confirmAd = confirm("Watch 3 ads to unlock this script?");
-        if (!confirmAd) return;
-
-        // Simulated ad wait
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // Update views on server
-        await fetch("/update-view-count", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: script.title })
-        });
-
-        // Re-fetch updated view count
-        const updated = await fetch(`scripts/${filename}`).then(res => res.json());
-        document.getElementById(`views-${safeId}`).textContent = updated.views;
-
-        // Show code
-        const codeBox = document.getElementById(`code-${safeId}`);
-        codeBox.style.display = "block";
-        codeBox.textContent = updated.code;
-
-        // Clipboard copy
-        try {
-          await navigator.clipboard.writeText(updated.code);
-          alert("✅ Script copied to clipboard!");
-        } catch {
-          alert("⚠️ Could not copy. Please copy manually.");
-        }
-
-      } catch (err) {
-        alert("❌ Error unlocking script.");
-        console.error(err);
-      }
     }
 
     function filterScripts() {
@@ -130,13 +87,48 @@
     }
 
     function toggleDarkMode() {
-      document.body.classList.toggle("dark-mode");
-      localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
+      document.body.classList.toggle('dark-mode');
     }
 
-    // Apply dark mode if previously set
-    if (localStorage.getItem("theme") === "dark") {
-      document.body.classList.add("dark-mode");
+    async function getScript(title) {
+      const safeId = title.toLowerCase().replace(/\s+/g, '-');
+      const filename = `${safeId}.json`;
+      const codeBox = document.getElementById(`code-${safeId}`);
+
+      if (!confirm("You must view 3 ads to unlock the script. Click OK to begin.")) return;
+
+      for (let i = 0; i < 3; i++) {
+        window.open("https://www.profitabledisplaynetwork.com/en9fnp1f?key=YOUR_KEY", "_blank");
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      try {
+        const updateRes = await fetch("/update-view-count", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title })
+        });
+
+        if (!updateRes.ok) throw new Error("View update failed");
+
+        const script = await fetch(`scripts/${filename}`).then(res => res.json());
+
+        // Show code and update views
+        codeBox.style.display = "block";
+        codeBox.textContent = script.code;
+        document.getElementById(`views-${safeId}`).textContent = script.views;
+
+        try {
+          await navigator.clipboard.writeText(script.code);
+          alert("✅ Script copied to clipboard!");
+        } catch {
+          alert("⚠️ Could not copy. Please copy manually.");
+        }
+
+      } catch (err) {
+        alert("❌ Error unlocking script.");
+        console.error(err);
+      }
     }
 
     loadScripts();
@@ -175,21 +167,28 @@
       font-size: 14px;
     }
 
-    .btn {
-      background: var(--accent, #3b82f6);
+    button {
+      background-color: #3b82f6;
       color: white;
       padding: 10px;
-      border-radius: 6px;
-      text-decoration: none;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
     }
 
-    h1 {
-      font-size: 1.8rem;
-      margin: 20px 0;
+    button:hover {
+      opacity: 0.9;
     }
 
-    .small.gray {
-      font-size: 0.9rem;
+    pre {
+      font-family: monospace;
+      font-size: 0.95rem;
+      overflow-x: auto;
+    }
+
+    .small {
+      font-size: 0.85rem;
       color: gray;
     }
   </style>
