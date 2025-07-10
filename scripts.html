@@ -104,12 +104,15 @@
 <body>
 
   <div class="top-bar">
-    <div class="logo">
-      <img src="assets/logo.png" alt="Gomega Watch Logo">
-      <h1>Gomega Scripts</h1>
-    </div>
-    <button onclick="toggleDarkMode()">🌓 Toggle Dark Mode</button>
+  <div class="logo">
+    <img src="assets/logo.png" alt="Gomega Watch Logo">
+    <h1>Gomega Scripts</h1>
   </div>
+  <div style="display: flex; gap: 10px;">
+    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
+    <button onclick="location.href='settings.html'">⚙️ Settings</button>
+  </div>
+</div>
 
   <input class="search-box" id="searchBox" placeholder="Search scripts…" oninput="filterScripts()">
   <p id="scriptCount"></p>
