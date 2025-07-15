@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -31,32 +31,24 @@
 </head>
 <body>
   <h1>⚠️ Inf Mode</h1>
-  <p>This will open a series of ads. To stop, close this tab.</p>
-
-  <button onclick="startInfMode()">Enter Inf Mode</button>
+  <p>This page will automatically open ads. To stop, close this tab.</p>
 
   <div class="banner">
-    <!-- Embed the banner as a visible click option too -->
-    <a href="https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431" target="_blank">
-      <img src="https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431.mp4.jpg" alt="Banner" style="max-width:300px;">
+    <a href="https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1" target="_blank">
+      <img src="https://via.placeholder.com/300x250.png?text=Sponsored+Ad" alt="Ad Banner" style="max-width:300px;">
     </a>
   </div>
 
   <script>
-    const bannerUrl = "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431";
-    let adInterval;
-    function startInfMode() {
-      alert("Infinite Ad Mode started. Ads will open every 3-4 seconds. Close this tab to stop.");
+    // Immediately open both ads once page loads
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        // Open first ad in new tab
+        window.open("https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1", "_blank");
 
-      adInterval = setInterval(() => {
-        const popup = window.open(bannerUrl, "_blank");
-        if (popup) popup.blur();
-        window.focus();
-      }, 3090); // every 2 seconds
-    }
-
-    window.addEventListener("beforeunload", () => {
-      clearInterval(adInterval);
+        // Redirect current tab to second ad
+        window.location.href = "https://otieu.com/4/9573044";
+      }, 2000); // 2-second delay
     });
   </script>
 </body>
