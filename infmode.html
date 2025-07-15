@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -24,32 +24,45 @@
     button:hover {
       opacity: 0.9;
     }
-    .banner {
-      margin-top: 40px;
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
   <h1>⚠️ Inf Mode</h1>
-  <p>This page will automatically open ads. To stop, close this tab.</p>
+  <p>Click the button below to launch ad mode. The page will auto-close shortly after.</p>
 
-  <div class="banner">
-    <a href="https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1" target="_blank">
-      <img src="https://via.placeholder.com/300x250.png?text=Sponsored+Ad" alt="Ad Banner" style="max-width:300px;">
-    </a>
-  </div>
+  <button id="startBtn" onclick="startInfMode()">🚀 Start Inf Mode</button>
+  <p id="statusMsg" class="hidden">Launching ads...</p>
 
   <script>
-    // Immediately open both ads once page loads
-    window.addEventListener("load", () => {
-      setTimeout(() => {
-        // Open first ad in new tab
-        window.open("https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1", "_blank");
+    function startInfMode() {
+      const startBtn = document.getElementById("startBtn");
+      const statusMsg = document.getElementById("statusMsg");
 
-        // Redirect current tab to second ad
+      // Hide button, show status
+      startBtn.classList.add("hidden");
+      statusMsg.classList.remove("hidden");
+
+      // Open first ad in new tab
+      setTimeout(() => {
+        window.open(
+          "https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1",
+          "_blank"
+        );
+      }, 800);
+
+      // Redirect this tab to second ad
+      setTimeout(() => {
         window.location.href = "https://otieu.com/4/9573044";
-      }, 2000); // 2-second delay
-    });
+      }, 2000);
+
+      // Attempt to close tab after delay (works if user interaction triggered the open)
+      setTimeout(() => {
+        window.close();
+      }, 4000);
+    }
   </script>
 </body>
 </html>
