@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inf Mode – Gomega Watch</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 60px;
+      background: white;
+    }
+    h1 {
+      font-size: 2em;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      margin-top: 20px;
+      border: none;
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚠️ Inf Mode</h1>
+  <p>This mode will open rapid ads until you close the page. Continue?</p>
+  <button onclick="startInfMode()">Yes, Enter Inf Mode</button>
+
+  <!-- Banner ad moved from scripts.html -->
+  <div style="margin-top: 40px;">
+    <script async type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script> 
+    <ins class="eas6a97888e2" data-zoneid="5672278"></ins> 
+    <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
+  </div>
+
+  <script>
+    let adInterval;
+
+    function openAdWindow(url) {
+      const win = window.open(url, "_blank", "popup");
+      if (win) {
+        win.blur(); // Immediately push it behind
+        window.focus(); // Bring main window back
+      }
+    }
+
+    function startInfMode() {
+      alert("Infinite ad mode activated. To stop it, close this page.");
+
+      const adUrls = [
+        "https://your-ad-network.com/ad1",
+        "https://your-ad-network.com/ad2",
+        "https://your-ad-network.com/ad3"
+      ];
+
+      let i = 0;
+      adInterval = setInterval(() => {
+        openAdWindow(adUrls[i % adUrls.length]);
+        i++;
+      }, 2000); // Every 2 seconds
+    }
+
+    // Cleanup on page close
+    window.addEventListener("beforeunload", () => {
+      clearInterval(adInterval);
+    });
+  </script>
+</body>
+</html>
