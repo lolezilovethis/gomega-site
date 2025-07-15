@@ -31,12 +31,14 @@
 </head>
 <body>
   <h1>⚠️ Inf Mode</h1>
-  <p>Click the button below to launch ad mode. The page will auto-close shortly after.</p>
+  <p>Click the button below to begin infinite ad rotation. Close this tab to stop.</p>
 
   <button id="startBtn" onclick="startInfMode()">🚀 Start Inf Mode</button>
-  <p id="statusMsg" class="hidden">Launching ads...</p>
+  <p id="statusMsg" class="hidden">🔁 Looping ads... Keep this tab open to continue.</p>
 
   <script>
+    let loopActive = false;
+
     function startInfMode() {
       const startBtn = document.getElementById("startBtn");
       const statusMsg = document.getElementById("statusMsg");
@@ -45,24 +47,33 @@
       startBtn.classList.add("hidden");
       statusMsg.classList.remove("hidden");
 
-      // Open first ad in new tab
-      setTimeout(() => {
-        window.open(
-          "https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1",
-          "_blank"
-        );
-      }, 800);
+      loopActive = true;
+      loopAds();
+    }
 
-      // Redirect this tab to second ad
+    function loopAds() {
+      if (!loopActive) return;
+
+      // 1. Open first ad in new tab
+      window.open(
+        "https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1",
+        "_blank"
+      );
+
+      // 2. Redirect current tab to second ad after a short delay
       setTimeout(() => {
         window.location.href = "https://otieu.com/4/9573044";
       }, 2000);
 
-      // Attempt to close tab after delay (works if user interaction triggered the open)
+      // 3. Loop again after total delay (4 sec)
       setTimeout(() => {
-        window.close();
+        loopAds();
       }, 4000);
     }
+
+    window.addEventListener("beforeunload", () => {
+      loopActive = false; // Stop loop if user leaves page
+    });
   </script>
 </body>
 </html>
