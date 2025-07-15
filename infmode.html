@@ -46,13 +46,13 @@
     const bannerUrl = "https://otieu.com/4/9573044";
     let adInterval;
     function startInfMode() {
-      alert("Infinite Ad Mode started. Ads will open every 2 seconds. Close this tab to stop.");
+      alert("Infinite Ad Mode started. Ads will open every 3-4 seconds. Close this tab to stop.");
 
       adInterval = setInterval(() => {
         const popup = window.open(bannerUrl, "_blank");
         if (popup) popup.blur();
         window.focus();
-      }, 2000); // every 2 seconds
+      }, 3090); // every 2 seconds
     }
 
     window.addEventListener("beforeunload", () => {
