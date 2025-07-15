@@ -31,48 +31,37 @@
 </head>
 <body>
   <h1>⚠️ Inf Mode</h1>
-  <p>Click the button below to begin infinite ad rotation. Close this tab to stop.</p>
+  <p>Click the button to start infinite ad loop. This tab will remain open.</p>
 
   <button id="startBtn" onclick="startInfMode()">🚀 Start Inf Mode</button>
-  <p id="statusMsg" class="hidden">🔁 Looping ads... Keep this tab open to continue.</p>
+  <p id="statusMsg" class="hidden">🔁 Looping ads in new tabs... Leave this open.</p>
 
   <script>
-    let loopActive = false;
+    let loopInterval;
 
     function startInfMode() {
-      const startBtn = document.getElementById("startBtn");
-      const statusMsg = document.getElementById("statusMsg");
+      document.getElementById("startBtn").classList.add("hidden");
+      document.getElementById("statusMsg").classList.remove("hidden");
 
-      // Hide button, show status
-      startBtn.classList.add("hidden");
-      statusMsg.classList.remove("hidden");
+      alert("Inf Mode started. Ads will open every 4 seconds. Leave this tab open.");
 
-      loopActive = true;
-      loopAds();
+      loopInterval = setInterval(() => {
+        openAdLoop();
+      }, 4000); // every 4 seconds
     }
 
-    function loopAds() {
-      if (!loopActive) return;
+    function openAdLoop() {
+      const ad1 = "https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1";
+      const ad2 = "https://otieu.com/4/9573044";
 
-      // 1. Open first ad in new tab
-      window.open(
-        "https://lust-goddess.com/play?utm_campaign=bn_exo_300x250_entertainment_torrents_na&utm_content=gomega.watch&bnid=lg_ns_17.06.2025_300x250_1.png&land=direct_lg_na&noadult=1",
-        "_blank"
-      );
-
-      // 2. Redirect current tab to second ad after a short delay
+      window.open(ad1, "_blank");
       setTimeout(() => {
-        window.location.href = "https://otieu.com/4/9573044";
-      }, 2000);
-
-      // 3. Loop again after total delay (4 sec)
-      setTimeout(() => {
-        loopAds();
-      }, 4000);
+        window.open(ad2, "_blank");
+      }, 1000); // slight delay between ads
     }
 
     window.addEventListener("beforeunload", () => {
-      loopActive = false; // Stop loop if user leaves page
+      clearInterval(loopInterval);
     });
   </script>
 </body>
