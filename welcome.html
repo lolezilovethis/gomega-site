@@ -45,37 +45,48 @@
     const schoolInput = document.getElementById("schoolSelect");
 
     purposeSelect.addEventListener("change", () => {
-      if (purposeSelect.value === "games") {
-        schoolInput.style.display = "block";
-      } else {
-        schoolInput.style.display = "none";
-      }
+      schoolInput.style.display = (purposeSelect.value === "games") ? "block" : "none";
     });
 
     window.continueToNext = () => {
-      const email = currentUser?.email || "";
+      if (!currentUser) return;
+
+      const email = currentUser.email || "";
       const selected = purposeSelect.value;
 
-      // Check if they are a school admin but didn't select the role
-      const isSchoolEmail = /@(henrico\.k12\.va\.us|.*\.edu)$/i.test(email);
+      if (!selected) {
+        alert("Please select an option before continuing.");
+        return;
+      }
+
+      const isSchoolEmail = /(@henrico\.k12\.va\.us|\.edu)$/i.test(email);
+
       if (isSchoolEmail && selected !== "admin") {
-        alert("⚠️ Our systems have detected you are a school staff/admin.\nPlease select the box above to proceed to the staff admin page.");
+        alert("⚠️ Our systems have detected you are a school staff/admin.\nPlease select the admin option to proceed.");
         return;
       }
 
       if (selected === "admin") {
         if (isSchoolEmail) {
+          localStorage.setItem("userRoute", "admin-optout.html");
           window.location.href = "admin-optout.html";
         } else {
           alert("⚠️ Only school staff/teachers can access this section.");
         }
       } else if (selected === "games") {
         const school = document.getElementById("schoolName").value.trim();
-        if (!school) return alert("Please enter your school name.");
-        // Store in session or Firestore if needed
+        if (!school) {
+          alert("Please enter your school name.");
+          return;
+        }
         sessionStorage.setItem("selectedSchool", school);
-window.location.href = "schoolgames.html";
-      } else {
+        localStorage.setItem("userRoute", "schoolgames.html");
+        window.location.href = "schoolgames.html";
+      } else if (selected === "background") {
+        localStorage.setItem("userRoute", "background.html");
+        window.location.href = "background.html";
+      } else if (selected === "scripts") {
+        localStorage.setItem("userRoute", "scripts.html");
         window.location.href = "scripts.html";
       }
     };
