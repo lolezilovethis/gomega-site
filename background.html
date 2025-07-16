@@ -30,31 +30,25 @@
       const platform = document.getElementById("platform").value;
       const username = document.getElementById("username").value.trim();
       const resultsDiv = document.getElementById("results");
+      resultsDiv.style.display = "none";
       resultsDiv.innerHTML = "";
 
       if (!platform || !username) return alert("Please select a platform and enter a username.");
 
-      resultsDiv.style.display = "block";
       resultsDiv.innerHTML = `<p>Searching ${platform} for '${username}'...</p>`;
+      resultsDiv.style.display = "block";
 
       try {
         let profileURL = "";
-        let exists = false;
-
-        if (platform === "facebook") {
-          profileURL = `https://www.facebook.com/${username}`;
-        } else if (platform === "ebay") {
-          profileURL = `https://www.ebay.com/usr/${username}`;
-        } else if (platform === "instagram") {
-          profileURL = `https://www.instagram.com/${username}`;
-        } else if (platform === "twitter") {
-          profileURL = `https://twitter.com/${username}`;
-        }
+        if (platform === "facebook") profileURL = `https://www.facebook.com/${username}`;
+        else if (platform === "ebay") profileURL = `https://www.ebay.com/usr/${username}`;
+        else if (platform === "instagram") profileURL = `https://www.instagram.com/${username}`;
+        else if (platform === "twitter") profileURL = `https://twitter.com/${username}`;
+        else return;
 
         const res = await fetch(profileURL, { method: 'HEAD' });
-        exists = res.ok;
 
-        if (!exists) {
+        if (!res.ok) {
           resultsDiv.innerHTML = `<h2>No account found for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>`;
           return;
         }
@@ -63,13 +57,13 @@
           <h2>Results for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>
           <ul>
             <li><strong>Profile:</strong> <a href="${profileURL}" target="_blank">${profileURL}</a></li>
-            <li><strong>Status:</strong> Account found and is publicly visible</li>
-            <li><strong>Estimated Followers/Friends:</strong> Unavailable without login or API</li>
-            <li><strong>Creation Date:</strong> Unavailable without API access</li>
+            <li><strong>Status:</strong> ✅ Account found and is publicly visible</li>
+            <li><strong>Estimated Followers/Friends:</strong> ❓ Unavailable (platform login/API required)</li>
+            <li><strong>Creation Date:</strong> ❓ Not available without API</li>
           </ul>
         `;
-      } catch (error) {
-        resultsDiv.innerHTML = `<h2>Error retrieving account info for "${username}"</h2><p>${error.message}</p>`;
+      } catch (err) {
+        resultsDiv.innerHTML = `<h2>❌ Error checking "${username}" on ${platform}</h2><p>${err.message}</p>`;
       }
     }
   </script>
@@ -94,14 +88,15 @@
       margin-bottom: 0.5rem;
     }
   </style>
+
   <!-- Load Navbar and Ads -->
-<div id="shared-footer"></div>
-<script>
-  fetch("navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("shared-footer").innerHTML = html;
-    });
-</script>
+  <div id="shared-footer"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("shared-footer").innerHTML = html;
+      });
+  </script>
 </body>
 </html>
