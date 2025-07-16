@@ -17,7 +17,6 @@
       <option value="ebay">eBay</option>
       <option value="instagram">Instagram</option>
       <option value="twitter">Twitter</option>
-      <!-- Add more if needed -->
     </select>
 
     <input type="text" id="username" placeholder="Enter username" />
@@ -27,51 +26,51 @@
   </div>
 
   <script>
-    function runCheck() {
+    async function runCheck() {
       const platform = document.getElementById("platform").value;
       const username = document.getElementById("username").value.trim();
       const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "";
 
       if (!platform || !username) return alert("Please select a platform and enter a username.");
 
-      // Simulated data (you can replace this with real API later)
-      const fakeData = {
-        facebook: {
-          friends: Math.floor(Math.random() * 800),
-          created: "June 2012",
-          profileURL: `https://facebook.com/${username}`
-        },
-        ebay: {
-          rating: Math.floor(Math.random() * 1000),
-          created: "March 2015",
-          profileURL: `https://www.ebay.com/usr/${username}`
-        },
-        instagram: {
-          followers: Math.floor(Math.random() * 10000),
-          created: "January 2018",
-          profileURL: `https://instagram.com/${username}`
-        },
-        twitter: {
-          tweets: Math.floor(Math.random() * 20000),
-          created: "October 2014",
-          profileURL: `https://twitter.com/${username}`
-        }
-      };
-
-      const data = fakeData[platform];
-
-      resultsDiv.innerHTML = `
-        <h2>Results for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>
-        <ul>
-          ${Object.entries(data).map(([key, value]) => {
-            if (key === "profileURL") {
-              return `<li><strong>Profile:</strong> <a href="${value}" target="_blank">${value}</a></li>`;
-            }
-            return `<li><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</li>`;
-          }).join("")}
-        </ul>
-      `;
       resultsDiv.style.display = "block";
+      resultsDiv.innerHTML = `<p>Searching ${platform} for '${username}'...</p>`;
+
+      try {
+        let profileURL = "";
+        let exists = false;
+
+        if (platform === "facebook") {
+          profileURL = `https://www.facebook.com/${username}`;
+        } else if (platform === "ebay") {
+          profileURL = `https://www.ebay.com/usr/${username}`;
+        } else if (platform === "instagram") {
+          profileURL = `https://www.instagram.com/${username}`;
+        } else if (platform === "twitter") {
+          profileURL = `https://twitter.com/${username}`;
+        }
+
+        const res = await fetch(profileURL, { method: 'HEAD' });
+        exists = res.ok;
+
+        if (!exists) {
+          resultsDiv.innerHTML = `<h2>No account found for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>`;
+          return;
+        }
+
+        resultsDiv.innerHTML = `
+          <h2>Results for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>
+          <ul>
+            <li><strong>Profile:</strong> <a href="${profileURL}" target="_blank">${profileURL}</a></li>
+            <li><strong>Status:</strong> Account found and is publicly visible</li>
+            <li><strong>Estimated Followers/Friends:</strong> Unavailable without login or API</li>
+            <li><strong>Creation Date:</strong> Unavailable without API access</li>
+          </ul>
+        `;
+      } catch (error) {
+        resultsDiv.innerHTML = `<h2>Error retrieving account info for "${username}"</h2><p>${error.message}</p>`;
+      }
     }
   </script>
 
