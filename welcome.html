@@ -27,8 +27,10 @@
 
   <script type="module">
     import { auth } from './js/firebase.js';
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+    const db = getFirestore();
     let currentUser = null;
 
     onAuthStateChanged(auth, user => {
@@ -48,37 +50,44 @@
       schoolInput.style.display = (purposeSelect.value === "games") ? "block" : "none";
     });
 
-    window.continueToNext = () => {
+    async function logPurpose(purpose) {
+      try {
+        await addDoc(collection(db, "userPurposeLogs"), {
+          email: currentUser.email,
+          purpose: purpose,
+          timestamp: serverTimestamp()
+        });
+      } catch (e) {
+        console.error("Error logging purpose:", e);
+      }
+    }
+
+    window.continueToNext = async () => {
       if (!currentUser) return;
 
       const email = currentUser.email || "";
       const selected = purposeSelect.value;
-
-      if (!selected) {
-        alert("Please select an option before continuing.");
-        return;
-      }
-
       const isSchoolEmail = /(@henrico\.k12\.va\.us|\.edu)$/i.test(email);
 
+      if (!selected) return alert("Please select an option.");
+
       if (isSchoolEmail && selected !== "admin") {
-        alert("⚠️ Our systems have detected you are a school staff/admin.\nPlease select the admin option to proceed.");
+        alert("⚠️ Our systems detected you're school staff.\nPlease select 'I am a School Administrator'.");
         return;
       }
+
+      await logPurpose(selected);
 
       if (selected === "admin") {
         if (isSchoolEmail) {
           localStorage.setItem("userRoute", "admin-optout.html");
           window.location.href = "admin-optout.html";
         } else {
-          alert("⚠️ Only school staff/teachers can access this section.");
+          alert("⚠️ Only verified school staff may access this section.");
         }
       } else if (selected === "games") {
         const school = document.getElementById("schoolName").value.trim();
-        if (!school) {
-          alert("Please enter your school name.");
-          return;
-        }
+        if (!school) return alert("Please enter your school name.");
         sessionStorage.setItem("selectedSchool", school);
         localStorage.setItem("userRoute", "schoolgames.html");
         window.location.href = "schoolgames.html";

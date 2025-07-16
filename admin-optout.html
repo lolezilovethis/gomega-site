@@ -1,34 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>School Admin Panel – Gomega</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>🏫 School Administrator Panel</h1>
-    <p>This section is reserved for verified school staff or IT admins.</p>
+    <h1>📚 School Administrator Panel</h1>
+    <p>You can opt your school out of this website or request moderation features.</p>
 
-    <form onsubmit="submitOptout(event)">
-      <input type="text" id="schoolName" placeholder="Your School Name" required />
-      <textarea id="message" placeholder="Why do you want to opt out? (optional)" rows="4"></textarea>
-      <button type="submit">Submit Opt-Out Request</button>
-    </form>
-
-    <p class="small">Need to contact us directly? Email <b>admin@gomega.watch</b></p>
+    <textarea id="reason" placeholder="Explain why you want to opt out or what features you need..." rows="6" style="width: 100%;"></textarea>
+    <button onclick="submitOptOut()">Submit Request</button>
   </div>
 
-  <script>
-    function submitOptout(e) {
-      e.preventDefault();
-      const school = document.getElementById("schoolName").value.trim();
-      const msg = document.getElementById("message").value.trim();
-      alert(`✅ Your request for ${school} has been submitted. We will review it shortly.`);
-      // Optional: push to Firestore later
-      document.querySelector("form").reset();
-    }
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    onAuthStateChanged(auth, user => {
+      const cameFromWelcome = localStorage.getItem("userRoute") === "admin-optout.html";
+      const isSchoolEmail = /(@henrico\.k12\.va\.us|\.edu)$/i.test(user?.email || "");
+
+      if (!user || !cameFromWelcome || !isSchoolEmail) {
+        alert("Access denied: Admin-only section.");
+        location.href = "welcome.html";
+      } else {
+        window.currentEmail = user.email;
+      }
+    });
+
+    window.submitOptOut = async () => {
+      const reason = document.getElementById("reason").value.trim();
+      if (!reason) return alert("Please describe your request.");
+
+      const content = `📬 **New School Opt-Out Request**
+**Email:** ${window.currentEmail}
+**Reason:** ${reason}`;
+
+      try {
+        await fetch("https://discord.com/api/webhooks/1395130152584876195/inn8hj4U9DFU8Q1ppNBdsJx8vDgCYF1WhC7bf49ECQmRLMAE9eT7j5Q9Jcf49ny-9Gxc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content })
+        });
+        alert("✅ Your request has been sent to our team.");
+        document.getElementById("reason").value = "";
+      } catch (err) {
+        alert("❌ Failed to send request. Try again later.");
+        console.error(err);
+      }
+    };
   </script>
 </body>
 </html>
