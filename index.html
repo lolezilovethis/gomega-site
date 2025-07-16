@@ -2,11 +2,10 @@
 <html lang="en">
 <head> 
   <meta name="6a97888e-site-verification" content="656cbdacb3adda896e7a9e35d052f6a3">
-  <title>Scripts – Gomega Watch</title>
-<meta name="description" content="Gomega Watch is your ultimate hub for free Roblox scripts. Browse, search, and unlock powerful scripts for your favorite games — fast, safe, and regularly updated.">
+  <title>Gomega.Watch</title>
+  <meta name="description" content="Gomega Watch is your ultimate hub for free Roblox scripts. Browse, search, and unlock powerful scripts for your favorite games — fast, safe, and regularly updated.">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gomega.Watch</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
@@ -36,8 +35,16 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
+    const savedRoute = localStorage.getItem("userRoute");
+
     onAuthStateChanged(auth, user => {
-      if (user) window.location.href = "scripts.html";
+      if (user && savedRoute) {
+        // Redirect to the last selected page
+        window.location.href = savedRoute;
+      } else if (user) {
+        // No page chosen yet — go to welcome screen
+        window.location.href = "welcome.html";
+      }
     });
 
     const theme = localStorage.getItem("theme");
