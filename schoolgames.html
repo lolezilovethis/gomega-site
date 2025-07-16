@@ -1,0 +1,106 @@
+<!-- schoolgames.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Games – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Welcome to School Games</h1>
+    <p class="subtitle">Enjoy games picked just for students like you!</p>
+
+    <div id="gamesList" class="game-grid">
+      <!-- Games will load here -->
+    </div>
+  </div>
+
+  <script type="module">
+    // Optional: Save/retrieve selected school from sessionStorage
+    const schoolName = sessionStorage.getItem("selectedSchool");
+    if (!schoolName) {
+      alert("You must select your school first.");
+      window.location.href = "welcome.html";
+    }
+
+    const games = [
+      {
+        name: "Slope",
+        url: "https://example.com/slope",
+        thumbnail: "assets/games/slope.png"
+      },
+      {
+        name: "Retro Bowl",
+        url: "https://example.com/retrobowl",
+        thumbnail: "assets/games/retrobowl.png"
+      },
+      {
+        name: "Subway Surfers",
+        url: "https://example.com/subway",
+        thumbnail: "assets/games/subway.png"
+      },
+      {
+        name: "2048",
+        url: "https://example.com/2048",
+        thumbnail: "assets/games/2048.png"
+      },
+      // Add more games here
+    ];
+
+    const container = document.getElementById("gamesList");
+    games.forEach(game => {
+      const div = document.createElement("div");
+      div.className = "game-card";
+      div.innerHTML = `
+        <img src="${game.thumbnail}" alt="${game.name}">
+        <h3>${game.name}</h3>
+        <a href="${game.url}" target="_blank" class="btn">Play</a>
+      `;
+      container.appendChild(div);
+    });
+  </script>
+
+  <style>
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .game-card {
+      background: var(--card-bg, #f0f0f0);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .game-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .game-card h3 {
+      margin: 10px 0;
+    }
+
+    .game-card .btn {
+      background: #00bcd4;
+      color: white;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    .game-card .btn:hover {
+      background: #0097a7;
+    }
+  </style>
+</body>
+</html>

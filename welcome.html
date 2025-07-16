@@ -73,7 +73,8 @@
         const school = document.getElementById("schoolName").value.trim();
         if (!school) return alert("Please enter your school name.");
         // Store in session or Firestore if needed
-        window.location.href = "scripts.html";
+        sessionStorage.setItem("selectedSchool", school);
+window.location.href = "schoolgames.html";
       } else {
         window.location.href = "scripts.html";
       }
