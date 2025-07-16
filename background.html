@@ -94,5 +94,14 @@
       margin-bottom: 0.5rem;
     }
   </style>
+  <!-- Load Navbar and Ads -->
+<div id="shared-footer"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("shared-footer").innerHTML = html;
+    });
+</script>
 </body>
 </html>
