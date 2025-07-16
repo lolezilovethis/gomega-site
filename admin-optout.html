@@ -1,65 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>School Admin Panel – Gomega</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Administrator Opt-Out – Gomega</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>📚 School Administrator Panel</h1>
-    <p>You can opt your school out of this website or request moderation features.</p>
+    <h1>📋 Administrator Portal</h1>
+    <p class="subtitle">This page is for verified school staff to request removal or management of their school's access.</p>
 
-    <textarea id="reason" placeholder="Explain why you want to opt out or what features you need..." rows="6" style="width: 100%;"></textarea>
-    <button onclick="submitOptOut()">Submit Request</button>
+    <form onsubmit="sendOptOut(event)">
+      <input type="text" id="schoolName" placeholder="School Name" required>
+      <input type="email" id="adminEmail" placeholder="Official School Email" required>
+      <textarea id="reason" placeholder="Reason for opt-out or feedback..." required></textarea>
+      <button type="submit">Submit Opt-Out Request</button>
+    </form>
+
+    <div id="result" style="margin-top: 1rem;"></div>
   </div>
 
-  <script type="module">
-    import { auth } from './js/firebase.js';
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <script>
+    async function sendOptOut(event) {
+      event.preventDefault();
+      const school = document.getElementById("schoolName").value;
+      const email = document.getElementById("adminEmail").value;
+      const reason = document.getElementById("reason").value;
 
-    onAuthStateChanged(auth, user => {
-      const cameFromWelcome = localStorage.getItem("userRoute") === "admin-optout.html";
-      const isSchoolEmail = /(@henrico\.k12\.va\.us|\.edu)$/i.test(user?.email || "");
+      const content = {
+        content: `🚫 **New Opt-Out Request**
+**School:** ${school}
+**Email:** ${email}
+**Reason:** ${reason}`
+      };
 
-      if (!user || !cameFromWelcome || !isSchoolEmail) {
-        alert("Access denied: Admin-only section.");
-        location.href = "welcome.html";
-      } else {
-        window.currentEmail = user.email;
-      }
-    });
-
-    window.submitOptOut = async () => {
-      const reason = document.getElementById("reason").value.trim();
-      if (!reason) return alert("Please describe your request.");
-
-      const content = `📬 **New School Opt-Out Request**
-**Email:** ${window.currentEmail}
-**Reason:** ${reason}`;
-
+      const resBox = document.getElementById("result");
       try {
         await fetch("https://discord.com/api/webhooks/1395130152584876195/inn8hj4U9DFU8Q1ppNBdsJx8vDgCYF1WhC7bf49ECQmRLMAE9eT7j5Q9Jcf49ny-9Gxc", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content })
+          body: JSON.stringify(content)
         });
-        alert("✅ Your request has been sent to our team.");
-        document.getElementById("reason").value = "";
+        resBox.innerHTML = "<p style='color:green;'>✅ Request sent successfully!</p>";
       } catch (err) {
-        alert("❌ Failed to send request. Try again later.");
-        console.error(err);
+        resBox.innerHTML = "<p style='color:red;'>❌ Failed to send. Try again later.</p>";
       }
-    };
+    }
   </script>
-  <!-- Load Navbar and Ads -->
-<div id="shared-footer"></div>
-<script>
-  fetch("navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("shared-footer").innerHTML = html;
-    });
-</script>
+
+  <style>
+    form {
+      display: flex;
+      flex-direction: column;
+      max-width: 500px;
+      gap: 10px;
+      margin: auto;
+    }
+    input, textarea {
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 12px;
+      background: #e74c3c;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+
+  <div id="shared-footer"></div>
+  <script>
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("shared-footer").innerHTML = html;
+      });
+  </script>
 </body>
 </html>
