@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Welcome – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container center">
+    <h1 id="welcomeMsg">Welcome back!</h1>
+    <p>What are you using Gomega for this time?</p>
+
+    <select id="purpose">
+      <option disabled selected>Select an option</option>
+      <option value="scripts">Roblox Scripts</option>
+      <option value="background">Background Checks</option>
+      <option value="games">School Games</option>
+      <option value="admin">I am a School Administrator</option>
+    </select>
+
+    <div id="schoolSelect" style="display:none;">
+      <input type="text" id="schoolName" placeholder="Enter your school name">
+    </div>
+
+    <button onclick="continueToNext()">Continue</button>
+  </div>
+
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        location.href = "signin.html";
+      } else {
+        currentUser = user;
+        document.getElementById("welcomeMsg").innerText =
+          `Welcome back, ${user.displayName || user.email}!`;
+      }
+    });
+
+    const purposeSelect = document.getElementById("purpose");
+    const schoolInput = document.getElementById("schoolSelect");
+
+    purposeSelect.addEventListener("change", () => {
+      if (purposeSelect.value === "games") {
+        schoolInput.style.display = "block";
+      } else {
+        schoolInput.style.display = "none";
+      }
+    });
+
+    window.continueToNext = () => {
+      const email = currentUser?.email || "";
+      const selected = purposeSelect.value;
+
+      // Check if they are a school admin but didn't select the role
+      const isSchoolEmail = /@(henrico\.k12\.va\.us|.*\.edu)$/i.test(email);
+      if (isSchoolEmail && selected !== "admin") {
+        alert("⚠️ Our systems have detected you are a school staff/admin.\nPlease select the box above to proceed to the staff admin page.");
+        return;
+      }
+
+      if (selected === "admin") {
+        if (isSchoolEmail) {
+          window.location.href = "admin-optout.html";
+        } else {
+          alert("⚠️ Only school staff/teachers can access this section.");
+        }
+      } else if (selected === "games") {
+        const school = document.getElementById("schoolName").value.trim();
+        if (!school) return alert("Please enter your school name.");
+        // Store in session or Firestore if needed
+        window.location.href = "scripts.html";
+      } else {
+        window.location.href = "scripts.html";
+      }
+    };
+  </script>
+</body>
+</html>
