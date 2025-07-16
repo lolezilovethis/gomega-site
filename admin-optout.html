@@ -1,3 +1,34 @@
-<h1>School Administrator Portal</h1>
-<p>I would like to opt out my school from this website or manage admin features.</p>
-<!-- Add your admin tools here -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Admin Panel – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container center">
+    <h1>🏫 School Administrator Panel</h1>
+    <p>This section is reserved for verified school staff or IT admins.</p>
+
+    <form onsubmit="submitOptout(event)">
+      <input type="text" id="schoolName" placeholder="Your School Name" required />
+      <textarea id="message" placeholder="Why do you want to opt out? (optional)" rows="4"></textarea>
+      <button type="submit">Submit Opt-Out Request</button>
+    </form>
+
+    <p class="small">Need to contact us directly? Email <b>admin@gomega.watch</b></p>
+  </div>
+
+  <script>
+    function submitOptout(e) {
+      e.preventDefault();
+      const school = document.getElementById("schoolName").value.trim();
+      const msg = document.getElementById("message").value.trim();
+      alert(`✅ Your request for ${school} has been submitted. We will review it shortly.`);
+      // Optional: push to Firestore later
+      document.querySelector("form").reset();
+    }
+  </script>
+</body>
+</html>

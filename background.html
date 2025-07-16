@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Background Checks – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container center">
+    <h1>🔍 Background Checks</h1>
+    <p class="subtitle">Check social or marketplace profiles using a username</p>
+
+    <select id="platform">
+      <option disabled selected>Select Platform</option>
+      <option value="facebook">Facebook</option>
+      <option value="ebay">eBay</option>
+      <option value="instagram">Instagram</option>
+      <option value="twitter">Twitter</option>
+      <!-- Add more if needed -->
+    </select>
+
+    <input type="text" id="username" placeholder="Enter username" />
+    <button onclick="runCheck()">Run Check</button>
+
+    <div id="results" class="results-box" style="display:none;"></div>
+  </div>
+
+  <script>
+    function runCheck() {
+      const platform = document.getElementById("platform").value;
+      const username = document.getElementById("username").value.trim();
+      const resultsDiv = document.getElementById("results");
+
+      if (!platform || !username) return alert("Please select a platform and enter a username.");
+
+      // Simulated data (you can replace this with real API later)
+      const fakeData = {
+        facebook: {
+          friends: Math.floor(Math.random() * 800),
+          created: "June 2012",
+          profileURL: `https://facebook.com/${username}`
+        },
+        ebay: {
+          rating: Math.floor(Math.random() * 1000),
+          created: "March 2015",
+          profileURL: `https://www.ebay.com/usr/${username}`
+        },
+        instagram: {
+          followers: Math.floor(Math.random() * 10000),
+          created: "January 2018",
+          profileURL: `https://instagram.com/${username}`
+        },
+        twitter: {
+          tweets: Math.floor(Math.random() * 20000),
+          created: "October 2014",
+          profileURL: `https://twitter.com/${username}`
+        }
+      };
+
+      const data = fakeData[platform];
+
+      resultsDiv.innerHTML = `
+        <h2>Results for "${username}" on ${platform.charAt(0).toUpperCase() + platform.slice(1)}</h2>
+        <ul>
+          ${Object.entries(data).map(([key, value]) => {
+            if (key === "profileURL") {
+              return `<li><strong>Profile:</strong> <a href="${value}" target="_blank">${value}</a></li>`;
+            }
+            return `<li><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</li>`;
+          }).join("")}
+        </ul>
+      `;
+      resultsDiv.style.display = "block";
+    }
+  </script>
+
+  <style>
+    .results-box {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #f9f9f9;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      max-width: 600px;
+    }
+    .results-box h2 {
+      margin-bottom: 1rem;
+    }
+    .results-box ul {
+      list-style: none;
+      padding: 0;
+    }
+    .results-box li {
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</body>
+</html>
