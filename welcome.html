@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Welcome – Gomega</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -27,26 +27,28 @@
   </div>
 
   <script type="module">
-    // ⬇️ Redirect only if not reset
-    const params = new URLSearchParams(location.search);
-    const isReset = params.get("reset") === "true";
-    const storedRoute = localStorage.getItem("userRoute");
-
-    if (storedRoute && !isReset) {
-      window.location.href = storedRoute;
-    }
-
-    // Optional: Clean up ?reset=true from the URL
-    if (isReset) {
-      history.replaceState(null, "", "welcome.html");
-    }
-
     import { auth } from './js/firebase.js';
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const db = getFirestore();
     let currentUser = null;
+
+    // Wait for DOM to fully load before running redirect logic
+    window.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(location.search);
+      const isReset = params.get("reset") === "true";
+      const storedRoute = localStorage.getItem("userRoute");
+
+      if (storedRoute && !isReset) {
+        window.location.href = storedRoute;
+      }
+
+      // Optional: clean up URL
+      if (isReset) {
+        history.replaceState(null, "", "welcome.html");
+      }
+    });
 
     onAuthStateChanged(auth, user => {
       if (!user) {
@@ -115,7 +117,6 @@
       }
     };
 
-    // Reset stored route and go to welcome with reset flag
     window.resetRoute = () => {
       localStorage.removeItem("userRoute");
       location.href = "welcome.html?reset=true";
