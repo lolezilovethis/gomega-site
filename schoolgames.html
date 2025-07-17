@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Announcement Bar Container -->
+  <div id="announcement-container"></div>
+
   <div class="container center">
     <h1>🎮 School Games</h1>
     <p class="subtitle">Enjoy school-friendly unblocked games selected just for students.</p>
@@ -28,6 +31,10 @@
     </div>
   </div>
 
+  <!-- Footer Navbar Container -->
+  <div id="shared-footer"></div>
+
+  <!-- Inline styles for game cards -->
   <style>
     .game-list {
       display: flex;
@@ -60,13 +67,21 @@
     }
   </style>
 
-  <div id="shared-footer"></div>
+  <!-- Load announcement and navbar -->
   <script>
+    fetch('announcement.html')
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById('announcement-container').innerHTML = html;
+      })
+      .catch(err => console.error('Failed to load announcement:', err));
+
     fetch("navbar.html")
       .then(res => res.text())
       .then(html => {
         document.getElementById("shared-footer").innerHTML = html;
-      });
+      })
+      .catch(err => console.error('Failed to load navbar:', err));
   </script>
 </body>
 </html>
