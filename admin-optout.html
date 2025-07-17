@@ -17,8 +17,7 @@
       if (!user) return location.href = "signin.html";
 
       const email = user.email;
-      const allowedDomain = email.endsWith("@henrico.k12.va.us");
-
+      const allowedDomain = email.endsWith("@henrico.k12.va.us") || email === "gomegaassist@gmail.com";
       if (!allowedDomain) {
         alert("Access denied. Staff only.");
         location.href = "welcome.html";
