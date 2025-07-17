@@ -37,6 +37,10 @@
     <h3>🧼 Clear Local Data</h3>
     <button onclick="clearLocalData()">Clear All Local Data</button>
 
+    <!-- 🔁 Switch Purpose -->
+    <h3>🔁 Switch Purpose</h3>
+    <button onclick="switchPurpose()">Switch Page</button>
+
     <!-- Delete account -->
     <h3>🗑️ Delete Account</h3>
     <button onclick="deleteAccount()">Delete My Account</button>
@@ -65,7 +69,7 @@
       onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // Dark mode
+    // Dark mode toggle
     const toggle = document.getElementById("darkToggle");
     if (localStorage.getItem("theme") === "dark") {
       document.documentElement.classList.add("dark");
@@ -142,7 +146,13 @@
       }
     };
 
-    // Dynamic Back Link Setup
+    // 🔁 Switch Page / Reset Purpose
+    window.switchPurpose = function() {
+      localStorage.removeItem("userRoute");
+      location.href = "welcome.html?reset=true";
+    };
+
+    // Back link setup
     const backLink = document.getElementById("backLink");
     const previousPage = sessionStorage.getItem("previousPage");
     if (previousPage && previousPage !== "/settings.html") {
