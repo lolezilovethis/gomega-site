@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Opt-Out Portal</title>
+
   <script type="module">
     import { auth, db } from './js/firebase.js';
     import {
@@ -204,7 +205,18 @@
     <p class="subtitle">Only verified school staff can use this page.</p>
 
     <form onsubmit="sendOptOut(event)">
-      <input type="text" id="schoolName" placeholder="School Name" required>
-      <input type="email" id="adminEmail" placeholder="School Email" required>
+      <input type="text" id="schoolName" placeholder="School Name" required />
+      <input type="email" id="adminEmail" placeholder="School Email" required />
       <textarea id="reason" placeholder="Reason for opt-out..." required></textarea>
-      <button type="submit
+      <button type="submit">Submit Request</button>
+    </form>
+
+    <div id="result"></div>
+
+    <hr />
+
+    <h2>📂 Submitted Requests</h2>
+    <div id="requests"></div>
+  </div>
+</body>
+</html>
