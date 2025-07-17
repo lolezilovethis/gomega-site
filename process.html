@@ -33,57 +33,62 @@
   <h1>Processing...</h1>
   <div class="status" id="status">Please wait while we update the request.</div>
 
- <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-  // Your actual Firebase config here (REPLACE THESE VALUES)
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+    // ✅ Replace with your actual Firebase config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-  const params = new URLSearchParams(location.search);
-  const id = params.get("id");
-  const action = params.get("action");
-  const statusDiv = document.getElementById("status");
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    const action = params.get("action");
+    const statusDiv = document.getElementById("status");
 
-  const setStatus = (message, isError = false) => {
-    statusDiv.textContent = message;
-    statusDiv.className = "status " + (isError ? "error" : "success");
-  };
+    const setStatus = (message, isError = false) => {
+      statusDiv.textContent = message;
+      statusDiv.className = "status " + (isError ? "error" : "success");
+    };
 
-  if (!id || !["approve", "reject"].includes(action)) {
-    setStatus("⚠️ Invalid or missing parameters in URL.", true);
-  } else {
-    onAuthStateChanged(auth, async user => {
-      if (!user) {
-        setStatus("❌ You must be signed in to process requests.", true);
-        return;
-      }
+    if (!id || !["approve", "reject"].includes(action)) {
+      setStatus("⚠️ Invalid or missing parameters in URL.", true);
+    } else {
+      onAuthStateChanged(auth, async user => {
+        try {
+          if (!user) {
+            // Try to sign in
+            const result = await signInWithPopup(auth, provider);
+            user = result.user;
+          }
 
-      const statusValue = action === "approve" ? "approved" : "declined";
+          const statusValue = action === "approve" ? "approved" : "declined";
 
-      try {
-        await updateDoc(doc(db, "optOutRequests", id), { status: statusValue });
-        setStatus(`✅ Successfully marked as "${statusValue}".`);
-        document.querySelector("h1").textContent = "Success!";
-      } catch (err) {
-        console.error("Update failed:", err);
-        setStatus("❌ Failed to update request. Please try again later.", true);
-        document.querySelector("h1").textContent = "Error";
-      }
-    });
-  }
-</script>
+          await updateDoc(doc(db, "optOutRequests", id), {
+            status: statusValue
+          });
+
+          setStatus(`✅ Successfully marked as "${statusValue}".`);
+          document.querySelector("h1").textContent = "Success!";
+        } catch (err) {
+          console.error("Update failed:", err);
+          setStatus("❌ Failed to update request. Please try again later.", true);
+          document.querySelector("h1").textContent = "Error";
+        }
+      });
+    }
+  </script>
 </body>
 </html>
