@@ -52,7 +52,7 @@
   <div class="status" id="status">Please wait while we update the request.</div>
   <div id="adminMessage" class="admin-msg" style="display:none;">
     <p>Our systems have detected you're a school admin. Please click the button below to be redirected to our staff-only page.</p>
-    <a class="admin-btn" href="/staff.html">Go to Staff Page</a>
+    <a class="admin-btn" href="/admin.html">Go to Admin Page</a>
   </div>
 
   <script type="module">
@@ -85,6 +85,10 @@
       statusDiv.className = "status " + (isError ? "error" : "success");
     };
 
+    function isSchoolAdmin(email) {
+      return email === "gomegaassist@gmail.com" || email.endsWith("@henrico.k12.va.us");
+    }
+
     if (!id || !["approve", "reject"].includes(action)) {
       setStatus("⚠️ Invalid or missing parameters in URL.", true);
     } else {
@@ -95,6 +99,7 @@
             user = result.user;
           }
 
+          const email = user.email.toLowerCase();
           const statusValue = action === "approve" ? "approved" : "declined";
 
           await updateDoc(doc(db, "optOutRequests", id), {
@@ -104,7 +109,7 @@
           setStatus(`✅ Successfully marked as "${statusValue}".`);
           document.querySelector("h1").textContent = "Success!";
 
-          if (user.email === "gomegaassist@gmail.com") {
+          if (isSchoolAdmin(email)) {
             adminMessage.style.display = "block";
           }
         } catch (err) {
