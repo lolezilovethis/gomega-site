@@ -6,12 +6,13 @@
   <title>Admin Opt-Out Portal</title>
   <script type="module">
     import { auth, db } from './js/firebase.js';
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
       collection,
       addDoc,
       getDocs,
-      updateDoc,
       doc,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -49,15 +50,25 @@
           submittedAt: serverTimestamp()
         });
 
-        const approveUrl = `https://gomega.watch/process.html?id=${docRef.id}&action=approve`;
-        const rejectUrl = `https://gomega.watch/process.html?id=${docRef.id}&action=reject`;
+        const id = docRef.id;
+
+        const approveUrl = `https://gomega.watch/process.html?id=${id}&action=approve`;
+        const rejectUrl = `https://gomega.watch/process.html?id=${id}&action=reject`;
+
+        const message = {
+          content: `📥 **New Opt-Out Request**
+**School:** ${school}
+**Email:** ${email}
+**Reason:** ${reason}
+
+✅ [Approve](${approveUrl})
+❌ [Reject](${rejectUrl})`
+        };
 
         await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: `📥 **New Opt-Out Request**\n**School:** ${school}\n**Email:** ${email}\n**Reason:** ${reason}\n\n✅ [Approve](${approveUrl})\n❌ [Reject](${rejectUrl})`
-          })
+          body: JSON.stringify(message)
         });
 
         document.getElementById("result").innerHTML = "<p class='success'>✅ Request submitted.</p>";
@@ -82,25 +93,14 @@
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
-          const id = docSnap.id;
-
           const div = document.createElement("div");
           div.className = "request-card";
-
-          let controls = "";
-          if (data.status === "pending") {
-            controls = `
-              <button onclick="process('${id}', 'approve', '${data.email}', '${data.school}')">Approve</button>
-              <button onclick="process('${id}', 'reject', '${data.email}', '${data.school}')">Decline</button>
-            `;
-          }
 
           div.innerHTML = `
             <p><strong>School:</strong> ${data.school}</p>
             <p><strong>Email:</strong> ${data.email}</p>
             <p><strong>Reason:</strong> ${data.reason}</p>
             <p><strong>Status:</strong> ${data.status}</p>
-            ${controls}
           `;
 
           container.appendChild(div);
@@ -110,23 +110,6 @@
         container.innerHTML = "<p class='error'>❌ Failed to load requests.</p>";
       }
     }
-
-    window.process = async function(id, action, email, school) {
-      try {
-        const docRef = doc(db, "optOutRequests", id);
-        const newStatus = action === "approve" ? "approved" : "declined";
-        await updateDoc(docRef, { status: newStatus });
-
-        alert(action === "approve"
-          ? "✅ Approved. Note: It may take up to 7 days to delete and IP-ban all users from that school."
-          : "❌ Request declined and user notified.");
-
-        loadRequests();
-      } catch (err) {
-        console.error("Process error:", err);
-        alert("❌ Failed to update request.");
-      }
-    };
   </script>
 
   <style>
@@ -224,13 +207,4 @@
       <input type="text" id="schoolName" placeholder="School Name" required>
       <input type="email" id="adminEmail" placeholder="School Email" required>
       <textarea id="reason" placeholder="Reason for opt-out..." required></textarea>
-      <button type="submit">Submit Request</button>
-    </form>
-
-    <div id="result"></div>
-    <hr>
-    <h2>📄 Review Requests</h2>
-    <div id="requests"></div>
-  </div>
-</body>
-</html>
+      <button type="submit
