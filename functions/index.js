@@ -1,59 +1,55 @@
 const functions = require("firebase-functions");
-const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 
-admin.initializeApp();
+const GMAIL_USER = "your-email@gmail.com";
+const GMAIL_PASS = "your-app-password";
 
-// Load Gmail credentials from environment
-const gmailEmail = functions.config().email.user;
-const gmailPass = functions.config().email.pass;
-
-// Create reusable email sender
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: gmailEmail,
-    pass: gmailPass
+    user: GMAIL_USER,
+    pass: GMAIL_PASS,
+  },
+});
+
+exports.sendEmail = functions.https.onRequest(async (req, res) => {
+  const { type, email, school } = req.body;
+
+  if (!email || !school || !type) {
+    return res.status(400).send("Missing required fields.");
   }
-});
 
-// General-purpose email sender
-function sendEmail(to, subject, htmlContent) {
-  const mailOptions = {
-    from: `"Gomega Watch" <${gmailEmail}>`,
-    to,
-    subject,
-    html: htmlContent
-  };
-  return transporter.sendMail(mailOptions);
-}
+  let subject = "";
+  let text = "";
 
-// 📤 Send confirmation email
-exports.sendSubmissionEmail = functions.https.onCall(async (data, context) => {
-  const { email, school } = data;
-  await sendEmail(
-    email,
-    `Opt-Out Request Received for ${school}`,
-    `<p>📨 We've received your opt-out request for <strong>${school}</strong>.</p><p>Our team will review and respond soon.</p>`
-  );
-});
+  switch (type) {
+    case "submitted":
+      subject = "Opt-Out Request Submitted";
+      text = `Your request to opt-out "${school}" has been received and is pending review.`;
+      break;
+    case "approved":
+      subject = "Opt-Out Request Approved";
+      text = `Your request for "${school}" has been approved.\n\nIt may take up to 7 days to delete and IP-ban all users from this school. Please be patient.`;
+      break;
+    case "declined":
+      subject = "Opt-Out Request Declined";
+      text = `Your request to opt-out "${school}" has been declined. Contact support for help.`;
+      break;
+    default:
+      return res.status(400).send("Invalid email type.");
+  }
 
-// ✅ Send approval email
-exports.sendApprovalEmail = functions.https.onCall(async (data, context) => {
-  const { email, school } = data;
-  await sendEmail(
-    email,
-    `✅ Approved: ${school}`,
-    `<p>🎉 Your opt-out request for <strong>${school}</strong> has been <strong>approved</strong>.</p><p>Your school will be removed from the platform within 7 days.</p>`
-  );
-});
+  try {
+    await transporter.sendMail({
+      from: `"Gomega Admin" <${GMAIL_USER}>`,
+      to: email,
+      subject,
+      text,
+    });
 
-// ❌ Send rejection email
-exports.sendRejectionEmail = functions.https.onCall(async (data, context) => {
-  const { email, school } = data;
-  await sendEmail(
-    email,
-    `❌ Rejected: ${school}`,
-    `<p>Your opt-out request for <strong>${school}</strong> has been <strong>rejected</strong>.</p><p>If this is a mistake, please contact support.</p>`
-  );
+    return res.status(200).send("Email sent.");
+  } catch (err) {
+    console.error("Email send error:", err);
+    return res.status(500).send("Failed to send email.");
+  }
 });
