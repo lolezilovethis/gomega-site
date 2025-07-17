@@ -34,7 +34,7 @@
     const db = getFirestore();
     let currentUser = null;
 
-    // Wait for DOM to fully load before running redirect logic
+    // Redirect logic AFTER DOM is loaded
     window.addEventListener("DOMContentLoaded", () => {
       const params = new URLSearchParams(location.search);
       const isReset = params.get("reset") === "true";
@@ -44,7 +44,7 @@
         window.location.href = storedRoute;
       }
 
-      // Optional: clean up URL
+      // Optional: clean up ?reset=true from URL
       if (isReset) {
         history.replaceState(null, "", "welcome.html");
       }
@@ -117,6 +117,7 @@
       }
     };
 
+    // Switch Page Button
     window.resetRoute = () => {
       localStorage.removeItem("userRoute");
       location.href = "welcome.html?reset=true";
