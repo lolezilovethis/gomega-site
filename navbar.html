@@ -1,10 +1,61 @@
-<!-- navbar.html -->
-<div class="page-nav" style="margin-top: 40px; text-align: center;">
-  <a href="settings.html" class="btn">⚙️ Settings</a>
-  <a href="welcome.html?reset=true" onclick="localStorage.removeItem('userRoute')" class="btn secondary">🔁 Switch Page</a>
-</div>
+<nav class="navbar">
+  <div class="navbar-left">
+    <a href="index.html" class="logo">Gomega</a>
+  </div>
 
-<!-- Optional Ad Banner -->
-<div class="ad-banner" style="text-align:center; margin-top: 30px;">
-  <iframe src="https://your-ad-provider.com/banner" width="728" height="90" style="border:none;"></iframe>
-</div>
+  <div class="navbar-center">
+    <a href="scripts.html">Scripts</a>
+    <a href="schoolgames.html">Games</a>
+    <a href="background.html">Background</a>
+    <a href="admin-optout.html">Admin</a>
+  </div>
+
+  <div class="navbar-right">
+    <a href="welcome.html?reset=true" onclick="localStorage.removeItem('userRoute')" class="btn secondary">🔁 Switch Page</a>
+    <a href="signout.html" class="btn danger">Sign Out</a>
+  </div>
+</nav>
+
+<style>
+  .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a1a;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-family: sans-serif;
+  }
+
+  .navbar a {
+    color: white;
+    text-decoration: none;
+    margin: 0 0.5rem;
+  }
+
+  .navbar .logo {
+    font-weight: bold;
+    font-size: 1.25rem;
+  }
+
+  .navbar .btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .navbar .btn.secondary {
+    background: #444;
+  }
+
+  .navbar .btn.danger {
+    background: #e74c3c;
+  }
+
+  .navbar .btn.secondary:hover,
+  .navbar .btn.danger:hover {
+    opacity: 0.8;
+  }
+</style>
