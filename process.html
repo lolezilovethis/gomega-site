@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  import { getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+const functions = getFunctions();
+const docSnap = await getDoc(doc(db, "optOutRequests", id));
+const data = docSnap.data();
+
+if (action === "approve") {
+  await httpsCallable(functions, "sendApprovalEmail")({ email: data.email, school: data.school });
+} else if (action === "reject") {
+  await httpsCallable(functions, "sendRejectionEmail")({ email: data.email, school: data.school });
+}
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Processing Request</title>
