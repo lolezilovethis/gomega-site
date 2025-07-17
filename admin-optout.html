@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Opt-Out Portal</title>
-  <link rel="stylesheet" href="style.css">
   <script type="module">
     import { auth, db } from './js/firebase.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -33,15 +32,6 @@
       }
     });
 
-    async function sendEmail(type, email, school) {
-      // Placeholder - replace with your server-side email trigger API
-      await fetch("/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, email, school })
-      });
-    }
-
     window.sendOptOut = async function(event) {
       event.preventDefault();
       const school = document.getElementById("schoolName").value.trim();
@@ -69,8 +59,6 @@
             content: `📥 **New Opt-Out Request**\n**School:** ${school}\n**Email:** ${email}\n**Reason:** ${reason}\n\n✅ [Approve](${approveUrl})\n❌ [Reject](${rejectUrl})`
           })
         });
-
-        await sendEmail("submitted", email, school);
 
         document.getElementById("result").innerHTML = "<p class='success'>✅ Request submitted.</p>";
         document.querySelector("form").reset();
@@ -129,13 +117,9 @@
         const newStatus = action === "approve" ? "approved" : "declined";
         await updateDoc(docRef, { status: newStatus });
 
-        if (action === "approve") {
-          await sendEmail("approved", email, school);
-          alert("✅ Approved. Note: It may take up to 7 days to delete and IP-ban all users from that school. Please be patient.");
-        } else {
-          await sendEmail("declined", email, school);
-          alert("❌ Request declined and user notified.");
-        }
+        alert(action === "approve"
+          ? "✅ Approved. Note: It may take up to 7 days to delete and IP-ban all users from that school."
+          : "❌ Request declined and user notified.");
 
         loadRequests();
       } catch (err) {
@@ -148,21 +132,29 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #f9f9f9;
+      background: #121212;
+      color: #e0e0e0;
+      margin: 0;
       padding: 20px;
     }
 
     .container {
       max-width: 750px;
       margin: auto;
-      background: white;
+      background: #1e1e1e;
       padding: 25px;
       border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.08);
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
     }
 
     h1, h2 {
       text-align: center;
+      color: #00bfa5;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #aaa;
     }
 
     form {
@@ -173,40 +165,43 @@
     }
 
     input, textarea {
-      padding: 10px;
+      padding: 12px;
       font-size: 1rem;
       border-radius: 6px;
-      border: 1px solid #ccc;
+      border: 1px solid #333;
+      background: #2a2a2a;
+      color: #fff;
     }
 
     button {
       padding: 12px;
-      background: #2ecc71;
+      background: #00bfa5;
       color: white;
       font-weight: bold;
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      transition: background 0.3s ease;
     }
 
     button:hover {
-      background: #27ae60;
+      background: #009e88;
     }
 
     .request-card {
-      background: #f4f4f4;
-      border: 1px solid #ddd;
+      background: #2b2b2b;
+      border: 1px solid #444;
       border-radius: 8px;
       padding: 15px;
-      margin-bottom: 12px;
+      margin-bottom: 15px;
     }
 
     .success {
-      color: green;
+      color: #66ff99;
     }
 
     .error {
-      color: red;
+      color: #ff6666;
     }
 
     #result {
@@ -214,9 +209,9 @@
       margin-top: 10px;
     }
 
-    .subtitle {
-      text-align: center;
-      color: #666;
+    hr {
+      border: 1px solid #333;
+      margin: 30px 0;
     }
   </style>
 </head>
