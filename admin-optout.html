@@ -8,16 +8,17 @@
   <script type="module">
     import { auth, db } from './js/firebase.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+    import { collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const webhookUrl = "https://discord.com/api/webhooks/1395130152584876195/inn8hj4U9DFU8Q1ppNBdsJx8vDgCYF1WhC7bf49ECQmRLMAE9eT7j5Q9Jcf49ny-9Gxc";
 
+    // Auth Guard
     onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "signin.html";
 
-      const email = user.email;
+      const email = user.email?.toLowerCase() || "";
       const allowedDomain = email.endsWith("@henrico.k12.va.us") || email === "gomegaassist@gmail.com";
+
       if (!allowedDomain) {
         alert("Access denied. Staff only.");
         location.href = "welcome.html";
@@ -26,11 +27,14 @@
       }
     });
 
+    // Submit Handler
     window.sendOptOut = async function(event) {
       event.preventDefault();
-      const school = document.getElementById("schoolName").value;
-      const email = document.getElementById("adminEmail").value;
-      const reason = document.getElementById("reason").value;
+      const school = document.getElementById("schoolName").value.trim();
+      const email = document.getElementById("adminEmail").value.trim();
+      const reason = document.getElementById("reason").value.trim();
+
+      if (!school || !email || !reason) return;
 
       try {
         const docRef = await addDoc(collection(db, "optOutRequests"), {
@@ -41,11 +45,14 @@
           submittedAt: serverTimestamp()
         });
 
+        const approveUrl = `https://gomega.watch/process.html?id=${docRef.id}&action=approve`;
+        const rejectUrl = `https://gomega.watch/process.html?id=${docRef.id}&action=reject`;
+
         await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            content: `📥 New Opt-Out Request\n**School:** ${school}\n**Email:** ${email}\n**Reason:** ${reason}\n\nApprove: https://gomega.watch/approve.html?id=${docRef.id}&action=approve\nReject: https://gomega.watch/approve.html?id=${docRef.id}&action=reject`
+            content: `📥 **New Opt-Out Request**\n**School:** ${school}\n**Email:** ${email}\n**Reason:** ${reason}\n\n✅ [Approve](${approveUrl})\n❌ [Reject](${rejectUrl})`
           })
         });
 
@@ -53,62 +60,107 @@
         document.querySelector("form").reset();
         loadRequests();
       } catch (err) {
+        console.error("Submission error:", err);
         document.getElementById("result").innerHTML = "<p style='color:red;'>❌ Submission failed.</p>";
       }
     };
 
+    // Load Requests into DOM
     async function loadRequests() {
       const container = document.getElementById("requests");
       container.innerHTML = "";
-      const snapshot = await getDocs(collection(db, "optOutRequests"));
 
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const div = document.createElement("div");
-        div.innerHTML = `
-          <p><strong>${data.school}</strong><br>
-          Email: ${data.email}<br>
-          Reason: ${data.reason}<br>
-          Status: ${data.status}</p>
-          <hr>
-        `;
-        container.appendChild(div);
-      });
+      try {
+        const snapshot = await getDocs(collection(db, "optOutRequests"));
+        if (snapshot.empty) {
+          container.innerHTML = "<p>No requests found.</p>";
+          return;
+        }
+
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const div = document.createElement("div");
+          div.style.border = "1px solid #ccc";
+          div.style.padding = "10px";
+          div.style.borderRadius = "6px";
+          div.style.marginBottom = "10px";
+
+          div.innerHTML = `
+            <p><strong>${data.school}</strong></p>
+            <p><strong>Email:</strong> ${data.email}</p>
+            <p><strong>Reason:</strong> ${data.reason}</p>
+            <p><strong>Status:</strong> ${data.status}</p>
+          `;
+
+          container.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Load error:", err);
+        container.innerHTML = "<p style='color:red;'>❌ Failed to load requests.</p>";
+      }
     }
   </script>
+
   <style>
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    h1, h2 {
+      text-align: center;
+    }
+
     form {
       display: flex;
       flex-direction: column;
-      max-width: 500px;
-      gap: 10px;
-      margin: auto;
+      gap: 12px;
     }
+
     input, textarea {
       padding: 10px;
       border-radius: 5px;
       border: 1px solid #ccc;
     }
+
     button {
       padding: 10px;
       background: #2ecc71;
       color: white;
+      font-weight: bold;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
+
+    #result {
+      text-align: center;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <div class="container center">
+  <div class="container">
     <h1>📋 Admin Opt-Out</h1>
     <p class="subtitle">Only verified school staff can use this page.</p>
+
     <form onsubmit="sendOptOut(event)">
       <input type="text" id="schoolName" placeholder="School Name" required>
       <input type="email" id="adminEmail" placeholder="School Email" required>
       <textarea id="reason" placeholder="Reason for opt-out..." required></textarea>
       <button type="submit">Submit Request</button>
     </form>
+
     <div id="result"></div>
     <hr>
     <h2>📄 Review Requests</h2>

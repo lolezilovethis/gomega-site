@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Processing Request</title>
+  <script type="module">
+    import { auth, db } from './js/firebase.js';
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    const action = params.get("action");
+
+    const validActions = ["approve", "reject"];
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return location.href = "signin.html";
+
+      const email = user.email;
+      const allowed = email.endsWith("@henrico.k12.va.us") || email === "gomegaassist@gmail.com";
+      if (!allowed) {
+        document.body.innerHTML = "<p>❌ Access denied.</p>";
+        return;
+      }
+
+      if (!id || !validActions.includes(action)) {
+        document.body.innerHTML = "<p>❌ Invalid or missing parameters.</p>";
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, "optOutRequests", id), {
+          status: action
+        });
+        document.body.innerHTML = `<p>✅ Successfully <strong>${action}</strong>d the request.</p>`;
+      } catch (error) {
+        document.body.innerHTML = "<p>❌ Failed to update request.</p>";
+      }
+    });
+  </script>
+</head>
+<body>
+  <p>🔄 Processing request...</p>
+</body>
+</html>
