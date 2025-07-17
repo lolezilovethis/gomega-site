@@ -1,54 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Administrator Opt-Out – Gomega</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="container center">
-    <h1>📋 Administrator Portal</h1>
-    <p class="subtitle">This page is for verified school staff to request removal or management of their school's access.</p>
+  <title>Admin Opt-Out Portal</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module">
+    import { auth, db } from './js/firebase.js';
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    <form onsubmit="sendOptOut(event)">
-      <input type="text" id="schoolName" placeholder="School Name" required>
-      <input type="email" id="adminEmail" placeholder="Official School Email" required>
-      <textarea id="reason" placeholder="Reason for opt-out or feedback..." required></textarea>
-      <button type="submit">Submit Opt-Out Request</button>
-    </form>
+    // Restrict access to school staff
+    onAuthStateChanged(auth, async user => {
+      if (!user) return location.href = "signin.html";
 
-    <div id="result" style="margin-top: 1rem;"></div>
-  </div>
+      const email = user.email;
+      const allowedDomain = email.endsWith("@school.edu"); // Adjust as needed
 
-  <script>
-    async function sendOptOut(event) {
+      const whitelistDoc = await db.collection("staffWhitelist").doc(email).get();
+      if (!allowedDomain && !whitelistDoc.exists()) {
+        alert("Access denied. Staff only.");
+        location.href = "welcome.html";
+      } else {
+        loadRequests();
+      }
+    });
+
+    // Submit opt-out request
+    window.sendOptOut = async function(event) {
       event.preventDefault();
       const school = document.getElementById("schoolName").value;
       const email = document.getElementById("adminEmail").value;
       const reason = document.getElementById("reason").value;
 
-      const content = {
-        content: `🚫 **New Opt-Out Request**
-**School:** ${school}
-**Email:** ${email}
-**Reason:** ${reason}`
-      };
-
-      const resBox = document.getElementById("result");
       try {
-        await fetch("https://discord.com/api/webhooks/1395130152584876195/inn8hj4U9DFU8Q1ppNBdsJx8vDgCYF1WhC7bf49ECQmRLMAE9eT7j5Q9Jcf49ny-9Gxc", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(content)
+        await addDoc(collection(db, "optOutRequests"), {
+          school,
+          email,
+          reason,
+          status: "pending",
+          submittedAt: serverTimestamp()
         });
-        resBox.innerHTML = "<p style='color:green;'>✅ Request sent successfully!</p>";
+        document.getElementById("result").innerHTML = "<p style='color:green;'>✅ Request submitted.</p>";
+        document.querySelector("form").reset();
+        loadRequests();
       } catch (err) {
-        resBox.innerHTML = "<p style='color:red;'>❌ Failed to send. Try again later.</p>";
+        document.getElementById("result").innerHTML = "<p style='color:red;'>❌ Submission failed.</p>";
       }
+    };
+
+    // Load and show requests
+    async function loadRequests() {
+      const container = document.getElementById("requests");
+      container.innerHTML = "";
+      const snapshot = await getDocs(collection(db, "optOutRequests"));
+
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <p><strong>${data.school}</strong><br>
+          Email: ${data.email}<br>
+          Reason: ${data.reason}<br>
+          Status: ${data.status}</p>
+          <button onclick="approveRequest('${docSnap.id}', '${data.email}')">Approve</button>
+          <button onclick="rejectRequest('${docSnap.id}', '${data.email}')">Reject</button>
+          <hr>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    window.approveRequest = async function(id, email) {
+      await updateDoc(doc(db, "optOutRequests", id), { status: "approved" });
+      sendNotification(email, "✅ Your opt-out request has been approved.");
+      loadRequests();
+    };
+
+    window.rejectRequest = async function(id, email) {
+      await updateDoc(doc(db, "optOutRequests", id), { status: "rejected" });
+      sendNotification(email, "❌ Your opt-out request has been rejected.");
+      loadRequests();
+    };
+
+    // Send email via EmailJS
+    function sendNotification(toEmail, message) {
+      emailjs.send("service_n30m3oc", "template_c703zut", {
+        to_email: toEmail,
+        message: message
+      });
     }
   </script>
-
+  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+  <script>
+    emailjs.init("N2GJYTmOteOdIFIhe"); // Replace with your EmailJS public key
+  </script>
   <style>
     form {
       display: flex;
@@ -63,23 +109,29 @@
       border: 1px solid #ccc;
     }
     button {
-      padding: 12px;
-      background: #e74c3c;
+      padding: 10px;
+      background: #2ecc71;
       color: white;
-      font-weight: bold;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
   </style>
-
-  <div id="shared-footer"></div>
-  <script>
-    fetch("navbar.html")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("shared-footer").innerHTML = html;
-      });
-  </script>
+</head>
+<body>
+  <div class="container center">
+    <h1>📋 Admin Opt-Out</h1>
+    <p class="subtitle">Only verified school staff can use this page.</p>
+    <form onsubmit="sendOptOut(event)">
+      <input type="text" id="schoolName" placeholder="School Name" required>
+      <input type="email" id="adminEmail" placeholder="School Email" required>
+      <textarea id="reason" placeholder="Reason for opt-out..." required></textarea>
+      <button type="submit">Submit Request</button>
+    </form>
+    <div id="result"></div>
+    <hr>
+    <h2>📄 Review Requests</h2>
+    <div id="requests"></div>
+  </div>
 </body>
 </html>
