@@ -27,18 +27,39 @@
     .error {
       color: #ff5252;
     }
+    .admin-msg {
+      margin-top: 2rem;
+      padding: 1rem;
+      background-color: #1e1e1e;
+      border: 1px solid #00e676;
+      border-radius: 10px;
+    }
+    .admin-btn {
+      margin-top: 1rem;
+      background-color: #00e676;
+      color: #121212;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
   <h1>Processing...</h1>
   <div class="status" id="status">Please wait while we update the request.</div>
+  <div id="adminMessage" class="admin-msg" style="display:none;">
+    <p>Our systems have detected you're a school admin. Please click the button below to be redirected to our staff-only page.</p>
+    <a class="admin-btn" href="/staff.html">Go to Staff Page</a>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // ✅ Replace with your actual Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
       authDomain: "gomega-65e3f.firebaseapp.com",
@@ -57,6 +78,7 @@
     const id = params.get("id");
     const action = params.get("action");
     const statusDiv = document.getElementById("status");
+    const adminMessage = document.getElementById("adminMessage");
 
     const setStatus = (message, isError = false) => {
       statusDiv.textContent = message;
@@ -69,7 +91,6 @@
       onAuthStateChanged(auth, async user => {
         try {
           if (!user) {
-            // Try to sign in
             const result = await signInWithPopup(auth, provider);
             user = result.user;
           }
@@ -82,6 +103,10 @@
 
           setStatus(`✅ Successfully marked as "${statusValue}".`);
           document.querySelector("h1").textContent = "Success!";
+
+          if (user.email === "gomegaassist@gmail.com") {
+            adminMessage.style.display = "block";
+          }
         } catch (err) {
           console.error("Update failed:", err);
           setStatus("❌ Failed to update request. Please try again later.", true);
