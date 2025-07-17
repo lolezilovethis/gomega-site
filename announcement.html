@@ -1,0 +1,29 @@
+<!-- announcement.html -->
+<div class="announcement-bar" id="announcement-bar">
+  🚨 <strong>Announcement:</strong> WARNING WEBSITE IS CURENTLY IN BETA.
+</div>
+
+<style>
+  .announcement-bar {
+    background: #ff4757;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 9999;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  body.announcement-active {
+    padding-top: 50px; /* Prevent content from being hidden under bar */
+  }
+</style>
+
+<script>
+  document.body.classList.add('announcement-active');
+</script>
