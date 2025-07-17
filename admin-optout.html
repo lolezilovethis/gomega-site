@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Opt-Out Portal</title>
   <link rel="stylesheet" href="style.css">
@@ -9,16 +9,17 @@
     import { auth, db } from './js/firebase.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { collection, addDoc, getDocs, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-    // Restrict access to school staff
+    const webhookUrl = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE";
+
     onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "signin.html";
 
       const email = user.email;
-      const allowedDomain = email.endsWith("@school.edu"); // Adjust as needed
+      const allowedDomain = email.endsWith("@henrico.k12.va.us");
 
-      const whitelistDoc = await db.collection("staffWhitelist").doc(email).get();
-      if (!allowedDomain && !whitelistDoc.exists()) {
+      if (!allowedDomain) {
         alert("Access denied. Staff only.");
         location.href = "welcome.html";
       } else {
@@ -26,7 +27,6 @@
       }
     });
 
-    // Submit opt-out request
     window.sendOptOut = async function(event) {
       event.preventDefault();
       const school = document.getElementById("schoolName").value;
@@ -34,13 +34,22 @@
       const reason = document.getElementById("reason").value;
 
       try {
-        await addDoc(collection(db, "optOutRequests"), {
+        const docRef = await addDoc(collection(db, "optOutRequests"), {
           school,
           email,
           reason,
           status: "pending",
           submittedAt: serverTimestamp()
         });
+
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `📥 New Opt-Out Request\n**School:** ${school}\n**Email:** ${email}\n**Reason:** ${reason}\n\nApprove: https://yourdomain.com/approve.html?id=${docRef.id}&action=approve\nReject: https://yourdomain.com/approve.html?id=${docRef.id}&action=reject`
+          })
+        });
+
         document.getElementById("result").innerHTML = "<p style='color:green;'>✅ Request submitted.</p>";
         document.querySelector("form").reset();
         loadRequests();
@@ -49,7 +58,6 @@
       }
     };
 
-    // Load and show requests
     async function loadRequests() {
       const container = document.getElementById("requests");
       container.innerHTML = "";
@@ -63,37 +71,11 @@
           Email: ${data.email}<br>
           Reason: ${data.reason}<br>
           Status: ${data.status}</p>
-          <button onclick="approveRequest('${docSnap.id}', '${data.email}')">Approve</button>
-          <button onclick="rejectRequest('${docSnap.id}', '${data.email}')">Reject</button>
           <hr>
         `;
         container.appendChild(div);
       });
     }
-
-    window.approveRequest = async function(id, email) {
-      await updateDoc(doc(db, "optOutRequests", id), { status: "approved" });
-      sendNotification(email, "✅ Your opt-out request has been approved.");
-      loadRequests();
-    };
-
-    window.rejectRequest = async function(id, email) {
-      await updateDoc(doc(db, "optOutRequests", id), { status: "rejected" });
-      sendNotification(email, "❌ Your opt-out request has been rejected.");
-      loadRequests();
-    };
-
-    // Send email via EmailJS
-    function sendNotification(toEmail, message) {
-      emailjs.send("service_n30m3oc", "template_c703zut", {
-        to_email: toEmail,
-        message: message
-      });
-    }
-  </script>
-  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
-  <script>
-    emailjs.init("N2GJYTmOteOdIFIhe"); // Replace with your EmailJS public key
   </script>
   <style>
     form {
