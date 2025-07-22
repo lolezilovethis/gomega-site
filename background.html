@@ -5,16 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Background Checks – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f2f3f5;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      text-align: center;
+      font-size: 28px;
+      color: #222;
+    }
+    .subtitle {
+      text-align: center;
+      margin-top: -10px;
+      color: #666;
+      font-size: 16px;
+    }
+    input, select, button {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 16px 0;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .results-box {
+      background: #f1f9f1;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      border: 1px solid #d0e8d0;
+    }
+    .results-box h2 {
+      margin-top: 0;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <div class="container center">
+  <div class="container">
     <h1>🔍 Background Checks</h1>
-    <p class="subtitle">Check website WHOIS info or view social profiles.</p>
+    <p class="subtitle">Check domain WHOIS info or view Facebook profiles.</p>
 
-    <input type="text" id="inputValue" placeholder="Enter domain or username..." />
+    <input type="text" id="inputValue" placeholder="Enter website or username..." />
     <select id="checkType">
-      <option value="whois">Website (WHOIS Lookup)</option>
-      <option value="facebook">Facebook</option>
+      <option value="whois">🌐 Website (WHOIS Lookup)</option>
+      <option value="facebook">📘 Facebook Profile</option>
     </select>
     <button onclick="runCheck()">Run Check</button>
 
@@ -26,6 +94,7 @@
       const input = document.getElementById("inputValue").value.trim();
       const type = document.getElementById("checkType").value;
       const resultsDiv = document.getElementById("results");
+
       if (!input) return alert("Please enter something.");
 
       resultsDiv.style.display = "block";
@@ -33,44 +102,19 @@
       if (type === "whois") {
         const url = `https://who.is/whois/${input}`;
         resultsDiv.innerHTML = `
-          <h2>🌐 WHOIS Info for ${input}</h2>
-          <p><a href="${url}" target="_blank">Click here to view WHOIS info</a></p>
+          <h2>🌐 WHOIS Info</h2>
+          <p>Click below to view WHOIS info for <strong>${input}</strong>:</p>
+          <p><a href="${url}" target="_blank">${url}</a></p>
         `;
       } else if (type === "facebook") {
         const fbUrl = `https://facebook.com/${input}`;
         resultsDiv.innerHTML = `
           <h2>📘 Facebook Profile</h2>
           <p><a href="${fbUrl}" target="_blank">${fbUrl}</a></p>
+          <p>Check public profile data manually, including photos, friend count, and activity.</p>
         `;
       }
     }
   </script>
-
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
-    .container.center {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    input, select, button {
-      padding: 10px;
-      font-size: 16px;
-      margin-top: 10px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .results-box {
-      margin-top: 2rem;
-      padding: 1rem;
-      background: #eaf7ea;
-      border-radius: 8px;
-    }
-    .results-box h2 { margin-bottom: 1rem; }
-    .subtitle { color: #555; margin-top: -10px; }
-  </style>
 </body>
 </html>
