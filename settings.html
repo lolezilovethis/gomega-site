@@ -163,7 +163,7 @@
         "admin-optout": "Admin Dashboard",
         "welcome": "Home"
       };
-      const label = labelMap[previousPage.replace("/", "")] || previousPage.replace("/", "").replace("", "").replace("-", " ");
+      const label = labelMap[previousPage.replace("/", "")] || previousPage.replace("/", "").replace(".html", "").replace("-", " ");
       backLink.href = previousPage;
       backLink.textContent = `⬅ Back to ${label.charAt(0).toUpperCase() + label.slice(1)}`;
     } else {
