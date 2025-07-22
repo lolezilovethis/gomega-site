@@ -9,11 +9,11 @@
 <body>
   <div class="container center">
     <h1>🔍 Background Checks</h1>
-    <p class="subtitle">Check websites or profiles for scam info and account age.</p>
+    <p class="subtitle">Check website WHOIS info or view social profiles.</p>
 
-    <input type="text" id="inputValue" placeholder="Enter website or username..." />
+    <input type="text" id="inputValue" placeholder="Enter domain or username..." />
     <select id="checkType">
-      <option value="website">Website</option>
+      <option value="whois">Website (WHOIS Lookup)</option>
       <option value="facebook">Facebook</option>
     </select>
     <button onclick="runCheck()">Run Check</button>
@@ -22,48 +22,25 @@
   </div>
 
   <script>
-    async function runCheck() {
+    function runCheck() {
       const input = document.getElementById("inputValue").value.trim();
       const type = document.getElementById("checkType").value;
       const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = `<p>Checking...</p>`;
-      resultsDiv.style.display = "block";
-
       if (!input) return alert("Please enter something.");
 
-      if (type === "website") {
-        const domain = input.replace(/^https?:\/\//, '');
-        const apiKey = "0mR6IBseyYI3tN29ShWyQQiTdY9ayXhS"; // YOUR API KEY
-        try {
-          const response = await fetch(`https://ipqualityscore.com/api/json/url/${apiKey}/${domain}`);
-          const data = await response.json();
+      resultsDiv.style.display = "block";
 
-          if (data.success) {
-            resultsDiv.innerHTML = `
-              <h2>🌐 Results for: ${domain}</h2>
-              <ul>
-                <li><strong>Domain:</strong> ${data.domain || "N/A"}</li>
-                <li><strong>Risk Score:</strong> ${data.risk_score}/100</li>
-                <li><strong>Scam Likelihood:</strong> ${data.suspicious ? '⚠️ Yes' : '✅ No'}</li>
-                <li><strong>Is Adult Site:</strong> ${data.is_adult ? '🔞 Yes' : '❌ No'}</li>
-                <li><strong>Server Location:</strong> ${data.server_country || "Unknown"}</li>
-                <li><strong>Domain Created:</strong> ${data.domain_age || "Unknown"}</li>
-                <li><strong>Detected Brand:</strong> ${data.brand || "N/A"}</li>
-              </ul>
-            `;
-          } else {
-            resultsDiv.innerHTML = `<h2>❌ Error</h2><p>${data.message || "Unknown error."}</p>`;
-          }
-        } catch (err) {
-          resultsDiv.innerHTML = `<h2>❌ Network Error</h2><p>${err.message}</p>`;
-        }
-
+      if (type === "whois") {
+        const url = `https://who.is/whois/${input}`;
+        resultsDiv.innerHTML = `
+          <h2>🌐 WHOIS Info for ${input}</h2>
+          <p><a href="${url}" target="_blank">Click here to view WHOIS info</a></p>
+        `;
       } else if (type === "facebook") {
-        const profileUrl = `https://facebook.com/${input}`;
+        const fbUrl = `https://facebook.com/${input}`;
         resultsDiv.innerHTML = `
           <h2>📘 Facebook Profile</h2>
-          <p><strong>Profile:</strong> <a href="${profileUrl}" target="_blank">${profileUrl}</a></p>
-          <p>We can't check Facebook age or activity without login, but here's the public link. Look for friend count, photos, and joined date manually.</p>
+          <p><a href="${fbUrl}" target="_blank">${fbUrl}</a></p>
         `;
       }
     }
@@ -93,8 +70,6 @@
       border-radius: 8px;
     }
     .results-box h2 { margin-bottom: 1rem; }
-    .results-box ul { list-style: none; padding: 0; }
-    .results-box li { margin-bottom: 0.5rem; }
     .subtitle { color: #555; margin-top: -10px; }
   </style>
 </body>
