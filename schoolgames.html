@@ -5,88 +5,150 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>School Games – Gomega</title>
   <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <!-- Embed Navbar -->
-<div id="navbar-container"></div>
-<script>
-  fetch("navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    })
-    .catch(err => {
-      console.error("Failed to load navbar:", err);
-    });
-</script>
-  <!-- Announcement Bar Container -->
-  <div id="announcement-container"></div>
-
-  <div class="container center">
-    <h1>🎮 School Games</h1>
-    <p class="subtitle">Enjoy school-friendly unblocked games selected just for students.</p>
-
-    <div class="game-list">
-      <a class="game-card" href="https://geometrydashonline.io/" target="_blank">
-        <img src="assets/games/geometrydash.png" alt="Geometry Dash">
-        <p>Geometry Dash</p>
-      </a>
-      <a class="game-card" href="https://slopegame.online/" target="_blank">
-        <img src="assets/games/slope.png" alt="Slope Game">
-        <p>Slope</p>
-      </a>
-      <a class="game-card" href="https://1v1.lol/" target="_blank">
-        <img src="assets/games/1v1lol.png" alt="1v1.LOL">
-        <p>1v1.LOL</p>
-      </a>
-      <!-- Add more game cards here -->
-    </div>
-  </div>
-
-  <!-- Footer Navbar Container -->
-  <div id="shared-footer"></div>
-
-  <!-- Inline styles for game cards -->
   <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9fafc;
+      color: #333;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 2rem;
+    }
+
+    .container {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .center {
+      text-align: center;
+    }
+
     .game-list {
       display: flex;
       flex-wrap: wrap;
       gap: 20px;
       justify-content: center;
-      margin-top: 30px;
     }
+
     .game-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
       text-decoration: none;
-      border: 1px solid #ccc;
-      border-radius: 10px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
       overflow: hidden;
-      width: 150px;
+      width: 180px;
       background: #fff;
-      transition: transform 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+
     .game-card:hover {
       transform: scale(1.05);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     }
+
     .game-card img {
       width: 100%;
-      height: auto;
+      height: 120px;
+      object-fit: cover;
     }
+
     .game-card p {
       padding: 10px;
-      font-weight: bold;
+      font-weight: 600;
       color: #333;
     }
-  </style>
 
-  <!-- Load announcement and navbar -->
+    @media (max-width: 768px) {
+      .game-card {
+        width: 45%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .game-card {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <div id="navbar-container"></div>
   <script>
-    fetch('announcement')
+    fetch("navbar.html")
       .then(res => res.text())
       .then(html => {
-        document.getElementById('announcement-container').innerHTML = html;
+        document.getElementById("navbar-container").innerHTML = html;
       })
-      .catch(err => console.error('Failed to load announcement:', err));
+      .catch(err => {
+        console.error("Failed to load navbar:", err);
+      });
   </script>
+
+  <!-- Announcement Bar -->
+  <div id="announcement-container"></div>
+  <script>
+    fetch("announcement.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("announcement-container").innerHTML = html;
+      })
+      .catch(err => {
+        console.error("Failed to load announcement:", err);
+      });
+  </script>
+
+  <!-- Main Content -->
+  <div class="container center">
+    <h1>🎮 School Games</h1>
+    <p class="subtitle">Enjoy school-friendly unblocked games selected just for students.</p>
+
+    <div class="game-list">
+      <a class="game-card" href="https://geometrydashonline.io/" target="_blank" rel="noopener noreferrer">
+        <img src="assets/games/geometrydash.png" alt="Play Geometry Dash online">
+        <p>Geometry Dash</p>
+      </a>
+      <a class="game-card" href="https://slopegame.online/" target="_blank" rel="noopener noreferrer">
+        <img src="assets/games/slope.png" alt="Play Slope Game online">
+        <p>Slope</p>
+      </a>
+      <a class="game-card" href="https://1v1.lol/" target="_blank" rel="noopener noreferrer">
+        <img src="assets/games/1v1lol.png" alt="Play 1v1.LOL online">
+        <p>1v1.LOL</p>
+      </a>
+      <!-- Add more games below -->
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="shared-footer"></div>
+  <script>
+    fetch("footer.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("shared-footer").innerHTML = html;
+      })
+      .catch(err => {
+        console.error("Failed to load footer:", err);
+      });
+  </script>
+
 </body>
 </html>
