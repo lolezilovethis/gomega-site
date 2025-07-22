@@ -21,14 +21,14 @@
     const webhookUrl = "https://discord.com/api/webhooks/1395130152584876195/inn8hj4U9DFU8Q1ppNBdsJx8vDgCYF1WhC7bf49ECQmRLMAE9eT7j5Q9Jcf49ny-9Gxc";
 
     onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "signin.html";
+      if (!user) return location.href = "signin";
 
       const email = user.email?.toLowerCase() || "";
       const allowedDomain = email.endsWith("@henrico.k12.va.us") || email === "gomegaassist@gmail.com";
 
       if (!allowedDomain) {
         alert("Access denied. Staff only.");
-        location.href = "welcome.html";
+        location.href = "welcome";
       } else {
         loadRequests();
       }

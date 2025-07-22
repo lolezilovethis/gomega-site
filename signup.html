@@ -19,7 +19,7 @@
     <p class="small">Or sign up with:</p>
     <button onclick="googleSignup()">🔒 Google Sign Up</button>
 
-    <p class="small">Already have an account? <a href="signin.html">Sign in</a>.</p>
+    <p class="small">Already have an account? <a href="signin">Sign in</a>.</p>
   </div>
 
   <script type="module">
@@ -41,7 +41,7 @@
         await sendEmailVerification(userCred.user);
         alert("📧 Verification email sent. Please check your inbox or spam folder.");
         await signOut(auth);
-        location.href = "verify.html";
+        location.href = "verify";
       } catch (err) {
         alert(err.message);
       }
@@ -54,9 +54,9 @@
           await sendEmailVerification(result.user);
           alert("📧 Verification email sent to your Google account.");
           await signOut(auth);
-          location.href = "verify.html";
+          location.href = "verify";
         } else {
-          location.href = "welcome.html";
+          location.href = "welcome";
         }
       } catch (err) {
         alert(err.message);

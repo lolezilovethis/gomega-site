@@ -84,7 +84,7 @@
     // Show user info
     onAuthStateChanged(auth, user => {
       if (!user) {
-        location.href = "signin.html";
+        location.href = "signin";
       } else {
         document.getElementById("userEmail").textContent = `Email: ${user.email}`;
         document.getElementById("emailStatus").textContent = user.emailVerified
@@ -122,7 +122,7 @@
     window.logout = async function() {
       await signOut(auth);
       alert("👋 Logged out successfully.");
-      location.href = "signin.html";
+      location.href = "signin";
     };
 
     // Delete account
@@ -131,7 +131,7 @@
       try {
         await deleteUser(auth.currentUser);
         alert("🗑️ Account deleted.");
-        location.href = "signup.html";
+        location.href = "signup";
       } catch (err) {
         alert("❌ " + err.message);
       }
@@ -155,19 +155,19 @@
     // Back link setup
     const backLink = document.getElementById("backLink");
     const previousPage = sessionStorage.getItem("previousPage");
-    if (previousPage && previousPage !== "/settings.html") {
+    if (previousPage && previousPage !== "/settings") {
       const labelMap = {
-        "scripts.html": "Scripts",
-        "schoolgames.html": "School Games",
-        "background.html": "Background Checks",
-        "admin-optout.html": "Admin Dashboard",
-        "welcome.html": "Home"
+        "scripts": "Scripts",
+        "schoolgames": "School Games",
+        "background": "Background Checks",
+        "admin-optout": "Admin Dashboard",
+        "welcome": "Home"
       };
       const label = labelMap[previousPage.replace("/", "")] || previousPage.replace("/", "").replace(".html", "").replace("-", " ");
       backLink.href = previousPage;
       backLink.textContent = `⬅ Back to ${label.charAt(0).toUpperCase() + label.slice(1)}`;
     } else {
-      backLink.href = "welcome.html";
+      backLink.href = "welcome";
       backLink.textContent = "⬅ Back to Home";
     }
   </script>

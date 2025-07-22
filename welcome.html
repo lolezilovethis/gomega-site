@@ -46,13 +46,13 @@
 
       // Optional: clean up ?reset=true from URL
       if (isReset) {
-        history.replaceState(null, "", "welcome.html");
+        history.replaceState(null, "", "welcome");
       }
     });
 
     onAuthStateChanged(auth, user => {
       if (!user) {
-        location.href = "signin.html";
+        location.href = "signin";
       } else {
         currentUser = user;
         document.getElementById("welcomeMsg").innerText =
@@ -97,8 +97,8 @@
 
       if (selected === "admin") {
         if (isSchoolEmail) {
-          localStorage.setItem("userRoute", "admin-optout.html");
-          window.location.href = "admin-optout.html";
+          localStorage.setItem("userRoute", "admin-optout");
+          window.location.href = "admin-optout";
         } else {
           alert("⚠️ Only verified school staff may access this section.");
         }
@@ -106,14 +106,14 @@
         const school = document.getElementById("schoolName").value.trim();
         if (!school) return alert("Please enter your school name.");
         sessionStorage.setItem("selectedSchool", school);
-        localStorage.setItem("userRoute", "schoolgames.html");
-        window.location.href = "schoolgames.html";
+        localStorage.setItem("userRoute", "schoolgames");
+        window.location.href = "schoolgames";
       } else if (selected === "background") {
-        localStorage.setItem("userRoute", "background.html");
-        window.location.href = "background.html";
+        localStorage.setItem("userRoute", "background");
+        window.location.href = "background";
       } else if (selected === "scripts") {
-        localStorage.setItem("userRoute", "scripts.html");
-        window.location.href = "scripts.html";
+        localStorage.setItem("userRoute", "scripts");
+        window.location.href = "scripts";
       }
     };
 

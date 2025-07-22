@@ -19,7 +19,7 @@
     <p class="small">Or sign in with:</p>
     <button onclick="googleSignin()">🔒 Google Sign In</button>
 
-    <p class="small">Don't have an account? <a href="signup.html">Sign up</a>.</p>
+    <p class="small">Don't have an account? <a href="signup">Sign up</a>.</p>
   </div>
 
   <script type="module">
@@ -41,7 +41,7 @@
           alert("⚠️ Please verify your email first.");
           await signOut(auth);
         } else {
-          location.href = "welcome.html";
+          location.href = "welcome";
         }
       } catch (err) {
         alert(err.message);
@@ -55,7 +55,7 @@
           alert("⚠️ Please verify your Google email.");
           await signOut(auth);
         } else {
-          location.href = "welcome.html";
+          location.href = "welcome";
         }
       } catch (err) {
         alert(err.message);
