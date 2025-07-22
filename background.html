@@ -75,6 +75,18 @@
   </style>
 </head>
 <body>
+  <!-- Embed Navbar -->
+<div id="navbar-container"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar-container").innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Failed to load navbar:", err);
+    });
+</script>
   <div class="container">
     <h1>🔍 Background Checks</h1>
     <p class="subtitle">Check domain WHOIS info or view Facebook profiles.</p>
