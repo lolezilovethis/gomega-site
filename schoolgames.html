@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -99,19 +99,6 @@
       })
       .catch(err => {
         console.error("Failed to load navbar:", err);
-      });
-  </script>
-
-  <!-- Announcement Bar -->
-  <div id="announcement-container"></div>
-  <script>
-    fetch("announcement.html")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("announcement-container").innerHTML = html;
-      })
-      .catch(err => {
-        console.error("Failed to load announcement:", err);
       });
   </script>
 
