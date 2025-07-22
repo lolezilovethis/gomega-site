@@ -210,6 +210,18 @@
   </style>
 </head>
 <body>
+  <!-- Embed Navbar -->
+<div id="navbar-container"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar-container").innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Failed to load navbar:", err);
+    });
+</script>
   <div class="container">
     <h1>📋 Admin Opt-Out Portal</h1>
     <p class="subtitle">Only verified school staff can use this page.</p>

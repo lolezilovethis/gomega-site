@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Embed Navbar -->
+<div id="navbar-container"></div>
+<script>
+  fetch("navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar-container").innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Failed to load navbar:", err);
+    });
+</script>
   <!-- Announcement Bar Container -->
   <div id="announcement-container"></div>
 
@@ -75,13 +87,6 @@
         document.getElementById('announcement-container').innerHTML = html;
       })
       .catch(err => console.error('Failed to load announcement:', err));
-
-    fetch("navbar.html")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("shared-footer").innerHTML = html;
-      })
-      .catch(err => console.error('Failed to load navbar:', err));
   </script>
 </body>
 </html>
