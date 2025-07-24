@@ -53,30 +53,76 @@
       background-color: #fbc02d;
       color: #000;
     }
+    form {
+      background-color: #222;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+    input, textarea, select, button {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      font-size: 1rem;
+    }
+    button {
+      background-color: #4fc3f7;
+      color: #111;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0288d1;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <h2>📝 Submit a New Claim</h2>
+    <form id="claimForm">
+      <select id="platform" required>
+        <option value="">Select Platform</option>
+        <option value="Facebook">Facebook</option>
+        <option value="Instagram">Instagram</option>
+        <option value="Snapchat">Snapchat</option>
+        <option value="Other">Other</option>
+      </select>
+      <textarea id="description" placeholder="Describe your issue" required></textarea>
+      <textarea id="prevInfo" placeholder="Previous account info (email, phone, etc.)" required></textarea>
+      <textarea id="attackerInfo" placeholder="Attacker info (optional)"></textarea>
+      <button type="submit">Submit Claim</button>
+    </form>
+
     <h2>📁 My Claims</h2>
     <div id="claimsList">Loading...</div>
   </div>
 
   <script type="module">
-    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { app } from "./firebase-init.js";
 
     const db = getFirestore(app);
     const auth = getAuth();
     const claimsList = document.getElementById("claimsList");
+    const claimForm = document.getElementById("claimForm");
+
+    let currentUser = null;
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        claimsList.innerHTML = "<p>❌ You must be signed in to view your claims.</p>";
+        claimsList.innerHTML = "<p>❌ You must be signed in to view or submit claims.</p>";
         return;
       }
 
-      const q = query(collection(db, "claims"), where("uid", "==", user.uid));
+      currentUser = user;
+      loadClaims();
+    });
+
+    async function loadClaims() {
+      const q = query(collection(db, "claims"), where("uid", "==", currentUser.uid));
       const snapshot = await getDocs(q);
 
       if (snapshot.empty) {
@@ -99,6 +145,28 @@
           </div>
         `;
       });
+    }
+
+    claimForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!currentUser) return;
+
+      const claim = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        platform: document.getElementById("platform").value,
+        description: document.getElementById("description").value,
+        prevInfo: document.getElementById("prevInfo").value,
+        attackerInfo: document.getElementById("attackerInfo").value,
+        status: "pending",
+        timestamp: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "claims"), claim);
+      alert("✅ Claim submitted!");
+      claimForm.reset();
+      loadClaims();
     });
   </script>
 </body>
