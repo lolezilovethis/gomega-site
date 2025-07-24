@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Claim Details</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      padding: 1rem;
+    }
+    .container {
+      background-color: #222;
+      border-radius: 10px;
+      padding: 1.5rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    a {
+      color: #4fc3f7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔎 Claim Details</h2>
+    <div id="claim-details">Loading...</div>
+    <a href="/claims.html">⬅ Back to My Claims</a>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const claimId = params.get("id");
+
+    const claimDetails = document.getElementById("claim-details");
+
+    async function loadClaim() {
+      if (!claimId) {
+        claimDetails.textContent = "❌ No claim ID provided.";
+        return;
+      }
+
+      const docRef = doc(db, "claims", claimId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        claimDetails.innerHTML = `
+          <p><strong>Platform:</strong> ${data.platform}</p>
+          <p><strong>Description:</strong> ${data.description}</p>
+          <p><strong>Status:</strong> ${data.status}</p>
+          <p><strong>Date:</strong> ${new Date(data.timestamp?.seconds * 1000).toLocaleString()}</p>
+        `;
+      } else {
+        claimDetails.textContent = "❌ Claim not found.";
+      }
+    }
+
+    loadClaim();
+  </script>
+</body>
+</html>
