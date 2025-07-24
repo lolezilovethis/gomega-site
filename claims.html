@@ -22,7 +22,6 @@
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const webhookUrl = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
-
     let currentUser;
 
     onAuthStateChanged(auth, async user => {
@@ -33,7 +32,6 @@
 
     window.submitClaim = async function (e) {
       e.preventDefault();
-
       const platform = document.getElementById("platform").value;
       const accountId = document.getElementById("accountId").value;
       const description = document.getElementById("description").value;
@@ -70,7 +68,7 @@
       } catch (err) {
         document.getElementById("result").innerHTML = `<p class="error">❌ Failed to submit claim.</p>`;
       }
-    }
+    };
 
     window.updateClaimStatus = async function (id, newStatus) {
       try {
@@ -80,7 +78,7 @@
       } catch (err) {
         alert("Failed to update claim status.");
       }
-    }
+    };
 
     async function loadMyClaims() {
       const container = document.getElementById("claimsList");
@@ -96,18 +94,19 @@
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
+          const claimId = docSnap.id;
           const div = document.createElement("div");
           div.className = "claim";
           div.innerHTML = `
             <p><strong>Platform:</strong> ${data.platform}</p>
             <p><strong>Account:</strong> ${data.accountId}</p>
-            <p><strong>Description:</strong> ${data.description}</p>
-            <p><strong>Previous Info:</strong> ${data.prevInfo || 'N/A'}</p>
-            <p><strong>Attacker Info:</strong> ${data.attackerInfo || 'N/A'}</p>
             <p><strong>Status:</strong> ${data.status}</p>
-            <button onclick="updateClaimStatus('${docSnap.id}', 'approved')">✅ Approve</button>
-            <button onclick="updateClaimStatus('${docSnap.id}', 'denied')">❌ Deny</button>
-            <hr>`;
+            <a href="claims.html?id=${claimId}" target="_blank">🔍 View Full Claim</a>
+            <div style="margin-top: 5px;">
+              <button onclick="updateClaimStatus('${claimId}', 'approved')">✅ Approve</button>
+              <button onclick="updateClaimStatus('${claimId}', 'denied')">❌ Deny</button>
+            </div>
+          `;
           container.appendChild(div);
         });
       } catch (err) {
@@ -181,6 +180,10 @@
     @media (max-width: 600px) {
       .container {
         padding: 10px;
+      }
+
+      input, textarea, select, button {
+        font-size: 16px;
       }
     }
   </style>
