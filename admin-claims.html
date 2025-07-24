@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - All Claims</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { background-color: #111; color: #fff; font-family: sans-serif; padding: 1rem; }
+    .claim-card {
+      background-color: #222;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    a { color: #4fc3f7; }
+  </style>
+</head>
+<body>
+  <h2>📋 All Claims</h2>
+  <div id="allClaims">Loading...</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth();
+
+    const allClaims = document.getElementById("allClaims");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !(user.email.endsWith("@henrico.k12.va.us") || user.email === "gomegaassist@gmail.com")) {
+        allClaims.textContent = "❌ Access denied.";
+        return;
+      }
+
+      const snapshot = await getDocs(collection(db, "claims"));
+      allClaims.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        allClaims.innerHTML += `
+          <div class="claim-card">
+            <p><strong>Platform:</strong> ${data.platform}</p>
+            <p><strong>Status:</strong> ${data.status}</p>
+            <p><strong>User:</strong> ${data.email}</p>
+            <a href="claim.html?id=${doc.id}">🔎 View</a>
+          </div>
+        `;
+      });
+    });
+  </script>
+</body>
+</html>

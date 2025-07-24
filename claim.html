@@ -5,12 +5,7 @@
   <title>Claim Details</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      background-color: #111;
-      color: #fff;
-      font-family: sans-serif;
-      padding: 1rem;
-    }
+    body { background-color: #111; color: #fff; font-family: sans-serif; padding: 1rem; }
     .container {
       background-color: #222;
       border-radius: 10px;
@@ -18,21 +13,31 @@
       max-width: 600px;
       margin: auto;
     }
-    a {
-      color: #4fc3f7;
+    button {
+      padding: 8px 12px;
+      margin-right: 10px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      color: #fff;
     }
+    .approve { background-color: #4caf50; }
+    .decline { background-color: #e53935; }
+    a { color: #4fc3f7; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>🔎 Claim Details</h2>
     <div id="claim-details">Loading...</div>
-    <a href="/claims.html">⬅ Back to My Claims</a>
+    <div id="admin-actions" style="margin-top: 1rem;"></div>
+    <a href="claims.html">⬅ Back to My Claims</a>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
@@ -45,35 +50,62 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth();
 
     const params = new URLSearchParams(window.location.search);
     const claimId = params.get("id");
-
     const claimDetails = document.getElementById("claim-details");
 
-    async function loadClaim() {
-      if (!claimId) {
-        claimDetails.textContent = "❌ No claim ID provided.";
-        return;
-      }
+    async function sendWebhook(data) {
+      const approveUrl = `https://yourdomain.com/webhooks/claim-action?claimId=${claimId}&action=approve`;
+      const declineUrl = `https://yourdomain.com/webhooks/claim-action?claimId=${claimId}&action=decline`;
+
+      await fetch("https://yourdomain.com/webhooks/notify-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "claim_created",
+          claimId,
+          email: data.email,
+          platform: data.platform,
+          description: data.description,
+          approve_url: approveUrl,
+          decline_url: declineUrl,
+          timestamp: new Date().toISOString()
+        })
+      });
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!claimId) return claimDetails.textContent = "❌ No claim ID provided.";
 
       const docRef = doc(db, "claims", claimId);
       const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        claimDetails.innerHTML = `
-          <p><strong>Platform:</strong> ${data.platform}</p>
-          <p><strong>Description:</strong> ${data.description}</p>
-          <p><strong>Status:</strong> ${data.status}</p>
-          <p><strong>Date:</strong> ${new Date(data.timestamp?.seconds * 1000).toLocaleString()}</p>
-        `;
-      } else {
-        claimDetails.textContent = "❌ Claim not found.";
-      }
-    }
+      if (!docSnap.exists()) return claimDetails.textContent = "❌ Claim not found.";
 
-    loadClaim();
+      const data = docSnap.data();
+      claimDetails.innerHTML = `
+        <p><strong>Platform:</strong> ${data.platform}</p>
+        <p><strong>Description:</strong> ${data.description}</p>
+        <p><strong>Status:</strong> ${data.status}</p>
+        <p><strong>Date:</strong> ${new Date(data.timestamp?.seconds * 1000).toLocaleString()}</p>
+      `;
+
+      if (
+        user.email === "gomegaassist@gmail.com" ||
+        user.email.endsWith("@henrico.k12.va.us")
+      ) {
+        document.getElementById("admin-actions").innerHTML = `
+          <button class="approve">✅ Approve via Webhook</button>
+          <button class="decline">❌ Decline via Webhook</button>
+        `;
+        document.querySelector(".approve").onclick = () => alert("Use webhook approve URL.");
+        document.querySelector(".decline").onclick = () => alert("Use webhook decline URL.");
+      }
+
+      await sendWebhook(data);
+    });
   </script>
 </body>
 </html>

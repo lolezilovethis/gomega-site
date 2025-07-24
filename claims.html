@@ -2,215 +2,104 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recovery Claims</title>
-  <link rel="stylesheet" href="style.css" />
-  <script type="module">
-    import { auth, db } from './js/firebase.js';
-    import {
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      collection,
-      addDoc,
-      getDocs,
-      query,
-      where,
-      serverTimestamp,
-      updateDoc,
-      doc
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const webhookUrl = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
-    let currentUser;
-
-    onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "signin.html";
-      currentUser = user;
-      loadMyClaims();
-    });
-
-    window.submitClaim = async function (e) {
-      e.preventDefault();
-      const platform = document.getElementById("platform").value;
-      const accountId = document.getElementById("accountId").value;
-      const description = document.getElementById("description").value;
-      const prevInfo = document.getElementById("prevInfo").value;
-      const attackerInfo = document.getElementById("attackerInfo").value;
-      const agreed = document.getElementById("agree").checked;
-
-      if (!agreed) return alert("You must agree to the Terms and Privacy Policy.");
-
-      try {
-        const docRef = await addDoc(collection(db, "claims"), {
-          uid: currentUser.uid,
-          email: currentUser.email,
-          platform,
-          accountId,
-          description,
-          prevInfo,
-          attackerInfo,
-          status: "pending",
-          createdAt: serverTimestamp()
-        });
-
-        await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: `📨 **New Claim Submitted**\nPlatform: ${platform}\nUser: ${currentUser.email}\nAccount ID: ${accountId}\nDescription: ${description}\nPrevious Info: ${prevInfo || 'N/A'}\nAttacker Info: ${attackerInfo || 'N/A'}\nStatus: Pending`
-          })
-        });
-
-        document.getElementById("result").innerHTML = `<p class="success">✅ Claim submitted.</p>`;
-        document.querySelector("form").reset();
-        loadMyClaims();
-      } catch (err) {
-        document.getElementById("result").innerHTML = `<p class="error">❌ Failed to submit claim.</p>`;
-      }
-    };
-
-    window.updateClaimStatus = async function (id, newStatus) {
-      try {
-        const ref = doc(db, "claims", id);
-        await updateDoc(ref, { status: newStatus });
-        loadMyClaims();
-      } catch (err) {
-        alert("Failed to update claim status.");
-      }
-    };
-
-    async function loadMyClaims() {
-      const container = document.getElementById("claimsList");
-      container.innerHTML = "";
-      try {
-        const q = query(collection(db, "claims"), where("uid", "==", currentUser.uid));
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-          container.innerHTML = "<p>No claims found.</p>";
-          return;
-        }
-
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const claimId = docSnap.id;
-          const div = document.createElement("div");
-          div.className = "claim";
-          div.innerHTML = `
-            <p><strong>Platform:</strong> ${data.platform}</p>
-            <p><strong>Account:</strong> ${data.accountId}</p>
-            <p><strong>Status:</strong> ${data.status}</p>
-            <a href="claims.html?id=${claimId}" target="_blank">🔍 View Full Claim</a>
-            <div style="margin-top: 5px;">
-              <button onclick="updateClaimStatus('${claimId}', 'approved')">✅ Approve</button>
-              <button onclick="updateClaimStatus('${claimId}', 'denied')">❌ Deny</button>
-            </div>
-          `;
-          container.appendChild(div);
-        });
-      } catch (err) {
-        container.innerHTML = "<p class='error'>❌ Failed to load claims.</p>";
-      }
-    }
-  </script>
+  <title>My Claims</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="module" src="/firebase-init.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      background: #0f0f0f;
+      background-color: #111;
       color: #fff;
+      font-family: Arial, sans-serif;
       margin: 0;
-      padding: 10px;
+      padding: 0;
     }
-
     .container {
+      padding: 2rem;
       max-width: 800px;
       margin: auto;
-      background: #1f1f1f;
-      padding: 20px;
-      border-radius: 10px;
     }
-
-    h1, h2 {
-      text-align: center;
+    h2 {
+      margin-bottom: 1.5rem;
     }
-
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    .claim-box {
+      background-color: #222;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
-
-    input, textarea, select {
-      padding: 10px;
+    a {
+      color: #4fc3f7;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .status {
+      font-weight: bold;
+      padding: 4px 8px;
       border-radius: 5px;
-      border: none;
-      background: #333;
+    }
+    .approved {
+      background-color: #2e7d32;
       color: #fff;
     }
-
-    button {
-      padding: 10px;
-      background: #3498db;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      cursor: pointer;
+    .rejected {
+      background-color: #c62828;
+      color: #fff;
     }
-
-    button:hover {
-      background: #2980b9;
-    }
-
-    .claim {
-      background: #2a2a2a;
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 10px;
-    }
-
-    .success {
-      color: #4caf50;
-    }
-
-    .error {
-      color: #ff5252;
-    }
-
-    @media (max-width: 600px) {
-      .container {
-        padding: 10px;
-      }
-
-      input, textarea, select, button {
-        font-size: 16px;
-      }
+    .pending {
+      background-color: #fbc02d;
+      color: #000;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Recovery Claim Form</h1>
-    <form onsubmit="submitClaim(event)">
-      <select id="platform" required>
-        <option value="" disabled selected>Select Platform</option>
-        <option value="Roblox">Roblox</option>
-        <option value="Facebook">Facebook</option>
-        <option value="Instagram">Instagram</option>
-        <option value="Snapchat">Snapchat</option>
-        <option value="Other">Other</option>
-      </select>
-      <input id="accountId" placeholder="Username or Account ID" required />
-      <textarea id="description" placeholder="What happened?" required></textarea>
-      <textarea id="prevInfo" placeholder="Previous info (optional)"></textarea>
-      <textarea id="attackerInfo" placeholder="Attacker info (optional)"></textarea>
-      <label><input type="checkbox" id="agree" required> I agree to the <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a></label>
-      <button type="submit">Submit Claim</button>
-    </form>
-    <div id="result"></div>
-    <hr>
-    <h2>My Claims</h2>
-    <div id="claimsList"></div>
+    <h2>📁 My Claims</h2>
+    <div id="claimsList">Loading...</div>
   </div>
+
+  <script type="module">
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { app } from "./firebase-init.js";
+
+    const db = getFirestore(app);
+    const auth = getAuth();
+    const claimsList = document.getElementById("claimsList");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        claimsList.innerHTML = "<p>❌ You must be signed in to view your claims.</p>";
+        return;
+      }
+
+      const q = query(collection(db, "claims"), where("uid", "==", user.uid));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        claimsList.innerHTML = "<p>📭 No claims found.</p>";
+        return;
+      }
+
+      claimsList.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const statusClass = data.status === "approved" ? "approved" : data.status === "rejected" ? "rejected" : "pending";
+        claimsList.innerHTML += `
+          <div class="claim-box">
+            <p><strong>Platform:</strong> ${data.platform}</p>
+            <p><strong>Description:</strong> ${data.description}</p>
+            <p><strong>Status:</strong> <span class="status ${statusClass}">${data.status}</span></p>
+            <p><strong>Date:</strong> ${new Date(data.timestamp?.seconds * 1000).toLocaleString()}</p>
+            <a href="claim.html?id=${doc.id}">🔍 View Claim</a>
+          </div>
+        `;
+      });
+    });
+  </script>
 </body>
 </html>
