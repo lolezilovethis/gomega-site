@@ -1,94 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Process Claim – Gomega</title>
-  <link rel="stylesheet" href="style.css">
-  <script type="module">
-    import { db, auth } from './firebase-init.js';
-    import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const claimId = urlParams.get('id');
-    const type = urlParams.get('type'); // "claims" or "optOutRequests"
-    const statusText = document.getElementById("statusText");
-    const userInfoDiv = document.getElementById("userInfo");
-
-    let currentUser;
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        alert("You must be signed in to view this page.");
-        window.location.href = "signin.html";
-        return;
-      }
-
-      currentUser = user;
-      await loadClaim();
-    });
-
-    async function loadClaim() {
-      if (!claimId || !type || (type !== "claims" && type !== "optOutRequests")) {
-        statusText.textContent = "Invalid claim or type.";
-        return;
-      }
-
-      const ref = doc(db, type, claimId);
-      const snap = await getDoc(ref);
-
-      if (!snap.exists()) {
-        statusText.textContent = "Claim not found.";
-        return;
-      }
-
-      const data = snap.data();
-      statusText.innerHTML = `
-        <strong>Status:</strong> ${data.status || "Pending"}<br>
-        <strong>Submitted By:</strong> ${data.email || data.uid || "N/A"}<br>
-        <strong>Reason:</strong> ${data.reason || "None provided"}
-      `;
-
-      if (type === "claims") {
-        userInfoDiv.innerHTML = `
-          <strong>Claim Type:</strong> ${data.type || "Unknown"}<br>
-          <strong>Submitted On:</strong> ${new Date(data.timestamp?.seconds * 1000 || Date.now()).toLocaleString()}
-        `;
-      } else if (type === "optOutRequests") {
-        userInfoDiv.innerHTML = `
-          <strong>Email:</strong> ${data.email || "N/A"}<br>
-          <strong>Submitted On:</strong> ${new Date(data.timestamp?.seconds * 1000 || Date.now()).toLocaleString()}
-        `;
-      }
-    }
-
-    async function updateStatus(status) {
-      if (!claimId || !type) return;
-
-      const ref = doc(db, type, claimId);
-      await updateDoc(ref, {
-        status: status,
-        reviewedBy: currentUser.email,
-        reviewedAt: new Date()
-      });
-
-      alert(`Claim marked as "${status}".`);
-      location.reload();
-    }
-
-    window.approveClaim = () => updateStatus("Approved");
-    window.declineClaim = () => updateStatus("Declined");
-  </script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>Process Submission</h1>
-    <p id="statusText">Loading...</p>
-    <div id="userInfo" style="margin-top: 10px;"></div>
-    <div style="margin-top: 20px;">
-      <button onclick="approveClaim()">✅ Approve</button>
-      <button onclick="declineClaim()">❌ Decline</button>
-    </div>
+    <h1>Processing Request</h1>
+    <p id="status">Loading request details...</p>
+    <button id="approveBtn">✅ Approve</button>
+    <button id="declineBtn">❌ Decline</button>
   </div>
+
+  <script type="module">
+    import { db } from './firebase-init.js';
+    import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+    const collection = urlParams.get('type'); // 'claims' or 'optOutRequests'
+
+    const statusEl = document.getElementById('status');
+    const approveBtn = document.getElementById('approveBtn');
+    const declineBtn = document.getElementById('declineBtn');
+
+    let docRef, claimData;
+
+    async function loadClaim() {
+      try {
+        if (!id || !collection) {
+          statusEl.textContent = 'Missing claim ID or type.';
+          approveBtn.disabled = true;
+          declineBtn.disabled = true;
+          return;
+        }
+
+        docRef = doc(db, collection, id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          claimData = docSnap.data();
+          statusEl.textContent = `Request by: ${claimData.email || claimData.uid || 'N/A'}`;
+        } else {
+          statusEl.textContent = 'Request not found.';
+          approveBtn.disabled = true;
+          declineBtn.disabled = true;
+        }
+      } catch (error) {
+        console.error('Error loading claim:', error);
+        statusEl.textContent = 'Error loading request.';
+      }
+    }
+
+    async function updateStatus(action) {
+      const newStatus = action === 'approve' ? 'approved' : 'declined';
+
+      try {
+        await updateDoc(docRef, {
+          status: newStatus,
+          reviewedAt: new Date().toISOString()
+        });
+
+        statusEl.textContent = `Request ${newStatus.toUpperCase()}.`;
+        approveBtn.disabled = true;
+        declineBtn.disabled = true;
+
+        // Send Discord webhook (optional)
+        await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `📝 ${collection === 'claims' ? 'Claim' : 'Opt-Out'} request from **${claimData.email || claimData.uid || 'N/A'}** has been **${newStatus.toUpperCase()}**.`,
+          }),
+        });
+
+      } catch (error) {
+        console.error('Error updating status:', error);
+        statusEl.textContent = 'Failed to update request.';
+      }
+    }
+
+    approveBtn.onclick = () => updateStatus('approve');
+    declineBtn.onclick = () => updateStatus('decline');
+
+    loadClaim();
+  </script>
 </body>
 </html>
