@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>View Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
   <style>
@@ -51,21 +51,19 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { firebaseConfig } from './js/firebase.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { firebaseConfig } from "./js/firebase.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const claimContainer = document.getElementById("claimContainer");
 
-    // Get the claim ID from the URL
     function getClaimIdFromURL() {
       const params = new URLSearchParams(window.location.search);
       return params.get('id');
     }
 
-    // Load the claim document from Firestore
     async function loadClaim() {
       const claimId = getClaimIdFromURL();
 
@@ -90,12 +88,11 @@
         claimContainer.innerHTML = `
           <h2>Claim Details</h2>
           <p><strong>Claim ID:</strong> ${claimId}</p>
-          <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
+          <p><strong>Title:</strong> ${data.title || "No title provided"}</p>
           <p><strong>Description:</strong> ${data.description || "None"}</p>
-          <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
-          <p><strong>Submitted By:</strong> ${data.submittedBy || "Anonymous"}</p>
+          <p><strong>Submitted By:</strong> ${data.email || "Anonymous"}</p>
           <p class="status ${status}"><strong>Status:</strong> ${statusText}</p>
-          <a href="claims.html">← Back to All Claims</a>
+          <a href="claim.html">← Back to My Claims</a>
         `;
       } catch (error) {
         console.error("Error loading claim:", error);
