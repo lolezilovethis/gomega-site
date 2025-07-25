@@ -1,91 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Process Claim – Gomega</title>
+  <meta charset="UTF-8">
+  <title>Process Requests – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      storageBucket: "gomega-65e3f.appspot.com",
+      messagingSenderId: "212961835634",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const webhookURL = "https://discord.com/api/webhooks/1234567890/yourWebhookHere";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        alert("You must be signed in to access this page.");
+        window.location.href = "signin.html";
+        return;
+      }
+
+      const processRequests = async (collectionName) => {
+        const querySnapshot = await getDocs(collection(db, collectionName));
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.status !== "pending") return;
+
+          const div = document.createElement("div");
+          div.className = "request-card";
+
+          div.innerHTML = `
+            <p><strong>Type:</strong> ${collectionName}</p>
+            <p><strong>ID:</strong> ${docSnap.id}</p>
+            <p><strong>Email:</strong> ${data.email || "N/A"}</p>
+            <p><strong>Username:</strong> ${data.username || "N/A"}</p>
+            <p><strong>Reason:</strong> ${data.reason || "N/A"}</p>
+            <p><strong>Submission:</strong> <a href="claim.html?id=${docSnap.id}&type=${collectionName}">View</a></p>
+            <button class="approve" data-id="${docSnap.id}" data-type="${collectionName}">Approve</button>
+            <button class="decline" data-id="${docSnap.id}" data-type="${collectionName}">Decline</button>
+          `;
+
+          document.getElementById("requests").appendChild(div);
+        });
+      };
+
+      await processRequests("claims");
+      await processRequests("optOutRequests");
+
+      document.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("approve") || e.target.classList.contains("decline")) {
+          const id = e.target.dataset.id;
+          const type = e.target.dataset.type;
+          const status = e.target.classList.contains("approve") ? "approved" : "declined";
+
+          const ref = doc(db, type, id);
+          await updateDoc(ref, { status });
+
+          const res = await fetch(webhookURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: `A ${type} request has been **${status.toUpperCase()}**.\nID: \`${id}\`\nStatus updated by: ${auth.currentUser.email}`
+            })
+          });
+
+          if (!res.ok) {
+            console.error("Failed to send webhook:", await res.text());
+          }
+
+          e.target.parentElement.remove();
+        }
+      });
+    });
+  </script>
+  <style>
+    .request-card {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 12px;
+      background: #f9f9f9;
+    }
+    button {
+      margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
-  <div class="container center">
-    <h1>Processing Request</h1>
-    <p id="status">Loading request details...</p>
-    <button id="approveBtn">✅ Approve</button>
-    <button id="declineBtn">❌ Decline</button>
-  </div>
-
-  <script type="module">
-    import { db } from './firebase-init.js';
-    import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('id');
-    const collection = urlParams.get('type'); // 'claims' or 'optOutRequests'
-
-    const statusEl = document.getElementById('status');
-    const approveBtn = document.getElementById('approveBtn');
-    const declineBtn = document.getElementById('declineBtn');
-
-    let docRef, claimData;
-
-    async function loadClaim() {
-      try {
-        if (!id || !collection) {
-          statusEl.textContent = 'Missing claim ID or type.';
-          approveBtn.disabled = true;
-          declineBtn.disabled = true;
-          return;
-        }
-
-        docRef = doc(db, collection, id);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          claimData = docSnap.data();
-          statusEl.textContent = `Request by: ${claimData.email || claimData.uid || 'N/A'}`;
-        } else {
-          statusEl.textContent = 'Request not found.';
-          approveBtn.disabled = true;
-          declineBtn.disabled = true;
-        }
-      } catch (error) {
-        console.error('Error loading claim:', error);
-        statusEl.textContent = 'Error loading request.';
-      }
-    }
-
-    async function updateStatus(action) {
-      const newStatus = action === 'approve' ? 'approved' : 'declined';
-
-      try {
-        await updateDoc(docRef, {
-          status: newStatus,
-          reviewedAt: new Date().toISOString()
-        });
-
-        statusEl.textContent = `Request ${newStatus.toUpperCase()}.`;
-        approveBtn.disabled = true;
-        declineBtn.disabled = true;
-
-        // Send Discord webhook (optional)
-        await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: `📝 ${collection === 'claims' ? 'Claim' : 'Opt-Out'} request from **${claimData.email || claimData.uid || 'N/A'}** has been **${newStatus.toUpperCase()}**.`,
-          }),
-        });
-
-      } catch (error) {
-        console.error('Error updating status:', error);
-        statusEl.textContent = 'Failed to update request.';
-      }
-    }
-
-    approveBtn.onclick = () => updateStatus('approve');
-    declineBtn.onclick = () => updateStatus('decline');
-
-    loadClaim();
-  </script>
+  <h1>Pending Requests</h1>
+  <div id="requests"></div>
 </body>
 </html>
