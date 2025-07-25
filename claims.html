@@ -2,73 +2,113 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Your Claims – Gomega</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submit a Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_MSG_ID",
-      appId: "YOUR_APP_ID"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    const claimsContainer = document.getElementById("claimsList");
-
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const q = query(collection(db, "claims"), where("uid", "==", user.uid));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          claimsContainer.innerHTML = "<p>You have not submitted any claims yet.</p>";
-        } else {
-          querySnapshot.forEach(doc => {
-            const claim = doc.data();
-            const div = document.createElement("div");
-            div.className = "claim-card";
-            div.innerHTML = `
-              <strong>Platform:</strong> ${claim.platform}<br>
-              <strong>Description:</strong> ${claim.description}<br>
-              <strong>Status:</strong> <span class="${claim.status}">${claim.status}</span><br>
-              <a href="view-claim.html?id=${doc.id}">View Full Claim</a>
-              <hr>
-            `;
-            claimsContainer.appendChild(div);
-          });
-        }
-      } else {
-        window.location.href = "signin.html";
-      }
-    });
-  </script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    .claim-card {
-      background: #f1f1f1;
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-    }
-    .approved { color: green; font-weight: bold; }
-    .denied { color: red; font-weight: bold; }
-    .pending { color: orange; font-weight: bold; }
-  </style>
 </head>
 <body>
-  <h1>Your Claims</h1>
-  <div id="claimsList">Loading...</div>
+  <div class="container center">
+    <h1>Submit a Claim or School Opt-Out</h1>
+    <p>This will be reviewed by our team and you’ll be notified once a decision is made.</p>
+
+    <form id="claimForm">
+      <label for="title">Title</label>
+      <input type="text" id="title" required placeholder="Example: My Script Got Taken Down">
+
+      <label for="description">Description</label>
+      <textarea id="description" required placeholder="Explain your issue or reason..."></textarea>
+
+      <button type="submit">Submit</button>
+      <p id="statusMsg"></p>
+    </form>
+  </div>
+
+  <script type="module">
+    import { db, auth } from "./firebase-init.js";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const form = document.getElementById("claimForm");
+    const statusMsg = document.getElementById("statusMsg");
+
+    const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "signin.html";
+        return;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        statusMsg.textContent = "Submitting...";
+
+        const title = document.getElementById("title").value.trim();
+        const description = document.getElementById("description").value.trim();
+        const email = user.email;
+        const uid = user.uid;
+
+        const type = email.endsWith("@henrico.k12.va.us") ? "optOutRequests" : "claims";
+        const id = `${Date.now().toString(36)}_${Math.floor(Math.random() * 1000)}`; // cleaner ID
+
+        const data = {
+          id,
+          uid,
+          email,
+          title,
+          description,
+          status: "pending",
+          createdAt: serverTimestamp()
+        };
+
+        try {
+          await setDoc(doc(db, type, id), data);
+          statusMsg.textContent = "Submitted! Redirecting...";
+
+          // Send to Discord
+          const webhookRes = await fetch(webhookURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              embeds: [{
+                title: `New ${type === "optOutRequests" ? "Opt-Out Request" : "Claim"} Submitted`,
+                description: `**Title:** ${title}\n**By:** ${email}\n**Description:** ${description}`,
+                footer: { text: `ID: ${id}` },
+                timestamp: new Date().toISOString(),
+                color: type === "optOutRequests" ? 0xffcc00 : 0x00aaff
+              }],
+              components: [{
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 3,
+                    label: "Approve",
+                    custom_id: `approve_${type}_${id}`
+                  },
+                  {
+                    type: 2,
+                    style: 4,
+                    label: "Decline",
+                    custom_id: `decline_${type}_${id}`
+                  }
+                ]
+              }]
+            })
+          });
+
+          if (!webhookRes.ok) throw new Error("Webhook failed");
+
+          form.reset();
+          setTimeout(() => {
+            window.location.href = `view-claim.html?id=${id}`;
+          }, 1000);
+        } catch (err) {
+          console.error(err);
+          statusMsg.textContent = "Error submitting claim. Please try again.";
+        }
+      });
+    });
+  </script>
 </body>
 </html>

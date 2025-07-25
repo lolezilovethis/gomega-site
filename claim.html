@@ -8,8 +8,8 @@
 </head>
 <body>
   <div class="container center">
-    <h1>Check Claim Status</h1>
-    <p>Enter your Claim ID (from the message that says <strong>ID:</strong>)</p>
+    <h1>Check Claim or Opt-Out Status</h1>
+    <p>Paste your Claim ID (from the message with <strong>ID:</strong>)</p>
     <input type="text" id="claimIdInput" placeholder="Enter your Claim ID">
     <button onclick="checkClaim()">Check Status</button>
 
@@ -17,7 +17,6 @@
   </div>
 
   <script type="module">
-    // Firebase setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { firebaseConfig } from './firebase.js';
@@ -25,9 +24,16 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    async function fetchFromCollection(collection, id) {
+      const ref = doc(db, collection, id);
+      const snap = await getDoc(ref);
+      return snap.exists() ? { data: snap.data(), collection } : null;
+    }
+
     window.checkClaim = async () => {
       const claimId = document.getElementById("claimIdInput").value.trim();
       const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "<p>Loading...</p>";
 
       if (!claimId) {
         resultDiv.innerHTML = "<p>Please enter a valid claim ID.</p>";
@@ -35,29 +41,30 @@
       }
 
       try {
-        const docRef = doc(db, "claims", claimId);
-        const docSnap = await getDoc(docRef);
+        const claim = await fetchFromCollection("claims", claimId) || await fetchFromCollection("optOutRequests", claimId);
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const status = data.status || "pending";
-          let statusColor = "orange";
-          if (status === "approved") statusColor = "green";
-          else if (status === "denied") statusColor = "red";
-
-          resultDiv.innerHTML = `
-            <h2>Status: <span style="color:${statusColor}">${status.toUpperCase()}</span></h2>
-            <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
-            <p><strong>Description:</strong> ${data.description || "None"}</p>
-            <p><strong>Account:</strong> ${data.accountId || "N/A"}</p>
-            <p><a href="view-claim.html?id=${claimId}">View your submission here</a></p>
-          `;
-        } else {
-          resultDiv.innerHTML = "<p>Claim not found. Double-check your ID.</p>";
+        if (!claim) {
+          resultDiv.innerHTML = "<p>❌ Claim not found. Double-check your ID.</p>";
+          return;
         }
+
+        const { data, collection } = claim;
+        const status = data.status || "pending";
+        const statusColor = status === "approved" ? "green" : status === "denied" ? "red" : "orange";
+
+        resultDiv.innerHTML = `
+          <h2>Status: <span style="color:${statusColor}">${status.toUpperCase()}</span></h2>
+          <p><strong>Type:</strong> ${collection === "optOutRequests" ? "School Opt-Out" : "Claim"}</p>
+          <p><strong>Title:</strong> ${data.title || "Untitled"}</p>
+          <p><strong>Description:</strong> ${data.description || "None provided"}</p>
+          <p><strong>Email:</strong> ${data.email || "Unknown"}</p>
+          <p><strong>Submitted:</strong> ${data.createdAt?.toDate().toLocaleString() || "Unknown"}</p>
+          <p><strong>Claim ID:</strong> ${data.id}</p>
+          <p><a href="view-claim.html?id=${data.id}">🔎 View Full Submission</a></p>
+        `;
       } catch (error) {
         console.error("Error fetching claim:", error);
-        resultDiv.innerHTML = "<p>Error fetching claim. Please try again later.</p>";
+        resultDiv.innerHTML = "<p>⚠️ Error fetching claim. Please try again later.</p>";
       }
     };
   </script>

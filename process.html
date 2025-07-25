@@ -1,9 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Process Requests – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .request-card {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 12px;
+      background: #f9f9f9;
+    }
+    button {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pending Requests</h1>
+  <div id="requests"></div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -24,10 +41,18 @@
 
     const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
 
+    const adminEmails = ["you@example.com", "admin2@example.com"]; // REPLACE with actual admin emails
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         alert("You must be signed in to access this page.");
         window.location.href = "signin.html";
+        return;
+      }
+
+      if (!adminEmails.includes(user.email)) {
+        alert("You are not authorized to view this page.");
+        window.location.href = "index.html";
         return;
       }
 
@@ -40,13 +65,16 @@
           const div = document.createElement("div");
           div.className = "request-card";
 
+          const createdAt = data.createdAt?.toDate().toLocaleString() || "Unknown";
+
           div.innerHTML = `
             <p><strong>Type:</strong> ${collectionName}</p>
             <p><strong>ID:</strong> ${docSnap.id}</p>
             <p><strong>Email:</strong> ${data.email || "N/A"}</p>
-            <p><strong>Username:</strong> ${data.username || "N/A"}</p>
-            <p><strong>Reason:</strong> ${data.reason || "N/A"}</p>
-            <p><strong>Submission:</strong> <a href="claim.html?id=${docSnap.id}&type=${collectionName}">View</a></p>
+            <p><strong>Title:</strong> ${data.title || "N/A"}</p>
+            <p><strong>Description:</strong> ${data.description || "N/A"}</p>
+            <p><strong>Submitted:</strong> ${createdAt}</p>
+            <p><a href="view-claim.html?id=${docSnap.id}">🔎 View full submission</a></p>
             <button class="approve" data-id="${docSnap.id}" data-type="${collectionName}">Approve</button>
             <button class="decline" data-id="${docSnap.id}" data-type="${collectionName}">Decline</button>
           `;
@@ -62,43 +90,33 @@
         if (e.target.classList.contains("approve") || e.target.classList.contains("decline")) {
           const id = e.target.dataset.id;
           const type = e.target.dataset.type;
-          const status = e.target.classList.contains("approve") ? "approved" : "declined";
+          const status = e.target.classList.contains("approve") ? "approved" : "denied";
+          const email = auth.currentUser.email;
 
-          const ref = doc(db, type, id);
-          await updateDoc(ref, { status });
+          try {
+            await updateDoc(doc(db, type, id), {
+              status,
+              reviewedBy: email,
+              reviewedAt: new Date().toISOString()
+            });
 
-          const res = await fetch(webhookURL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: `A ${type} request has been **${status.toUpperCase()}**.\nID: \`${id}\`\nStatus updated by: ${auth.currentUser.email}`
-            })
-          });
+            await fetch(webhookURL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: `✅ A **${type}** request has been **${status.toUpperCase()}**.\n**ID:** \`${id}\`\n👤 Reviewed by: **${email}**`
+              })
+            });
 
-          if (!res.ok) {
-            console.error("Failed to send webhook:", await res.text());
+            alert(`Marked as ${status.toUpperCase()}`);
+            e.target.parentElement.remove();
+          } catch (err) {
+            console.error("Error updating Firestore or sending webhook:", err);
+            alert("Something went wrong. Try again.");
           }
-
-          e.target.parentElement.remove();
         }
       });
     });
   </script>
-  <style>
-    .request-card {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 12px;
-      margin: 12px;
-      background: #f9f9f9;
-    }
-    button {
-      margin-right: 10px;
-    }
-  </style>
-</head>
-<body>
-  <h1>Pending Requests</h1>
-  <div id="requests"></div>
 </body>
 </html>
