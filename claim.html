@@ -9,7 +9,7 @@
   <div class="container center">
     <h1>Check Your Claim Status</h1>
     <input type="text" id="claimId" placeholder="Enter your Claim ID" />
-    <button onclick="checkClaim()">Check Status</button>
+    <button id="checkBtn">Check Status</button>
     <div id="result" style="margin-top: 20px;"></div>
   </div>
 
@@ -30,6 +30,7 @@
     const db = getFirestore(app);
 
     async function checkClaim() {
+      document.getElementById("checkBtn").addEventListener("click", checkClaim);
       const claimId = document.getElementById("claimId").value.trim();
       const result = document.getElementById("result");
       result.textContent = "Loading...";
