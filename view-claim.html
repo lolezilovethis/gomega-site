@@ -6,13 +6,20 @@
   <title>View Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
   <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
     .claim-box {
       max-width: 600px;
       margin: 30px auto;
       padding: 20px;
       border: 1px solid #ccc;
       border-radius: 12px;
-      background-color: #fafafa;
+      background-color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .claim-box h2 {
       margin-top: 0;
@@ -23,11 +30,24 @@
     .status.approved { color: green; }
     .status.denied { color: red; }
     .status.pending { color: orange; }
+    .loading {
+      font-style: italic;
+      color: #777;
+    }
+    a {
+      display: inline-block;
+      margin-top: 20px;
+      text-decoration: none;
+      color: #007BFF;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <div class="claim-box" id="claimContainer">
-    <h2>Loading Claim...</h2>
+    <p class="loading">Loading Claim...</p>
   </div>
 
   <script type="module">
@@ -37,18 +57,20 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
     const claimContainer = document.getElementById("claimContainer");
 
+    // Get the claim ID from the URL
     function getClaimIdFromURL() {
       const params = new URLSearchParams(window.location.search);
       return params.get('id');
     }
 
+    // Load the claim document from Firestore
     async function loadClaim() {
       const claimId = getClaimIdFromURL();
+
       if (!claimId) {
-        claimContainer.innerHTML = "<p>Error: No claim ID provided in the URL.</p>";
+        claimContainer.innerHTML = "<p style='color: red;'>❌ Error: No claim ID provided in the URL.</p>";
         return;
       }
 
@@ -57,13 +79,13 @@
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
-          claimContainer.innerHTML = "<p>Error: Claim not found.</p>";
+          claimContainer.innerHTML = "<p style='color: red;'>❌ Error: Claim not found.</p>";
           return;
         }
 
         const data = docSnap.data();
         const status = (data.status || "pending").toLowerCase();
-        const statusText = status.toUpperCase();
+        const statusText = status.charAt(0).toUpperCase() + status.slice(1);
 
         claimContainer.innerHTML = `
           <h2>Claim Details</h2>
@@ -72,12 +94,12 @@
           <p><strong>Description:</strong> ${data.description || "None"}</p>
           <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
           <p><strong>Submitted By:</strong> ${data.submittedBy || "Anonymous"}</p>
-          <p class="status ${status}">Status: ${statusText}</p>
+          <p class="status ${status}"><strong>Status:</strong> ${statusText}</p>
           <a href="claims.html">← Back to All Claims</a>
         `;
       } catch (error) {
-        console.error("Error fetching claim:", error);
-        claimContainer.innerHTML = "<p>Error fetching claim. Please try again.</p>";
+        console.error("Error loading claim:", error);
+        claimContainer.innerHTML = "<p style='color: red;'>❌ Error fetching claim. Please try again later.</p>";
       }
     }
 

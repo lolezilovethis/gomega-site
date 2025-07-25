@@ -3,70 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Claim Status – Gomega</title>
+  <title>My Claims – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .claim-list {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .claim {
+      border-bottom: 1px solid #ddd;
+      padding: 12px 0;
+    }
+    .claim:last-child {
+      border-bottom: none;
+    }
+    .claim h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+    .claim p {
+      margin: 4px 0;
+      font-size: 0.95rem;
+    }
+    .status {
+      font-weight: bold;
+    }
+    .status.pending { color: orange; }
+    .status.approved { color: green; }
+    .status.denied { color: red; }
+    button {
+      padding: 6px 12px;
+      margin-top: 6px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
 <body>
-  <div class="container center">
-    <h1>Check Claim or Opt-Out Status</h1>
-    <p>Paste your Claim ID (from the message with <strong>ID:</strong>)</p>
-    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID">
-    <button onclick="checkClaim()">Check Status</button>
-
-    <div id="result" style="margin-top: 20px;"></div>
+  <div class="claim-list" id="claimList">
+    <p>Loading your claims...</p>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { firebaseConfig } from './firebase.js';
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { firebaseConfig } from "./firebase.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
+    const claimList = document.getElementById("claimList");
 
-    async function fetchFromCollection(collection, id) {
-      const ref = doc(db, collection, id);
-      const snap = await getDoc(ref);
-      return snap.exists() ? { data: snap.data(), collection } : null;
-    }
-
-    window.checkClaim = async () => {
-      const claimId = document.getElementById("claimIdInput").value.trim();
-      const resultDiv = document.getElementById("result");
-      resultDiv.innerHTML = "<p>Loading...</p>";
-
-      if (!claimId) {
-        resultDiv.innerHTML = "<p>Please enter a valid claim ID.</p>";
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        claimList.innerHTML = "<p>⚠️ You must be signed in to view your claims.</p>";
         return;
       }
 
       try {
-        const claim = await fetchFromCollection("claims", claimId) || await fetchFromCollection("optOutRequests", claimId);
+        const q = query(
+          collection(db, "claims"),
+          where("userId", "==", user.uid)
+        );
 
-        if (!claim) {
-          resultDiv.innerHTML = "<p>❌ Claim not found. Double-check your ID.</p>";
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          claimList.innerHTML = "<p>You have not submitted any claims yet.</p>";
           return;
         }
 
-        const { data, collection } = claim;
-        const status = data.status || "pending";
-        const statusColor = status === "approved" ? "green" : status === "denied" ? "red" : "orange";
+        let html = `<h2>Your Claims</h2>`;
 
-        resultDiv.innerHTML = `
-          <h2>Status: <span style="color:${statusColor}">${status.toUpperCase()}</span></h2>
-          <p><strong>Type:</strong> ${collection === "optOutRequests" ? "School Opt-Out" : "Claim"}</p>
-          <p><strong>Title:</strong> ${data.title || "Untitled"}</p>
-          <p><strong>Description:</strong> ${data.description || "None provided"}</p>
-          <p><strong>Email:</strong> ${data.email || "Unknown"}</p>
-          <p><strong>Submitted:</strong> ${data.createdAt?.toDate().toLocaleString() || "Unknown"}</p>
-          <p><strong>Claim ID:</strong> ${data.id}</p>
-          <p><a href="view-claim.html?id=${data.id}">🔎 View Full Submission</a></p>
-        `;
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const status = (data.status || "pending").toLowerCase();
+          const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+
+          html += `
+            <div class="claim">
+              <h3>${data.platform || "Unknown Platform"}</h3>
+              <p><strong>Description:</strong> ${data.description || "No description"}</p>
+              <p><strong>Status:</strong> <span class="status ${status}">${statusText}</span></p>
+              <button onclick="location.href='view-claim.html?id=${doc.id}'">Check Status</button>
+            </div>
+          `;
+        });
+
+        claimList.innerHTML = html;
+
       } catch (error) {
-        console.error("Error fetching claim:", error);
-        resultDiv.innerHTML = "<p>⚠️ Error fetching claim. Please try again later.</p>";
+        console.error("Error loading claims:", error);
+        claimList.innerHTML = "<p>❌ Error loading your claims.</p>";
       }
-    };
+    });
   </script>
 </body>
 </html>
