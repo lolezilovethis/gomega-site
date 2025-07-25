@@ -1,65 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Check Claim – Gomega</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Claim Status – Gomega</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>Check Your Claim Status</h1>
-    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID (from Discord)" />
+    <h1>Check Claim Status</h1>
+    <p>Enter your Claim ID (from the message that says <strong>ID:</strong>)</p>
+    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID">
     <button onclick="checkClaim()">Check Status</button>
-    <div id="claimStatus" style="margin-top: 20px;"></div>
+
+    <div id="result" style="margin-top: 20px;"></div>
   </div>
 
   <script type="module">
+    // Firebase setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+    import { firebaseConfig } from './firebase.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    window.checkClaim = async function () {
+    window.checkClaim = async () => {
       const claimId = document.getElementById("claimIdInput").value.trim();
-      const statusDiv = document.getElementById("claimStatus");
+      const resultDiv = document.getElementById("result");
 
       if (!claimId) {
-        statusDiv.innerHTML = "<p>Please enter a Claim ID.</p>";
+        resultDiv.innerHTML = "<p>Please enter a valid claim ID.</p>";
         return;
       }
 
       try {
-        const claimRef = doc(db, "claims", claimId);
-        const claimSnap = await getDoc(claimRef);
+        const docRef = doc(db, "claims", claimId);
+        const docSnap = await getDoc(docRef);
 
-        if (claimSnap.exists()) {
-          const data = claimSnap.data();
+        if (docSnap.exists()) {
+          const data = docSnap.data();
           const status = data.status || "pending";
+          let statusColor = "orange";
+          if (status === "approved") statusColor = "green";
+          else if (status === "denied") statusColor = "red";
 
-          let color = "gray";
-          if (status === "approved") color = "green";
-          else if (status === "denied") color = "red";
-
-          statusDiv.innerHTML = `
-            <p>Status: <strong style="color:${color}">${status.toUpperCase()}</strong></p>
-            <p><a href="/view-claim.html?id=${claimId}" target="_blank">View your submission here</a></p>
+          resultDiv.innerHTML = `
+            <h2>Status: <span style="color:${statusColor}">${status.toUpperCase()}</span></h2>
+            <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
+            <p><strong>Description:</strong> ${data.description || "None"}</p>
+            <p><strong>Account:</strong> ${data.accountId || "N/A"}</p>
+            <p><a href="view-claim.html?id=${claimId}">View your submission here</a></p>
           `;
         } else {
-          statusDiv.innerHTML = "<p>No claim found with that ID.</p>";
+          resultDiv.innerHTML = "<p>Claim not found. Double-check your ID.</p>";
         }
-      } catch (err) {
-        console.error(err);
-        statusDiv.innerHTML = "<p>Error fetching claim. Please try again.</p>";
+      } catch (error) {
+        console.error("Error fetching claim:", error);
+        resultDiv.innerHTML = "<p>Error fetching claim. Please try again later.</p>";
       }
     };
   </script>
