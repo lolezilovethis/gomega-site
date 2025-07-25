@@ -61,9 +61,9 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { firebaseConfig } from './js/firebase.js';
 
     const app = initializeApp(firebaseConfig);
@@ -80,7 +80,7 @@
       try {
         const q = query(
           collection(db, "claims"),
-          where("userId", "==", user.uid)
+          where("userId", "==", user.uid)  // matches saved userId in claims.html
         );
 
         const querySnapshot = await getDocs(q);
@@ -99,7 +99,7 @@
 
           html += `
             <div class="claim">
-              <h3>${data.platform || "Unknown Platform"}</h3>
+              <h3>${data.title || "Untitled Claim"}</h3>
               <p><strong>Description:</strong> ${data.description || "No description"}</p>
               <p><strong>Status:</strong> <span class="status ${status}">${statusText}</span></p>
               <button onclick="location.href='view-claim.html?id=${doc.id}'">Check Status</button>

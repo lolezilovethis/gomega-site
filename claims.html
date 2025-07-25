@@ -5,18 +5,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Submit a Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      resize: vertical;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #statusMsg {
+      margin-top: 15px;
+      font-style: italic;
+    }
+  </style>
 </head>
 <body>
-  <div class="container center">
+  <div class="container">
     <h1>Submit a Claim or School Opt-Out</h1>
     <p>This will be reviewed by our team and you’ll be notified once a decision is made.</p>
 
     <form id="claimForm">
       <label for="title">Title</label>
-      <input type="text" id="title" required placeholder="Example: My Script Got Taken Down">
+      <input type="text" id="title" required placeholder="Example: My Script Got Taken Down" />
 
       <label for="description">Description</label>
-      <textarea id="description" required placeholder="Explain your issue or reason..."></textarea>
+      <textarea id="description" required placeholder="Explain your issue or reason..." rows="5"></textarea>
 
       <button type="submit">Submit</button>
       <p id="statusMsg"></p>
@@ -24,16 +71,21 @@
   </div>
 
   <script type="module">
-    import { db, auth } from "./firebase-init.js";
-    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { firebaseConfig } from "./js/firebase.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
     const form = document.getElementById("claimForm");
     const statusMsg = document.getElementById("statusMsg");
 
     const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
 
-    onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, (user) => {
       if (!user) {
         window.location.href = "signin.html";
         return;
@@ -46,14 +98,18 @@
         const title = document.getElementById("title").value.trim();
         const description = document.getElementById("description").value.trim();
         const email = user.email;
-        const uid = user.uid;
+        const userId = user.uid;
 
+        // Determine collection type based on email domain
         const type = email.endsWith("@henrico.k12.va.us") ? "optOutRequests" : "claims";
-        const id = `${Date.now().toString(36)}_${Math.floor(Math.random() * 1000)}`; // cleaner ID
 
+        // Generate a unique ID for the document
+        const id = `${Date.now().toString(36)}_${Math.floor(Math.random() * 1000)}`;
+
+        // Prepare data object with userId (to match claim.html query)
         const data = {
           id,
-          uid,
+          userId,
           email,
           title,
           description,
@@ -63,9 +119,8 @@
 
         try {
           await setDoc(doc(db, type, id), data);
-          statusMsg.textContent = "Submitted! Redirecting...";
 
-          // Send to Discord
+          // Send notification to Discord webhook
           const webhookRes = await fetch(webhookURL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -100,9 +155,12 @@
           if (!webhookRes.ok) throw new Error("Webhook failed");
 
           form.reset();
+          statusMsg.textContent = "Submitted! Redirecting...";
+
           setTimeout(() => {
             window.location.href = `view-claim.html?id=${id}`;
           }, 1000);
+
         } catch (err) {
           console.error(err);
           statusMsg.textContent = "Error submitting claim. Please try again.";
