@@ -2,115 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>View Claims – Gomega</title>
+  <title>Claim Status – Gomega</title>
   <link rel="stylesheet" href="style.css">
-  <script type="module">
-    import { db, auth } from './firebase-init.js';
-    import {
-      collection,
-      getDocs,
-      deleteDoc,
-      doc
-    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import {
-      onAuthStateChanged
-    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-
-    const claimContainer = document.createElement("div");
-    claimContainer.className = "claim-container";
-    document.body.appendChild(claimContainer);
-
-    const webhookURL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_HERE";
-
-    function sendToDiscord(content) {
-      fetch(webhookURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content })
-      });
-    }
-
-    function renderClaim(docData, id) {
-      const card = document.createElement("div");
-      card.className = "claim-card";
-      card.innerHTML = `
-        <p><strong>Username:</strong> ${docData.username}</p>
-        <p><strong>Reason:</strong> ${docData.reason}</p>
-        <p><strong>User ID:</strong> ${docData.uid}</p>
-        <button class="approve">✅ Approve</button>
-        <button class="deny">❌ Deny</button>
-      `;
-
-      card.querySelector(".approve").onclick = async () => {
-        await deleteDoc(doc(db, "claims", id));
-        sendToDiscord(`✅ Approved claim for: **${docData.username}** (${docData.uid})`);
-        card.remove();
-      };
-
-      card.querySelector(".deny").onclick = async () => {
-        await deleteDoc(doc(db, "claims", id));
-        sendToDiscord(`❌ Denied claim for: **${docData.username}** (${docData.uid})`);
-        card.remove();
-      };
-
-      claimContainer.appendChild(card);
-    }
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        alert("You must be logged in to view this page.");
-        window.location.href = "signin.html";
-        return;
-      }
-
-      if (user.email !== "gomegaassist@gmail.com") {
-        alert("You are not authorized to access this page.");
-        window.location.href = "index.html";
-        return;
-      }
-
-      const querySnapshot = await getDocs(collection(db, "claims"));
-      querySnapshot.forEach(docSnap => {
-        renderClaim(docSnap.data(), docSnap.id);
-      });
-    });
-  </script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      padding: 20px;
-    }
-    .claim-container {
-      display: grid;
-      gap: 15px;
-    }
-    .claim-card {
-      background: #1e1e1e;
-      border-left: 5px solid #4caf50;
-      padding: 15px;
-      border-radius: 10px;
-    }
-    .claim-card button {
-      margin-right: 10px;
-      padding: 5px 10px;
-      border: none;
-      border-radius: 5px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .approve {
-      background-color: #4caf50;
-      color: white;
-    }
-    .deny {
-      background-color: #f44336;
-      color: white;
-    }
-  </style>
 </head>
 <body>
-  <h1>Pending Claims</h1>
+  <div class="container center">
+    <h1>Check Your Claim Status</h1>
+    <input type="text" id="claimId" placeholder="Enter your Claim ID" />
+    <button onclick="checkClaim()">Check Status</button>
+    <div id="result" style="margin-top: 20px;"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      storageBucket: "gomega-65e3f.appspot.com",
+      messagingSenderId: "212961835634",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function checkClaim() {
+      const claimId = document.getElementById("claimId").value.trim();
+      const result = document.getElementById("result");
+      result.textContent = "Loading...";
+
+      if (!claimId) {
+        result.textContent = "Please enter a Claim ID.";
+        return;
+      }
+
+      try {
+        const claimRef = doc(db, "claims", claimId);
+        const docSnap = await getDoc(claimRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const status = data.status || "pending";
+          const submissionUrl = data.submissionUrl || `https://gomega.watch/claims.html?id=${claimId}`;
+
+          result.innerHTML = `
+            <p><strong>Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
+            <p><a href="${submissionUrl}" target="_blank">View your submission here</a></p>
+          `;
+        } else {
+          result.textContent = "No claim found with this ID.";
+        }
+      } catch (err) {
+        result.textContent = "Error fetching claim. Please try again.";
+        console.error(err);
+      }
+    }
+  </script>
 </body>
 </html>

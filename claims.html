@@ -2,140 +2,107 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Submit Claim – Gomega</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submit a Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
-  <script type="module" src="/firebase-init.js"></script>
-  <style>
-    body {
-      background-color: #0d1117;
-      color: #c9d1d9;
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 2rem;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background-color: #161b22;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-
-    label {
-      margin-top: 1rem;
-      display: block;
-      font-weight: bold;
-    }
-
-    select, input, textarea {
-      width: 100%;
-      padding: 0.8rem;
-      margin-top: 0.3rem;
-      border-radius: 6px;
-      border: 1px solid #30363d;
-      background-color: #0d1117;
-      color: #c9d1d9;
-    }
-
-    button {
-      background-color: #238636;
-      color: white;
-      padding: 0.8rem;
-      border: none;
-      border-radius: 6px;
-      margin-top: 1.5rem;
-      cursor: pointer;
-      width: 100%;
-      font-weight: bold;
-    }
-
-    button:hover {
-      background-color: #2ea043;
-    }
-
-    .message {
-      margin-top: 1rem;
-      text-align: center;
-      font-weight: bold;
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Submit a Claim</h1>
+  <div class="container center">
+    <h1>Submit a Claim or School Opt-Out</h1>
+    <p>This will be reviewed by our team and you’ll be notified once a decision is made.</p>
+
     <form id="claimForm">
-      <label for="type">Claim Type</label>
-      <select id="type" required>
-        <option value="">Select a type</option>
-        <option value="Ban Appeal">Ban Appeal</option>
-        <option value="Moderator Application">Moderator Application</option>
-        <option value="Script Request">Script Request</option>
-        <option value="Report User">Report User</option>
-      </select>
+      <label for="title">Title</label>
+      <input type="text" id="title" required placeholder="Example: My Script Got Taken Down">
 
       <label for="description">Description</label>
-      <textarea id="description" rows="4" required placeholder="Explain your claim..."></textarea>
+      <textarea id="description" required placeholder="Explain your issue or reason..."></textarea>
 
-      <label for="extra">Extra Information (Optional)</label>
-      <input type="text" id="extra" placeholder="Discord, Roblox username, etc." />
-
-      <button type="submit">Submit Claim</button>
-      <div class="message" id="statusMsg"></div>
+      <button type="submit">Submit</button>
+      <p id="statusMsg"></p>
     </form>
   </div>
 
   <script type="module">
-    import { db, auth } from './firebase-init.js';
-    import { collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { db, auth } from "./firebase-init.js";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    const claimForm = document.getElementById('claimForm');
-    const statusMsg = document.getElementById('statusMsg');
-    let currentUser = null;
+    const form = document.getElementById("claimForm");
+    const statusMsg = document.getElementById("statusMsg");
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        currentUser = user;
-      } else {
-        alert("Please log in to submit a claim.");
+    const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3"; // Replace with your actual webhook
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
         window.location.href = "signin.html";
+        return;
       }
-    });
 
-    claimForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-      const type = document.getElementById('type').value.trim();
-      const description = document.getElementById('description').value.trim();
-      const extra = document.getElementById('extra').value.trim();
+        const title = document.getElementById("title").value.trim();
+        const description = document.getElementById("description").value.trim();
+        const email = user.email;
+        const uid = user.uid;
 
-      if (!type || !description || !currentUser) return;
+        const type = email.endsWith("@henrico.k12.va.us") ? "optOutRequests" : "claims";
+        const id = `${uid}_${Date.now()}`;
 
-      try {
-        await addDoc(collection(db, "claims"), {
-          uid: currentUser.uid,
-          email: currentUser.email || null,
-          type,
+        const data = {
+          id,
+          uid,
+          email,
+          title,
           description,
-          extra,
           status: "pending",
-          timestamp: serverTimestamp()
-        });
+          createdAt: serverTimestamp()
+        };
 
-        statusMsg.textContent = "✅ Claim submitted successfully!";
-        claimForm.reset();
-      } catch (error) {
-        console.error("Error submitting claim:", error);
-        statusMsg.textContent = "❌ Failed to submit. Please try again.";
-      }
+        try {
+          await setDoc(doc(db, type, id), data);
+          statusMsg.textContent = "Submitted! You’ll be notified once reviewed.";
+
+          // Send to Discord webhook with buttons
+          await fetch(webhookURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: null,
+              embeds: [{
+                title: `New ${type === "optOutRequests" ? "School Opt-Out" : "Claim"} Submitted`,
+                description: `**Title:** ${title}\n**By:** ${email}\n**Description:** ${description}`,
+                footer: { text: `ID: ${id}` },
+                timestamp: new Date().toISOString(),
+                color: type === "optOutRequests" ? 0xffcc00 : 0x00aaff
+              }],
+              components: [{
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 3,
+                    label: "Approve",
+                    custom_id: `approve_${type}_${id}`
+                  },
+                  {
+                    type: 2,
+                    style: 4,
+                    label: "Decline",
+                    custom_id: `decline_${type}_${id}`
+                  }
+                ]
+              }]
+            })
+          });
+
+          form.reset();
+        } catch (err) {
+          console.error(err);
+          statusMsg.textContent = "Error submitting. Try again.";
+        }
+      });
     });
   </script>
 </body>
