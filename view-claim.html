@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>View Claim – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .claim-box {
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      background-color: #fafafa;
+    }
+    .claim-box h2 {
+      margin-top: 0;
+    }
+    .status {
+      font-weight: bold;
+    }
+    .status.approved { color: green; }
+    .status.denied { color: red; }
+    .status.pending { color: orange; }
+  </style>
+</head>
+<body>
+  <div class="claim-box" id="claimContainer">
+    <h2>Loading Claim...</h2>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { firebaseConfig } from './firebase.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const claimContainer = document.getElementById("claimContainer");
+
+    function getClaimIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+
+    async function loadClaim() {
+      const claimId = getClaimIdFromURL();
+      if (!claimId) {
+        claimContainer.innerHTML = "<p>Error: No claim ID provided in the URL.</p>";
+        return;
+      }
+
+      try {
+        const docRef = doc(db, "claims", claimId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          claimContainer.innerHTML = "<p>Error: Claim not found.</p>";
+          return;
+        }
+
+        const data = docSnap.data();
+        const status = (data.status || "pending").toLowerCase();
+        const statusText = status.toUpperCase();
+
+        claimContainer.innerHTML = `
+          <h2>Claim Details</h2>
+          <p><strong>Claim ID:</strong> ${claimId}</p>
+          <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
+          <p><strong>Description:</strong> ${data.description || "None"}</p>
+          <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
+          <p><strong>Submitted By:</strong> ${data.submittedBy || "Anonymous"}</p>
+          <p class="status ${status}">Status: ${statusText}</p>
+          <a href="claims.html">← Back to All Claims</a>
+        `;
+      } catch (error) {
+        console.error("Error fetching claim:", error);
+        claimContainer.innerHTML = "<p>Error fetching claim. Please try again.</p>";
+      }
+    }
+
+    loadClaim();
+  </script>
+</body>
+</html>
