@@ -2,30 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Gomega - Submit a Claim</title>
+  <title>Gomega – Submit a Claim</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="styles.css" />
-  <script type="module" src="/firebase-init.js"></script>
+  <script type="module" src="./firebase-init.js"></script>
   <style>
-    body { background-color: #111; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    .container { padding: 2rem; max-width: 600px; margin: auto; }
-    h1 { text-align: center; margin-bottom: 1rem; }
-    form { background: #222; padding: 1.5rem; border-radius: 8px; display: flex; flex-direction: column; gap: 1rem; }
-    label { font-size: 0.9rem; }
-    select, input, textarea, button { width: 100%; padding: 0.75rem; border-radius: 6px; border: none; font-size: 1rem; }
-    textarea { resize: vertical; min-height: 80px; }
-    button { background: #4fc3f7; color: #111; font-weight: bold; cursor: pointer; }
-    button:hover { background: #0288d1; }
-    #submitStatus { margin-top: 1rem; font-size: 0.95rem; }
-    @media (max-width: 500px) { .container { padding: 1rem; } form { padding: 1rem; } }
+    body {
+      background-color: #0f0f0f;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 4rem auto;
+      padding: 2rem;
+      background: #1c1c1c;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    label {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+    input, select, textarea {
+      padding: 0.75rem;
+      background: #2c2c2c;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #999;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    button {
+      padding: 0.9rem;
+      background-color: #4fc3f7;
+      color: #111;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #039be5;
+    }
+    #submitStatus {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+    .hidden {
+      display: none;
+    }
+    @media (max-width: 500px) {
+      .container {
+        margin: 1.5rem 1rem;
+        padding: 1rem;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📝 File a Claim</h1>
+    <h1>📝 Submit a Claim</h1>
     <form id="claimForm">
       <label for="platform">Platform</label>
-      <select id="platform" name="platform" required>
+      <select id="platform" required>
         <option value="">-- Select Platform --</option>
         <option value="Roblox">Roblox</option>
         <option value="Facebook">Facebook</option>
@@ -35,38 +96,39 @@
       </select>
 
       <label for="accountId">Account Username/ID</label>
-      <input type="text" id="accountId" name="accountId" placeholder="e.g. user123" required />
+      <input type="text" id="accountId" placeholder="e.g. user123" required />
 
       <label for="description">Issue Description</label>
-      <textarea id="description" name="description" placeholder="Describe what happened" required></textarea>
+      <textarea id="description" placeholder="Describe what happened..." required></textarea>
 
-      <label for="previousInfo">Previous Account Info (email, phone, password)</label>
-      <input type="text" id="previousInfo" name="previousInfo" placeholder="Optional past info" />
+      <label for="previousInfo">Previous Account Info (email, phone, etc.)</label>
+      <input type="text" id="previousInfo" placeholder="Optional" />
 
       <label for="attackerInfo">Attacker Info (if known)</label>
-      <input type="text" id="attackerInfo" name="attackerInfo" placeholder="Optional attacker contact" />
+      <input type="text" id="attackerInfo" placeholder="Optional" />
 
-      <button type="submit">Submit Claim</button>
+      <button type="submit" id="submitBtn">Submit Claim</button>
     </form>
     <div id="submitStatus"></div>
   </div>
 
   <script type="module">
     import { db, auth } from "./firebase-init.js";
-    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const form = document.getElementById("claimForm");
     const statusDiv = document.getElementById("submitStatus");
+    const submitBtn = document.getElementById("submitBtn");
     let currentUser = null;
 
     onAuthStateChanged(auth, user => {
       if (!user) {
-        statusDiv.textContent = '❌ Please sign in to submit a claim.';
-        form.style.display = 'none';
+        form.classList.add("hidden");
+        statusDiv.innerHTML = `❌ <b>Please sign in</b> to submit a claim.`;
       } else {
         currentUser = user;
-        console.log("User signed in:", user.email);
+        console.log("Logged in as:", user.email);
       }
     });
 
@@ -74,11 +136,16 @@
       e.preventDefault();
       if (!currentUser) return;
 
+      // Disable submit button
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+      statusDiv.textContent = "";
+
       const platform = document.getElementById("platform").value;
       const accountId = document.getElementById("accountId").value;
       const description = document.getElementById("description").value;
-      const previousInfo = document.getElementById("previousInfo").value || '';
-      const attackerInfo = document.getElementById("attackerInfo").value || '';
+      const previousInfo = document.getElementById("previousInfo").value || "N/A";
+      const attackerInfo = document.getElementById("attackerInfo").value || "N/A";
 
       const data = {
         uid: currentUser.uid,
@@ -114,8 +181,8 @@
                 { name: "User", value: currentUser.email, inline: true },
                 { name: "Account ID", value: accountId },
                 { name: "Description", value: description },
-                { name: "Previous Info", value: previousInfo || "N/A" },
-                { name: "Attacker Info", value: attackerInfo || "N/A" }
+                { name: "Previous Info", value: previousInfo },
+                { name: "Attacker Info", value: attackerInfo }
               ],
               footer: { text: `Claim ID: ${claimId}` },
               timestamp: new Date().toISOString()
@@ -123,18 +190,21 @@
             components: [{
               type: 1,
               components: [
-                { type: 2, style: 3, label: "✅ Approve", url: approveUrl },
-                { type: 2, style: 4, label: "❌ Reject", url: rejectUrl }
+                { type: 2, style: 5, label: "✅ Approve", url: approveUrl },
+                { type: 2, style: 5, label: "❌ Reject", url: rejectUrl }
               ]
             }]
           })
         });
 
-        statusDiv.innerHTML = `✅ Claim submitted! <a href="${claimUrl}" style="color:#4fc3f7">View your claim</a>.`;
+        statusDiv.innerHTML = `✅ Claim submitted! <a href="${claimUrl}" style="color:#4fc3f7" target="_blank">View your claim</a>.`;
         form.reset();
       } catch (error) {
-        console.error("Error submitting claim:", error);
-        statusDiv.textContent = "❌ Failed to submit. Please try again.";
+        console.error("Claim submission error:", error.message);
+        statusDiv.textContent = "❌ Submission failed. Try again.";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Claim";
       }
     });
   </script>
