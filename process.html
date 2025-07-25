@@ -1,124 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Processing Request</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      flex-direction: column;
-      text-align: center;
-      padding: 20px;
+  <meta charset="UTF-8">
+  <title>Process Claim – Gomega</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module">
+    import { db, auth } from './firebase-init.js';
+    import { doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const claimId = urlParams.get('id');
+    const type = urlParams.get('type'); // "claims" or "optOutRequests"
+    const statusText = document.getElementById("statusText");
+    const userInfoDiv = document.getElementById("userInfo");
+
+    let currentUser;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        alert("You must be signed in to view this page.");
+        window.location.href = "signin.html";
+        return;
+      }
+
+      currentUser = user;
+      await loadClaim();
+    });
+
+    async function loadClaim() {
+      if (!claimId || !type || (type !== "claims" && type !== "optOutRequests")) {
+        statusText.textContent = "Invalid claim or type.";
+        return;
+      }
+
+      const ref = doc(db, type, claimId);
+      const snap = await getDoc(ref);
+
+      if (!snap.exists()) {
+        statusText.textContent = "Claim not found.";
+        return;
+      }
+
+      const data = snap.data();
+      statusText.innerHTML = `
+        <strong>Status:</strong> ${data.status || "Pending"}<br>
+        <strong>Submitted By:</strong> ${data.email || data.uid || "N/A"}<br>
+        <strong>Reason:</strong> ${data.reason || "None provided"}
+      `;
+
+      if (type === "claims") {
+        userInfoDiv.innerHTML = `
+          <strong>Claim Type:</strong> ${data.type || "Unknown"}<br>
+          <strong>Submitted On:</strong> ${new Date(data.timestamp?.seconds * 1000 || Date.now()).toLocaleString()}
+        `;
+      } else if (type === "optOutRequests") {
+        userInfoDiv.innerHTML = `
+          <strong>Email:</strong> ${data.email || "N/A"}<br>
+          <strong>Submitted On:</strong> ${new Date(data.timestamp?.seconds * 1000 || Date.now()).toLocaleString()}
+        `;
+      }
     }
-    .status {
-      font-size: 1.5rem;
-      margin-top: 1rem;
+
+    async function updateStatus(status) {
+      if (!claimId || !type) return;
+
+      const ref = doc(db, type, claimId);
+      await updateDoc(ref, {
+        status: status,
+        reviewedBy: currentUser.email,
+        reviewedAt: new Date()
+      });
+
+      alert(`Claim marked as "${status}".`);
+      location.reload();
     }
-    .success {
-      color: #00e676;
-    }
-    .error {
-      color: #ff5252;
-    }
-    .admin-msg {
-      margin-top: 2rem;
-      padding: 1rem;
-      background-color: #1e1e1e;
-      border: 1px solid #00e676;
-      border-radius: 10px;
-    }
-    .admin-btn {
-      margin-top: 1rem;
-      background-color: #00e676;
-      color: #121212;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-      text-decoration: none;
-    }
-  </style>
+
+    window.approveClaim = () => updateStatus("Approved");
+    window.declineClaim = () => updateStatus("Declined");
+  </script>
 </head>
 <body>
-  <h1>Processing...</h1>
-  <div class="status" id="status">Please wait while we update the request.</div>
-  <div id="adminMessage" class="admin-msg" style="display:none;">
-    <p>Our systems have detected you're a school admin. Please click the button below to be redirected to our staff-only page.</p>
-    <a class="admin-btn" href="/admin-optout">Go to Admin Page</a>
+  <div class="container center">
+    <h1>Process Submission</h1>
+    <p id="statusText">Loading...</p>
+    <div id="userInfo" style="margin-top: 10px;"></div>
+    <div style="margin-top: 20px;">
+      <button onclick="approveClaim()">✅ Approve</button>
+      <button onclick="declineClaim()">❌ Decline</button>
+    </div>
   </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      storageBucket: "gomega-65e3f.firebasestorage.app",
-      messagingSenderId: "212961835634",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    const params = new URLSearchParams(location.search);
-    const id = params.get("id");
-    const action = params.get("action");
-    const statusDiv = document.getElementById("status");
-    const adminMessage = document.getElementById("adminMessage");
-
-    const setStatus = (message, isError = false) => {
-      statusDiv.textContent = message;
-      statusDiv.className = "status " + (isError ? "error" : "success");
-    };
-
-    function isSchoolAdmin(email) {
-      return email === "gomegaassist@gmail.com" || email.endsWith("@henrico.k12.va.us");
-    }
-
-    if (!id || !["approve", "reject"].includes(action)) {
-      setStatus("⚠️ Invalid or missing parameters in URL.", true);
-    } else {
-      onAuthStateChanged(auth, async user => {
-        try {
-          if (!user) {
-            const result = await signInWithPopup(auth, provider);
-            user = result.user;
-          }
-
-          const email = user.email.toLowerCase();
-          const statusValue = action === "approve" ? "approved" : "declined";
-
-          await updateDoc(doc(db, "optOutRequests", id), {
-            status: statusValue
-          });
-
-          setStatus(`✅ Successfully marked as "${statusValue}".`);
-          document.querySelector("h1").textContent = "Success!";
-
-          if (isSchoolAdmin(email)) {
-            adminMessage.style.display = "block";
-          }
-        } catch (err) {
-          console.error("Update failed:", err);
-          setStatus("❌ Failed to update request. Please try again later.", true);
-          document.querySelector("h1").textContent = "Error";
-        }
-      });
-    }
-  </script>
 </body>
 </html>
