@@ -3,107 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Submit a Claim – Gomega</title>
+  <title>All Claims – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .claim {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+    .status {
+      font-weight: bold;
+    }
+    .status.approved { color: green; }
+    .status.denied { color: red; }
+    .status.pending { color: orange; }
+  </style>
 </head>
 <body>
-  <div class="container center">
-    <h1>Submit a Claim or School Opt-Out</h1>
-    <p>This will be reviewed by our team and you’ll be notified once a decision is made.</p>
-
-    <form id="claimForm">
-      <label for="title">Title</label>
-      <input type="text" id="title" required placeholder="Example: My Script Got Taken Down">
-
-      <label for="description">Description</label>
-      <textarea id="description" required placeholder="Explain your issue or reason..."></textarea>
-
-      <button type="submit">Submit</button>
-      <p id="statusMsg"></p>
-    </form>
+  <div class="container">
+    <h1>Submitted Claims</h1>
+    <div id="claimsContainer">Loading claims...</div>
   </div>
 
   <script type="module">
-    import { db, auth } from "./firebase-init.js";
-    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { firebaseConfig } from './firebase.js';
 
-    const form = document.getElementById("claimForm");
-    const statusMsg = document.getElementById("statusMsg");
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3"; // Replace with your actual webhook
+    const claimsContainer = document.getElementById("claimsContainer");
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "signin.html";
-        return;
-      }
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const title = document.getElementById("title").value.trim();
-        const description = document.getElementById("description").value.trim();
-        const email = user.email;
-        const uid = user.uid;
-
-        const type = email.endsWith("@henrico.k12.va.us") ? "optOutRequests" : "claims";
-        const id = `${uid}_${Date.now()}`;
-
-        const data = {
-          id,
-          uid,
-          email,
-          title,
-          description,
-          status: "pending",
-          createdAt: serverTimestamp()
-        };
-
-        try {
-          await setDoc(doc(db, type, id), data);
-          statusMsg.textContent = "Submitted! You’ll be notified once reviewed.";
-
-          // Send to Discord webhook with buttons
-          await fetch(webhookURL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: null,
-              embeds: [{
-                title: `New ${type === "optOutRequests" ? "School Opt-Out" : "Claim"} Submitted`,
-                description: `**Title:** ${title}\n**By:** ${email}\n**Description:** ${description}`,
-                footer: { text: `ID: ${id}` },
-                timestamp: new Date().toISOString(),
-                color: type === "optOutRequests" ? 0xffcc00 : 0x00aaff
-              }],
-              components: [{
-                type: 1,
-                components: [
-                  {
-                    type: 2,
-                    style: 3,
-                    label: "Approve",
-                    custom_id: `approve_${type}_${id}`
-                  },
-                  {
-                    type: 2,
-                    style: 4,
-                    label: "Decline",
-                    custom_id: `decline_${type}_${id}`
-                  }
-                ]
-              }]
-            })
-          });
-
-          form.reset();
-        } catch (err) {
-          console.error(err);
-          statusMsg.textContent = "Error submitting. Try again.";
+    async function loadClaims() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "claims"));
+        if (querySnapshot.empty) {
+          claimsContainer.innerHTML = "<p>No claims found.</p>";
+          return;
         }
-      });
-    });
+
+        claimsContainer.innerHTML = "";
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          const status = data.status || "pending";
+          const statusClass = status.toLowerCase();
+
+          claimsContainer.innerHTML += `
+            <div class="claim">
+              <p><strong>ID:</strong> ${doc.id}</p>
+              <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
+              <p><strong>Description:</strong> ${data.description || "None"}</p>
+              <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
+              <p class="status ${statusClass}">Status: ${status.toUpperCase()}</p>
+              <a href="view-claim.html?id=${doc.id}">View Full Claim</a>
+            </div>
+          `;
+        });
+      } catch (error) {
+        console.error("Error loading claims:", error);
+        claimsContainer.innerHTML = "<p>Error loading claims. Try again later.</p>";
+      }
+    }
+
+    loadClaims();
   </script>
 </body>
 </html>
