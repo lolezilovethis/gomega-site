@@ -19,50 +19,61 @@
       max-width: 800px;
       margin: auto;
     }
-    h2 {
-      margin-bottom: 1.5rem;
-    }
     form {
       background-color: #222;
-      padding: 1rem;
+      padding: 1.5rem;
       border-radius: 8px;
-      margin-bottom: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
-    input, textarea, select, button {
-      display: block;
-      width: 100%;
-      margin-top: 10px;
-      padding: 10px;
-      border-radius: 4px;
+    input, select, textarea, button {
+      padding: 0.75rem;
+      border-radius: 6px;
       border: none;
       font-size: 1rem;
     }
     button {
       background-color: #4fc3f7;
-      color: #111;
+      color: #000;
+      font-weight: bold;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #0288d1;
+    #message {
+      margin-top: 1rem;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>📝 Submit a New Claim</h2>
+    <h2>📝 Submit a Claim</h2>
     <form id="claimForm">
-      <select id="platform" required>
-        <option value="">Select Platform</option>
-        <option value="Facebook">Facebook</option>
-        <option value="Instagram">Instagram</option>
-        <option value="Snapchat">Snapchat</option>
-        <option value="Other">Other</option>
-      </select>
-      <textarea id="description" placeholder="Describe your issue" required></textarea>
-      <textarea id="prevInfo" placeholder="Previous account info (email, phone, etc.)" required></textarea>
-      <textarea id="attackerInfo" placeholder="Attacker info (optional)"></textarea>
+      <label>Platform
+        <select id="platform" required>
+          <option value="">Select platform</option>
+          <option value="Google">Google</option>
+          <option value="Microsoft">Microsoft</option>
+          <option value="Canvas">Canvas</option>
+          <option value="Roblox">Roblox</option>
+        </select>
+      </label>
+      <label>Description
+        <textarea id="description" required></textarea>
+      </label>
+      <label>Previous Account Info
+        <input type="text" id="previousInfo" required />
+      </label>
+      <label>Attacker Info (if known)
+        <input type="text" id="attackerInfo" />
+      </label>
       <button type="submit">Submit Claim</button>
     </form>
+    <div id="message"></div>
   </div>
 
   <script type="module">
@@ -72,40 +83,54 @@
 
     const db = getFirestore(app);
     const auth = getAuth();
-    const claimForm = document.getElementById("claimForm");
-
-    let currentUser = null;
+    const form = document.getElementById("claimForm");
+    const message = document.getElementById("message");
 
     onAuthStateChanged(auth, (user) => {
       if (!user) {
-        alert("❌ You must be signed in to submit a claim.");
-        return;
-      }
-      currentUser = user;
-    });
-
-    claimForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      if (!currentUser) {
-        alert("❌ Please sign in before submitting a claim.");
+        message.textContent = "❌ You must be signed in to submit a claim.";
+        form.style.display = "none";
         return;
       }
 
-      const claim = {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        platform: document.getElementById("platform").value,
-        description: document.getElementById("description").value,
-        prevInfo: document.getElementById("prevInfo").value,
-        attackerInfo: document.getElementById("attackerInfo").value,
-        status: "pending",
-        timestamp: serverTimestamp(),
-      };
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-      await addDoc(collection(db, "claims"), claim);
-      alert("✅ Claim submitted!");
-      claimForm.reset();
+        const platform = document.getElementById("platform").value;
+        const description = document.getElementById("description").value;
+        const previousInfo = document.getElementById("previousInfo").value;
+        const attackerInfo = document.getElementById("attackerInfo").value;
+
+        try {
+          const docRef = await addDoc(collection(db, "claims"), {
+            uid: user.uid,
+            email: user.email,
+            platform,
+            description,
+            previousInfo,
+            attackerInfo,
+            status: "pending",
+            timestamp: serverTimestamp()
+          });
+
+          const claimLink = `claim.html?id=${docRef.id}`;
+
+          // Send webhook
+          await fetch("https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3L", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: `📨 New Claim Submitted\n\n📌 **Platform:** ${platform}\n📝 **Description:** ${description}\n👤 **Previous Info:** ${previousInfo}\n🎯 **Attacker Info:** ${attackerInfo || "N/A"}\n\n🔗 [View Claim](https://yourdomain.com/claim.html?id=${docRef.id})\n\n✅ [Approve](https://yourdomain.com/process.html?id=${docRef.id}&action=approve) | ❌ [Reject](https://yourdomain.com/process.html?id=${docRef.id}&action=reject)`
+            })
+          });
+
+          message.innerHTML = `✅ Submitted! You may <a href="${claimLink}" style="color:#4fc3f7">view your request here</a>.`;
+          form.reset();
+        } catch (error) {
+          console.error("Error submitting claim:", error);
+          message.textContent = "❌ Failed to submit claim.";
+        }
+      });
     });
   </script>
 </body>
