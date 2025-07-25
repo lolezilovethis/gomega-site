@@ -77,61 +77,98 @@
   </div>
 
   <script type="module">
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { app } from "./firebase-init.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+  import {
+    getAuth,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+  import { app } from "./firebase-init.js";
 
-    const db = getFirestore(app);
-    const auth = getAuth();
-    const form = document.getElementById("claimForm");
-    const message = document.getElementById("message");
+  const db = getFirestore(app);
+  const auth = getAuth();
 
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        message.textContent = "❌ You must be signed in to submit a claim.";
-        form.style.display = "none";
-        return;
+  const form = document.getElementById("claimForm");
+  const submitStatus = document.getElementById("submitStatus");
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      form.innerHTML = "<p>You must be signed in to submit a claim.</p>";
+      return;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const platform = form.platform.value;
+      const description = form.description.value;
+      const previousInfo = form.previousAccount.value;
+      const attacker = form.attackerInfo.value;
+
+      try {
+        const docRef = await addDoc(collection(db, "claims"), {
+          uid: user.uid,
+          email: user.email,
+          platform,
+          description,
+          previousInfo,
+          attacker,
+          status: "pending",
+          timestamp: serverTimestamp()
+        });
+
+        const claimId = docRef.id;
+        const claimUrl = `https://yourdomain.com/claim.html?id=${claimId}`;
+        const processBase = `https://yourdomain.com/process.html?id=${claimId}&action=`;
+
+        // ✅ Send to Discord webhook
+        await fetch("https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username: "Gomega Claims Bot",
+            embeds: [{
+              title: "📥 New Claim Submitted",
+              color: 3447003,
+              description: `**Platform:** ${platform}\n**Description:** ${description}\n**Previous Info:** ${previousInfo}\n**Attacker Info:** ${attacker}\n**Email:** ${user.email}`,
+              footer: {
+                text: `Claim ID: ${claimId}`
+              },
+              timestamp: new Date().toISOString()
+            }],
+            components: [{
+              type: 1,
+              components: [
+                {
+                  type: 2,
+                  label: "✅ Approve",
+                  style: 3,
+                  url: processBase + "approve"
+                },
+                {
+                  type: 2,
+                  label: "❌ Reject",
+                  style: 4,
+                  url: processBase + "reject"
+                }
+              ]
+            }]
+          })
+        });
+
+        form.reset();
+        submitStatus.innerHTML = `✅ Claim submitted. <a href="claim.html?id=${claimId}">View your request here.</a>`;
+      } catch (err) {
+        console.error("Error submitting claim:", err);
+        submitStatus.textContent = "❌ Failed to submit claim. Please try again later.";
       }
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const platform = document.getElementById("platform").value;
-        const description = document.getElementById("description").value;
-        const previousInfo = document.getElementById("previousInfo").value;
-        const attackerInfo = document.getElementById("attackerInfo").value;
-
-        try {
-          const docRef = await addDoc(collection(db, "claims"), {
-            uid: user.uid,
-            email: user.email,
-            platform,
-            description,
-            previousInfo,
-            attackerInfo,
-            status: "pending",
-            timestamp: serverTimestamp()
-          });
-
-          const claimLink = `claim.html?id=${docRef.id}`;
-
-          // Send webhook
-          await fetch("https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3L", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              content: `📨 New Claim Submitted\n\n📌 **Platform:** ${platform}\n📝 **Description:** ${description}\n👤 **Previous Info:** ${previousInfo}\n🎯 **Attacker Info:** ${attackerInfo || "N/A"}\n\n🔗 [View Claim](https://yourdomain.com/claim.html?id=${docRef.id})\n\n✅ [Approve](https://yourdomain.com/process.html?id=${docRef.id}&action=approve) | ❌ [Reject](https://yourdomain.com/process.html?id=${docRef.id}&action=reject)`
-            })
-          });
-
-          message.innerHTML = `✅ Submitted! You may <a href="${claimLink}" style="color:#4fc3f7">view your request here</a>.`;
-          form.reset();
-        } catch (error) {
-          console.error("Error submitting claim:", error);
-          message.textContent = "❌ Failed to submit claim.";
-        }
-      });
     });
-  </script>
+  });
+</script>
 </body>
 </html>
