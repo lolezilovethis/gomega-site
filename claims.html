@@ -2,73 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>All Claims – Gomega</title>
+  <title>Your Claims – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MSG_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const claimsContainer = document.getElementById("claimsList");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const q = query(collection(db, "claims"), where("uid", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          claimsContainer.innerHTML = "<p>You have not submitted any claims yet.</p>";
+        } else {
+          querySnapshot.forEach(doc => {
+            const claim = doc.data();
+            const div = document.createElement("div");
+            div.className = "claim-card";
+            div.innerHTML = `
+              <strong>Platform:</strong> ${claim.platform}<br>
+              <strong>Description:</strong> ${claim.description}<br>
+              <strong>Status:</strong> <span class="${claim.status}">${claim.status}</span><br>
+              <a href="view-claim.html?id=${doc.id}">View Full Claim</a>
+              <hr>
+            `;
+            claimsContainer.appendChild(div);
+          });
+        }
+      } else {
+        window.location.href = "signin.html";
+      }
+    });
+  </script>
   <style>
-    .claim {
-      border: 1px solid #ccc;
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .claim-card {
+      background: #f1f1f1;
       padding: 15px;
-      margin: 10px 0;
       border-radius: 10px;
-      background: #f9f9f9;
+      margin-bottom: 15px;
     }
-    .status {
-      font-weight: bold;
-    }
-    .status.approved { color: green; }
-    .status.denied { color: red; }
-    .status.pending { color: orange; }
+    .approved { color: green; font-weight: bold; }
+    .denied { color: red; font-weight: bold; }
+    .pending { color: orange; font-weight: bold; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Submitted Claims</h1>
-    <div id="claimsContainer">Loading claims...</div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { firebaseConfig } from './firebase.js';
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    const claimsContainer = document.getElementById("claimsContainer");
-
-    async function loadClaims() {
-      try {
-        const querySnapshot = await getDocs(collection(db, "claims"));
-        if (querySnapshot.empty) {
-          claimsContainer.innerHTML = "<p>No claims found.</p>";
-          return;
-        }
-
-        claimsContainer.innerHTML = "";
-        querySnapshot.forEach(doc => {
-          const data = doc.data();
-          const status = data.status || "pending";
-          const statusClass = status.toLowerCase();
-
-          claimsContainer.innerHTML += `
-            <div class="claim">
-              <p><strong>ID:</strong> ${doc.id}</p>
-              <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
-              <p><strong>Description:</strong> ${data.description || "None"}</p>
-              <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
-              <p class="status ${statusClass}">Status: ${status.toUpperCase()}</p>
-              <a href="view-claim.html?id=${doc.id}">View Full Claim</a>
-            </div>
-          `;
-        });
-      } catch (error) {
-        console.error("Error loading claims:", error);
-        claimsContainer.innerHTML = "<p>Error loading claims. Try again later.</p>";
-      }
-    }
-
-    loadClaims();
-  </script>
+  <h1>Your Claims</h1>
+  <div id="claimsList">Loading...</div>
 </body>
 </html>
