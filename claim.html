@@ -2,116 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Claims – Gomega</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Search Claim by ID – Gomega</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f9f9f9;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       margin: 0;
-      padding: 20px;
     }
-    .claim-list {
-      max-width: 800px;
-      margin: 40px auto;
-      background: #fff;
+    .search-box {
+      background: white;
+      padding: 30px 40px;
       border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 320px;
+      text-align: center;
     }
-    .claim {
-      border-bottom: 1px solid #ddd;
-      padding: 12px 0;
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
     }
-    .claim:last-child {
-      border-bottom: none;
-    }
-    .claim h3 {
-      margin: 0;
-      font-size: 1.1rem;
-    }
-    .claim p {
-      margin: 4px 0;
-      font-size: 0.95rem;
-    }
-    .status {
-      font-weight: bold;
-    }
-    .status.pending { color: orange; }
-    .status.approved { color: green; }
-    .status.denied { color: red; }
     button {
-      padding: 6px 12px;
-      margin-top: 6px;
-      background: #007bff;
-      color: white;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
       border: none;
-      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
       cursor: pointer;
     }
     button:hover {
-      background: #0056b3;
+      background-color: #0056b3;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="claim-list" id="claimList">
-    <p>Loading your claims...</p>
+  <div class="search-box">
+    <h2>Search Claim by ID</h2>
+    <input type="text" id="claimIdInput" placeholder="Enter Claim ID..." />
+    <button id="searchBtn">Search</button>
+    <p class="error" id="errorMsg" style="display:none;"></p>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { firebaseConfig } from './js/firebase.js';
+  <script>
+    const claimIdInput = document.getElementById('claimIdInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const errorMsg = document.getElementById('errorMsg');
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const claimList = document.getElementById("claimList");
+    searchBtn.addEventListener('click', () => {
+      const claimId = claimIdInput.value.trim();
+      errorMsg.style.display = 'none';
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        claimList.innerHTML = "<p>⚠️ You must be signed in to view your claims.</p>";
+      if (!claimId) {
+        errorMsg.textContent = "Please enter a claim ID.";
+        errorMsg.style.display = 'block';
         return;
       }
 
-      try {
-        const q = query(
-          collection(db, "claims"),
-          where("userId", "==", user.uid)  // matches saved userId in claims.html
-        );
+      // Redirect to view-claim.html with the entered claim ID as query param
+      window.location.href = `view-claim.html?id=${encodeURIComponent(claimId)}`;
+    });
 
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          claimList.innerHTML = "<p>You have not submitted any claims yet.</p>";
-          return;
-        }
-
-        let html = `<h2>Your Claims</h2>`;
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const status = (data.status || "pending").toLowerCase();
-          const statusText = status.charAt(0).toUpperCase() + status.slice(1);
-
-          html += `
-            <div class="claim">
-              <h3>${data.title || "Untitled Claim"}</h3>
-              <p><strong>Description:</strong> ${data.description || "No description"}</p>
-              <p><strong>Status:</strong> <span class="status ${status}">${statusText}</span></p>
-              <button onclick="location.href='view-claim.html?id=${doc.id}'">Check Status</button>
-            </div>
-          `;
-        });
-
-        claimList.innerHTML = html;
-
-      } catch (error) {
-        console.error("Error loading claims:", error);
-        claimList.innerHTML = "<p>❌ Error loading your claims.</p>";
+    // Optional: allow pressing Enter to search
+    claimIdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        searchBtn.click();
       }
     });
   </script>
