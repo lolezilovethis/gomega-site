@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Check Claim Status – Gomega</title>
+  <title>Check Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>Claim Status Checker</h1>
-    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID" />
+    <h1>Check Your Claim Status</h1>
+    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID (from Discord)" />
     <button onclick="checkClaim()">Check Status</button>
-    <p id="claimStatusMsg"></p>
+    <div id="claimStatus" style="margin-top: 20px;"></div>
   </div>
 
   <script type="module">
@@ -19,9 +19,9 @@
 
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
       projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
+      storageBucket: "YOUR_PROJECT.appspot.com",
       messagingSenderId: "YOUR_SENDER_ID",
       appId: "YOUR_APP_ID"
     };
@@ -31,10 +31,10 @@
 
     window.checkClaim = async function () {
       const claimId = document.getElementById("claimIdInput").value.trim();
-      const msgEl = document.getElementById("claimStatusMsg");
+      const statusDiv = document.getElementById("claimStatus");
 
       if (!claimId) {
-        msgEl.textContent = "Please enter your Claim ID.";
+        statusDiv.innerHTML = "<p>Please enter a Claim ID.</p>";
         return;
       }
 
@@ -44,15 +44,22 @@
 
         if (claimSnap.exists()) {
           const data = claimSnap.data();
-          let statusText = `Status: ${data.status || "pending"}`;
-          statusText += `<br><a href="https://gomega.watch/claims.html?id=${encodeURIComponent(claimId)}" target="_blank">View your submission here</a>`;
-          msgEl.innerHTML = statusText;
+          const status = data.status || "pending";
+
+          let color = "gray";
+          if (status === "approved") color = "green";
+          else if (status === "denied") color = "red";
+
+          statusDiv.innerHTML = `
+            <p>Status: <strong style="color:${color}">${status.toUpperCase()}</strong></p>
+            <p><a href="/view-claim.html?id=${claimId}" target="_blank">View your submission here</a></p>
+          `;
         } else {
-          msgEl.textContent = "No claim found with that ID.";
+          statusDiv.innerHTML = "<p>No claim found with that ID.</p>";
         }
-      } catch (error) {
-        console.error(error);
-        msgEl.textContent = "Error fetching claim. Please try again.";
+      } catch (err) {
+        console.error(err);
+        statusDiv.innerHTML = "<p>Error fetching claim. Please try again.</p>";
       }
     };
   </script>
