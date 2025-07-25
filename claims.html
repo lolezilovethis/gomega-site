@@ -52,15 +52,12 @@
   </div>
 
   <script type="module">
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { app } from "./firebase-init.js";
+    import { db, auth } from "./firebase-init.js";
+    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
-    const db = getFirestore(app);
-    const auth = getAuth();
-    const form = document.getElementById('claimForm');
-    const statusDiv = document.getElementById('submitStatus');
-
+    const form = document.getElementById("claimForm");
+    const statusDiv = document.getElementById("submitStatus");
     let currentUser = null;
 
     onAuthStateChanged(auth, user => {
@@ -69,19 +66,19 @@
         form.style.display = 'none';
       } else {
         currentUser = user;
+        console.log("User signed in:", user.email);
       }
     });
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault(); // ensure no default GET submission
-      console.log('Form submission prevented, handling with JS');
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
       if (!currentUser) return;
 
-      const platform = document.getElementById('platform').value;
-      const accountId = document.getElementById('accountId').value;
-      const description = document.getElementById('description').value;
-      const previousInfo = document.getElementById('previousInfo').value;
-      const attackerInfo = document.getElementById('attackerInfo').value;
+      const platform = document.getElementById("platform").value;
+      const accountId = document.getElementById("accountId").value;
+      const description = document.getElementById("description").value;
+      const previousInfo = document.getElementById("previousInfo").value || '';
+      const attackerInfo = document.getElementById("attackerInfo").value || '';
 
       const data = {
         uid: currentUser.uid,
@@ -89,55 +86,55 @@
         platform,
         accountId,
         description,
-        previousInfo: previousInfo || '',
-        attackerInfo: attackerInfo || '',
-        status: 'pending',
+        previousInfo,
+        attackerInfo,
+        status: "pending",
         timestamp: serverTimestamp()
       };
 
       try {
-        const docRef = await addDoc(collection(db, 'claims'), data);
+        const docRef = await addDoc(collection(db, "claims"), data);
         const claimId = docRef.id;
-        const origin = window.location.origin;
-        const claimUrl = `${origin}/claim.html?id=${claimId}`;
-        const approveUrl = `${origin}/process.html?id=${claimId}&action=approve`;
-        const rejectUrl = `${origin}/process.html?id=${claimId}&action=reject`;
+        const base = window.location.origin;
+        const claimUrl = `${base}/claim.html?id=${claimId}`;
+        const approveUrl = `${base}/webhooks/claim-action?id=${claimId}&action=approve`;
+        const rejectUrl = `${base}/webhooks/claim-action?id=${claimId}&action=reject`;
 
-        // send Discord webhook
-        await fetch('https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        // Send webhook to Discord
+        await fetch("https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username: 'Gomega Bot',
+            username: "Gomega Bot",
             embeds: [{
-              title: '📨 New Claim Submitted',
+              title: "📨 New Claim Submitted",
               color: 3447003,
               fields: [
-                { name: 'Platform', value: platform, inline: true },
-                { name: 'User', value: currentUser.email, inline: true },
-                { name: 'Account ID', value: accountId, inline: false },
-                { name: 'Description', value: description, inline: false },
-                { name: 'Previous Info', value: data.previousInfo || 'N/A', inline: false },
-                { name: 'Attacker Info', value: data.attackerInfo || 'N/A', inline: false }
+                { name: "Platform", value: platform, inline: true },
+                { name: "User", value: currentUser.email, inline: true },
+                { name: "Account ID", value: accountId },
+                { name: "Description", value: description },
+                { name: "Previous Info", value: previousInfo || "N/A" },
+                { name: "Attacker Info", value: attackerInfo || "N/A" }
               ],
-              timestamp: new Date().toISOString(),
-              footer: { text: `Claim ID: ${claimId}` }
+              footer: { text: `Claim ID: ${claimId}` },
+              timestamp: new Date().toISOString()
             }],
             components: [{
               type: 1,
               components: [
-                { type: 2, style: 3, label: '✅ Approve', url: approveUrl },
-                { type: 2, style: 4, label: '❌ Reject', url: rejectUrl }
+                { type: 2, style: 3, label: "✅ Approve", url: approveUrl },
+                { type: 2, style: 4, label: "❌ Reject", url: rejectUrl }
               ]
             }]
           })
         });
 
-        statusDiv.innerHTML = `✅ Submitted! You may <a href="${claimUrl}" style="color:#4fc3f7">view your claim</a>.`;
+        statusDiv.innerHTML = `✅ Claim submitted! <a href="${claimUrl}" style="color:#4fc3f7">View your claim</a>.`;
         form.reset();
-      } catch (err) {
-        console.error('Submission error:', err);
-        statusDiv.textContent = '❌ Failed to submit. Try again later.';
+      } catch (error) {
+        console.error("Error submitting claim:", error);
+        statusDiv.textContent = "❌ Failed to submit. Please try again.";
       }
     });
   </script>
