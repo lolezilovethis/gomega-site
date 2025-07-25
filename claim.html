@@ -30,7 +30,6 @@
     const db = getFirestore(app);
 
     async function checkClaim() {
-      document.getElementById("checkBtn").addEventListener("click", checkClaim);
       const claimId = document.getElementById("claimId").value.trim();
       const result = document.getElementById("result");
       result.textContent = "Loading...";
@@ -61,6 +60,9 @@
         console.error(err);
       }
     }
+
+    // 🔗 Hook up the button to the function
+    document.getElementById("checkBtn").addEventListener("click", checkClaim);
   </script>
 </body>
 </html>
