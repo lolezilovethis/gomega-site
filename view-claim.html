@@ -18,7 +18,7 @@
       padding: 20px;
       border: 1px solid #ccc;
       border-radius: 12px;
-      background-color: #fff;
+      background-color: #ffffff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .claim-box h2 {
@@ -53,20 +53,20 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { firebaseConfig } from './js/firebase.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app);
     const claimContainer = document.getElementById("claimContainer");
 
+    // Get claim ID from URL query string (?id=)
     function getClaimIdFromURL() {
       const params = new URLSearchParams(window.location.search);
       return params.get('id');
     }
 
-    async function loadClaim(userUid) {
+    // Load claim document from Firestore and display it
+    async function loadClaim() {
       const claimId = getClaimIdFromURL();
 
       if (!claimId) {
@@ -84,13 +84,6 @@
         }
 
         const data = docSnap.data();
-
-        // Check ownership
-        if (data.uid !== userUid) {
-          claimContainer.innerHTML = "<p style='color: red;'>❌ Access denied: You do not own this claim.</p>";
-          return;
-        }
-
         const status = (data.status || "pending").toLowerCase();
         const statusText = status.charAt(0).toUpperCase() + status.slice(1);
 
@@ -110,13 +103,7 @@
       }
     }
 
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        claimContainer.innerHTML = "<p style='color: red;'>❌ You must be signed in to view claims.</p>";
-        return;
-      }
-      loadClaim(user.uid);
-    });
+    loadClaim();
   </script>
 </body>
 </html>
