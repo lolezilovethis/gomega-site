@@ -2,67 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Claim Status – Gomega</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Check Claim Status – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container center">
-    <h1>Check Your Claim Status</h1>
-    <input type="text" id="claimId" placeholder="Enter your Claim ID" />
-    <button id="checkBtn">Check Status</button>
-    <div id="result" style="margin-top: 20px;"></div>
+    <h1>Claim Status Checker</h1>
+    <input type="text" id="claimIdInput" placeholder="Enter your Claim ID" />
+    <button onclick="checkClaim()">Check Status</button>
+    <p id="claimStatusMsg"></p>
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      storageBucket: "gomega-65e3f.appspot.com",
-      messagingSenderId: "212961835634",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    async function checkClaim() {
-      const claimId = document.getElementById("claimId").value.trim();
-      const result = document.getElementById("result");
-      result.textContent = "Loading...";
+    window.checkClaim = async function () {
+      const claimId = document.getElementById("claimIdInput").value.trim();
+      const msgEl = document.getElementById("claimStatusMsg");
 
       if (!claimId) {
-        result.textContent = "Please enter a Claim ID.";
+        msgEl.textContent = "Please enter your Claim ID.";
         return;
       }
 
       try {
         const claimRef = doc(db, "claims", claimId);
-        const docSnap = await getDoc(claimRef);
+        const claimSnap = await getDoc(claimRef);
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const status = data.status || "pending";
-          const submissionUrl = data.submissionUrl || `https://gomega.watch/claims.html?id=${claimId}`;
-
-          result.innerHTML = `
-            <p><strong>Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
-            <p><a href="${submissionUrl}" target="_blank">View your submission here</a></p>
-          `;
+        if (claimSnap.exists()) {
+          const data = claimSnap.data();
+          let statusText = `Status: ${data.status || "pending"}`;
+          statusText += `<br><a href="https://gomega.watch/claims.html?id=${encodeURIComponent(claimId)}" target="_blank">View your submission here</a>`;
+          msgEl.innerHTML = statusText;
         } else {
-          result.textContent = "No claim found with this ID.";
+          msgEl.textContent = "No claim found with that ID.";
         }
-      } catch (err) {
-        result.textContent = "Error fetching claim. Please try again.";
-        console.error(err);
+      } catch (error) {
+        console.error(error);
+        msgEl.textContent = "Error fetching claim. Please try again.";
       }
-    }
-
-    // 🔗 Hook up the button to the function
-    document.getElementById("checkBtn").addEventListener("click", checkClaim);
+    };
   </script>
 </body>
 </html>
