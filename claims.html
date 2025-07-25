@@ -2,209 +2,139 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Gomega – Submit a Claim</title>
+  <title>Submit Claim – Gomega</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="styles.css" />
-  <script type="module" src="./firebase-init.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <script type="module" src="/firebase-init.js"></script>
   <style>
     body {
-      background-color: #0f0f0f;
-      color: #fff;
+      background-color: #0d1117;
+      color: #c9d1d9;
       font-family: 'Segoe UI', sans-serif;
       margin: 0;
-      padding: 0;
+      padding: 2rem;
     }
+
     .container {
       max-width: 600px;
-      margin: 4rem auto;
+      margin: auto;
+      background-color: #161b22;
       padding: 2rem;
-      background: #1c1c1c;
       border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.4);
     }
+
     h1 {
       text-align: center;
-      font-size: 2rem;
       margin-bottom: 1.5rem;
     }
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
+
     label {
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-    input, select, textarea {
-      padding: 0.75rem;
-      background: #2c2c2c;
-      border: 1px solid #444;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 1rem;
-    }
-    input::placeholder, textarea::placeholder {
-      color: #999;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-    }
-    button {
-      padding: 0.9rem;
-      background-color: #4fc3f7;
-      color: #111;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background-color: #039be5;
-    }
-    #submitStatus {
       margin-top: 1rem;
-      font-size: 0.95rem;
+      display: block;
+      font-weight: bold;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      padding: 0.8rem;
+      margin-top: 0.3rem;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background-color: #0d1117;
+      color: #c9d1d9;
+    }
+
+    button {
+      background-color: #238636;
+      color: white;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 6px;
+      margin-top: 1.5rem;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #2ea043;
+    }
+
+    .message {
+      margin-top: 1rem;
       text-align: center;
-    }
-    .hidden {
-      display: none;
-    }
-    @media (max-width: 500px) {
-      .container {
-        margin: 1.5rem 1rem;
-        padding: 1rem;
-      }
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📝 Submit a Claim</h1>
+    <h1>Submit a Claim</h1>
     <form id="claimForm">
-      <label for="platform">Platform</label>
-      <select id="platform" required>
-        <option value="">-- Select Platform --</option>
-        <option value="Roblox">Roblox</option>
-        <option value="Facebook">Facebook</option>
-        <option value="Instagram">Instagram</option>
-        <option value="Snapchat">Snapchat</option>
-        <option value="Other">Other</option>
+      <label for="type">Claim Type</label>
+      <select id="type" required>
+        <option value="">Select a type</option>
+        <option value="Ban Appeal">Ban Appeal</option>
+        <option value="Moderator Application">Moderator Application</option>
+        <option value="Script Request">Script Request</option>
+        <option value="Report User">Report User</option>
       </select>
 
-      <label for="accountId">Account Username/ID</label>
-      <input type="text" id="accountId" placeholder="e.g. user123" required />
+      <label for="description">Description</label>
+      <textarea id="description" rows="4" required placeholder="Explain your claim..."></textarea>
 
-      <label for="description">Issue Description</label>
-      <textarea id="description" placeholder="Describe what happened..." required></textarea>
+      <label for="extra">Extra Information (Optional)</label>
+      <input type="text" id="extra" placeholder="Discord, Roblox username, etc." />
 
-      <label for="previousInfo">Previous Account Info (email, phone, etc.)</label>
-      <input type="text" id="previousInfo" placeholder="Optional" />
-
-      <label for="attackerInfo">Attacker Info (if known)</label>
-      <input type="text" id="attackerInfo" placeholder="Optional" />
-
-      <button type="submit" id="submitBtn">Submit Claim</button>
+      <button type="submit">Submit Claim</button>
+      <div class="message" id="statusMsg"></div>
     </form>
-    <div id="submitStatus"></div>
   </div>
 
   <script type="module">
-    import { db, auth } from "./firebase-init.js";
-    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { db, auth } from './firebase-init.js';
+    import { collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-    const form = document.getElementById("claimForm");
-    const statusDiv = document.getElementById("submitStatus");
-    const submitBtn = document.getElementById("submitBtn");
+    const claimForm = document.getElementById('claimForm');
+    const statusMsg = document.getElementById('statusMsg');
     let currentUser = null;
 
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        form.classList.add("hidden");
-        statusDiv.innerHTML = `❌ <b>Please sign in</b> to submit a claim.`;
-      } else {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
         currentUser = user;
-        console.log("Logged in as:", user.email);
+      } else {
+        alert("Please log in to submit a claim.");
+        window.location.href = "signin.html";
       }
     });
 
-    form.addEventListener("submit", async (e) => {
+    claimForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!currentUser) return;
 
-      // Disable submit button
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Submitting...";
-      statusDiv.textContent = "";
+      const type = document.getElementById('type').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const extra = document.getElementById('extra').value.trim();
 
-      const platform = document.getElementById("platform").value;
-      const accountId = document.getElementById("accountId").value;
-      const description = document.getElementById("description").value;
-      const previousInfo = document.getElementById("previousInfo").value || "N/A";
-      const attackerInfo = document.getElementById("attackerInfo").value || "N/A";
-
-      const data = {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        platform,
-        accountId,
-        description,
-        previousInfo,
-        attackerInfo,
-        status: "pending",
-        timestamp: serverTimestamp()
-      };
+      if (!type || !description || !currentUser) return;
 
       try {
-        const docRef = await addDoc(collection(db, "claims"), data);
-        const claimId = docRef.id;
-        const base = window.location.origin;
-        const claimUrl = `${base}/claim.html?id=${claimId}`;
-        const approveUrl = `${base}/webhooks/claim-action?id=${claimId}&action=approve`;
-        const rejectUrl = `${base}/webhooks/claim-action?id=${claimId}&action=reject`;
-
-        // Send webhook to Discord
-        await fetch("https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: "Gomega Bot",
-            embeds: [{
-              title: "📨 New Claim Submitted",
-              color: 3447003,
-              fields: [
-                { name: "Platform", value: platform, inline: true },
-                { name: "User", value: currentUser.email, inline: true },
-                { name: "Account ID", value: accountId },
-                { name: "Description", value: description },
-                { name: "Previous Info", value: previousInfo },
-                { name: "Attacker Info", value: attackerInfo }
-              ],
-              footer: { text: `Claim ID: ${claimId}` },
-              timestamp: new Date().toISOString()
-            }],
-            components: [{
-              type: 1,
-              components: [
-                { type: 2, style: 5, label: "✅ Approve", url: approveUrl },
-                { type: 2, style: 5, label: "❌ Reject", url: rejectUrl }
-              ]
-            }]
-          })
+        await addDoc(collection(db, "claims"), {
+          uid: currentUser.uid,
+          email: currentUser.email || null,
+          type,
+          description,
+          extra,
+          status: "pending",
+          timestamp: serverTimestamp()
         });
 
-        statusDiv.innerHTML = `✅ Claim submitted! <a href="${claimUrl}" style="color:#4fc3f7" target="_blank">View your claim</a>.`;
-        form.reset();
+        statusMsg.textContent = "✅ Claim submitted successfully!";
+        claimForm.reset();
       } catch (error) {
-        console.error("Claim submission error:", error.message);
-        statusDiv.textContent = "❌ Submission failed. Try again.";
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Submit Claim";
+        console.error("Error submitting claim:", error);
+        statusMsg.textContent = "❌ Failed to submit. Please try again.";
       }
     });
   </script>

@@ -1,111 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Claim Details</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body { background-color: #111; color: #fff; font-family: sans-serif; padding: 1rem; }
-    .container {
-      background-color: #222;
-      border-radius: 10px;
-      padding: 1.5rem;
-      max-width: 600px;
-      margin: auto;
-    }
-    button {
-      padding: 8px 12px;
-      margin-right: 10px;
-      cursor: pointer;
-      border-radius: 5px;
-      border: none;
-      color: #fff;
-    }
-    .approve { background-color: #4caf50; }
-    .decline { background-color: #e53935; }
-    a { color: #4fc3f7; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>🔎 Claim Details</h2>
-    <div id="claim-details">Loading...</div>
-    <div id="admin-actions" style="margin-top: 1rem;"></div>
-    <a href="claims.html">⬅ Back to My Claims</a>
-  </div>
-
+  <meta charset="UTF-8">
+  <title>View Claims – Gomega</title>
+  <link rel="stylesheet" href="style.css">
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { db, auth } from './firebase-init.js';
+    import {
+      collection,
+      getDocs,
+      deleteDoc,
+      doc
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import {
+      onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+    const claimContainer = document.createElement("div");
+    claimContainer.className = "claim-container";
+    document.body.appendChild(claimContainer);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth();
+    const webhookURL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_HERE";
 
-    const params = new URLSearchParams(window.location.search);
-    const claimId = params.get("id");
-    const claimDetails = document.getElementById("claim-details");
-
-    async function sendWebhook(data) {
-      const approveUrl = `https://yourdomain.com/webhooks/claim-action?claimId=${claimId}&action=approve`;
-      const declineUrl = `https://yourdomain.com/webhooks/claim-action?claimId=${claimId}&action=decline`;
-
-      await fetch("https://yourdomain.com/webhooks/notify-admin", {
+    function sendToDiscord(content) {
+      fetch(webhookURL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "claim_created",
-          claimId,
-          email: data.email,
-          platform: data.platform,
-          description: data.description,
-          approve_url: approveUrl,
-          decline_url: declineUrl,
-          timestamp: new Date().toISOString()
-        })
+        body: JSON.stringify({ content })
       });
     }
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!claimId) return claimDetails.textContent = "❌ No claim ID provided.";
-
-      const docRef = doc(db, "claims", claimId);
-      const docSnap = await getDoc(docRef);
-
-      if (!docSnap.exists()) return claimDetails.textContent = "❌ Claim not found.";
-
-      const data = docSnap.data();
-      claimDetails.innerHTML = `
-        <p><strong>Platform:</strong> ${data.platform}</p>
-        <p><strong>Description:</strong> ${data.description}</p>
-        <p><strong>Status:</strong> ${data.status}</p>
-        <p><strong>Date:</strong> ${new Date(data.timestamp?.seconds * 1000).toLocaleString()}</p>
+    function renderClaim(docData, id) {
+      const card = document.createElement("div");
+      card.className = "claim-card";
+      card.innerHTML = `
+        <p><strong>Username:</strong> ${docData.username}</p>
+        <p><strong>Reason:</strong> ${docData.reason}</p>
+        <p><strong>User ID:</strong> ${docData.uid}</p>
+        <button class="approve">✅ Approve</button>
+        <button class="deny">❌ Deny</button>
       `;
 
-      if (
-        user.email === "gomegaassist@gmail.com" ||
-        user.email.endsWith("@henrico.k12.va.us")
-      ) {
-        document.getElementById("admin-actions").innerHTML = `
-          <button class="approve">✅ Approve via Webhook</button>
-          <button class="decline">❌ Decline via Webhook</button>
-        `;
-        document.querySelector(".approve").onclick = () => alert("Use webhook approve URL.");
-        document.querySelector(".decline").onclick = () => alert("Use webhook decline URL.");
+      card.querySelector(".approve").onclick = async () => {
+        await deleteDoc(doc(db, "claims", id));
+        sendToDiscord(`✅ Approved claim for: **${docData.username}** (${docData.uid})`);
+        card.remove();
+      };
+
+      card.querySelector(".deny").onclick = async () => {
+        await deleteDoc(doc(db, "claims", id));
+        sendToDiscord(`❌ Denied claim for: **${docData.username}** (${docData.uid})`);
+        card.remove();
+      };
+
+      claimContainer.appendChild(card);
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        alert("You must be logged in to view this page.");
+        window.location.href = "signin.html";
+        return;
       }
 
-      await sendWebhook(data);
+      if (user.email !== "gomegaassist@gmail.com") {
+        alert("You are not authorized to access this page.");
+        window.location.href = "index.html";
+        return;
+      }
+
+      const querySnapshot = await getDocs(collection(db, "claims"));
+      querySnapshot.forEach(docSnap => {
+        renderClaim(docSnap.data(), docSnap.id);
+      });
     });
   </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 20px;
+    }
+    .claim-container {
+      display: grid;
+      gap: 15px;
+    }
+    .claim-card {
+      background: #1e1e1e;
+      border-left: 5px solid #4caf50;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .claim-card button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .approve {
+      background-color: #4caf50;
+      color: white;
+    }
+    .deny {
+      background-color: #f44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pending Claims</h1>
 </body>
 </html>
