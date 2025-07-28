@@ -2,121 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Process Requests – Gomega</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>View Claim – Gomega</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    .request-card {
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 12px;
-      margin: 12px;
-      background: #f9f9f9;
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 20px;
     }
-    button {
-      margin-right: 10px;
+
+    .claim-box {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 25px;
+      border-radius: 12px;
+      background-color: #1e1e1e;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      border: 1px solid #333;
+    }
+
+    .claim-box h2 {
+      margin-top: 0;
+      font-size: 1.6rem;
+      color: #ffffff;
+      border-bottom: 1px solid #444;
+      padding-bottom: 10px;
+    }
+
+    .claim-box p {
+      margin: 10px 0;
+      font-size: 1rem;
+      color: #ddd;
+    }
+
+    .status {
+      font-weight: bold;
+    }
+
+    .status.approved { color: #4caf50; }
+    .status.denied { color: #f44336; }
+    .status.pending { color: #ff9800; }
+
+    .loading {
+      font-style: italic;
+      color: #aaaaaa;
+    }
+
+    a {
+      display: inline-block;
+      margin-top: 20px;
+      text-decoration: none;
+      color: #64b5f6;
+      font-weight: bold;
+    }
+
+    a:hover {
+      color: #90caf9;
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <h1>Pending Requests</h1>
-  <div id="requests"></div>
+  <div class="claim-box" id="claimContainer">
+    <p class="loading">Loading Claim...</p>
+  </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      storageBucket: "gomega-65e3f.appspot.com",
-      messagingSenderId: "212961835634",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
-    };
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { firebaseConfig } from './js/firebase.js';
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app);
+    const claimContainer = document.getElementById("claimContainer");
 
-    const webhookURL = "https://discord.com/api/webhooks/1398060748093128765/HhvxXPIdCMeyqbR6bsSyCcWPSRwkRaAkJHAdhRTyfY5Hw_NZvrh6JkYRr9lr7z4PeUD3";
+    // Get claim ID from URL query string (?id=)
+    function getClaimIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
 
-    const adminEmails = ["you@example.com", "admin2@example.com"]; // REPLACE with actual admin emails
+    // Load claim document from Firestore and display it
+    async function loadClaim() {
+      const claimId = getClaimIdFromURL();
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        alert("You must be signed in to access this page.");
-        window.location.href = "signin.html";
+      if (!claimId) {
+        claimContainer.innerHTML = "<p style='color: red;'>❌ Error: No claim ID provided in the URL.</p>";
         return;
       }
 
-      if (!adminEmails.includes(user.email)) {
-        alert("You are not authorized to view this page.");
-        window.location.href = "index.html";
-        return;
-      }
+      try {
+        const docRef = doc(db, "claims", claimId);
+        const docSnap = await getDoc(docRef);
 
-      const processRequests = async (collectionName) => {
-        const querySnapshot = await getDocs(collection(db, collectionName));
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.status !== "pending") return;
-
-          const div = document.createElement("div");
-          div.className = "request-card";
-
-          const createdAt = data.createdAt?.toDate().toLocaleString() || "Unknown";
-
-          div.innerHTML = `
-            <p><strong>Type:</strong> ${collectionName}</p>
-            <p><strong>ID:</strong> ${docSnap.id}</p>
-            <p><strong>Email:</strong> ${data.email || "N/A"}</p>
-            <p><strong>Title:</strong> ${data.title || "N/A"}</p>
-            <p><strong>Description:</strong> ${data.description || "N/A"}</p>
-            <p><strong>Submitted:</strong> ${createdAt}</p>
-            <p><a href="view-claim.html?id=${docSnap.id}">🔎 View full submission</a></p>
-            <button class="approve" data-id="${docSnap.id}" data-type="${collectionName}">Approve</button>
-            <button class="decline" data-id="${docSnap.id}" data-type="${collectionName}">Decline</button>
-          `;
-
-          document.getElementById("requests").appendChild(div);
-        });
-      };
-
-      await processRequests("claims");
-      await processRequests("optOutRequests");
-
-      document.addEventListener("click", async (e) => {
-        if (e.target.classList.contains("approve") || e.target.classList.contains("decline")) {
-          const id = e.target.dataset.id;
-          const type = e.target.dataset.type;
-          const status = e.target.classList.contains("approve") ? "approved" : "denied";
-          const email = auth.currentUser.email;
-
-          try {
-            await updateDoc(doc(db, type, id), {
-              status,
-              reviewedBy: email,
-              reviewedAt: new Date().toISOString()
-            });
-
-            await fetch(webhookURL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                content: `✅ A **${type}** request has been **${status.toUpperCase()}**.\n**ID:** \`${id}\`\n👤 Reviewed by: **${email}**`
-              })
-            });
-
-            alert(`Marked as ${status.toUpperCase()}`);
-            e.target.parentElement.remove();
-          } catch (err) {
-            console.error("Error updating Firestore or sending webhook:", err);
-            alert("Something went wrong. Try again.");
-          }
+        if (!docSnap.exists()) {
+          claimContainer.innerHTML = "<p style='color: red;'>❌ Error: Claim not found.</p>";
+          return;
         }
-      });
-    });
+
+        const data = docSnap.data();
+        const status = (data.status || "pending").toLowerCase();
+        const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+
+        claimContainer.innerHTML = `
+          <h2>Claim Details</h2>
+          <p><strong>Claim ID:</strong> ${claimId}</p>
+          <p><strong>Platform:</strong> ${data.platform || "Unknown"}</p>
+          <p><strong>Description:</strong> ${data.description || "None"}</p>
+          <p><strong>Account ID:</strong> ${data.accountId || "N/A"}</p>
+          <p><strong>Submitted By:</strong> ${data.email || "Anonymous"}</p>
+          <p class="status ${status}"><strong>Status:</strong> ${statusText}</p>
+          <a href="claims.html">← Back to All Claims</a>
+        `;
+      } catch (error) {
+        console.error("Error loading claim:", error);
+        claimContainer.innerHTML = "<p style='color: red;'>❌ Error fetching claim. Please try again later.</p>";
+      }
+    }
+
+    loadClaim();
   </script>
 </body>
 </html>
