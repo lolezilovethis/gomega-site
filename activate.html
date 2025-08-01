@@ -8,100 +8,108 @@
     body {
       font-family: sans-serif;
       padding: 2rem;
-      background: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+      background: #f9f9f9;
     }
     .box {
+      max-width: 400px;
+      margin: auto;
       background: white;
       padding: 2rem;
       border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-      max-width: 400px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    input, button {
       width: 100%;
-      text-align: center;
-    }
-    .btn {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 0.7rem 1.5rem;
+      padding: 10px;
+      margin-top: 10px;
       font-size: 1rem;
-      cursor: pointer;
-      border-radius: 5px;
-      margin-top: 1rem;
     }
-    .btn:disabled {
-      background: gray;
-      cursor: not-allowed;
+    #status {
+      margin-top: 10px;
+      color: red;
     }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>Activate Gomega</h2>
-    <p id="status">Checking login status...</p>
-    <button class="btn" id="activateBtn" disabled>Activate Now</button>
+    <input type="text" id="keyInput" placeholder="Enter Key..." />
+    <button onclick="activate()">Activate</button>
+    <button onclick="getKey()">Get Key</button>
+    <p id="status"></p>
   </div>
 
-  <!-- Firebase & SHA256 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithPopup,
+      GoogleAuthProvider
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      appId: "YOUR_APP_ID"
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
+    const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
-    const activateBtn = document.getElementById("activateBtn");
 
-    // Function to hash UID to key
-    async function sha256(str) {
-      const buffer = new TextEncoder().encode(str);
-      const digest = await crypto.subtle.digest("SHA-256", buffer);
-      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    // Function to check if key is still valid
-    function isKeyValid() {
-      const stored = localStorage.getItem("gomegaKey");
-      const expires = localStorage.getItem("gomegaKeyExpires");
-      if (stored && expires) {
-        return Date.now() < parseInt(expires);
-      }
-      return false;
-    }
-
-    // Auto redirect if key still valid
-    if (isKeyValid()) {
+    // Check expiration
+    const storedKey = localStorage.getItem("gomega_key");
+    const expiry = localStorage.getItem("gomega_key_expires");
+    if (storedKey && expiry && Date.now() < parseInt(expiry)) {
       window.location.href = "gate.html";
     }
 
-    // Wait for login
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        status.textContent = "Welcome, " + user.email;
-        activateBtn.disabled = false;
+    function hashKey(uid) {
+      const data = uid + Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // rotates every 12 hours
+      return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)).then(buffer => {
+        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      });
+    }
 
-        activateBtn.onclick = async () => {
-          const key = await sha256(user.uid + "_gomega_secret");
-          const expiry = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
-          localStorage.setItem("gomegaKey", key);
-          localStorage.setItem("gomegaKeyExpires", expiry.toString());
-          window.location.href = "gate.html";
-        };
-      } else {
+    function activate() {
+      const inputKey = keyInput.value.trim();
+      const user = auth.currentUser;
+
+      if (!user) {
         status.textContent = "Please log in first.";
+        return;
+      }
+
+      hashKey(user.uid).then(correctKey => {
+        if (inputKey === correctKey) {
+          localStorage.setItem("gomega_key", correctKey);
+          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // 12h
+          window.location.href = "gate.html";
+        } else {
+          status.textContent = "Invalid key.";
+        }
+      });
+    }
+
+    function getKey() {
+      signInWithPopup(auth, provider).then(async result => {
+        const uid = result.user.uid;
+        const key = await hashKey(uid);
+        keyInput.value = key;
+        status.textContent = "Key generated successfully.";
+      }).catch(err => {
+        status.textContent = "Login failed.";
+      });
+    }
+
+    // Auto-login if possible
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        console.log("Logged in as:", user.email);
       }
     });
   </script>
