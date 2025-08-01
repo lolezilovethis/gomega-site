@@ -1,97 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Activate Gomega</title>
-  <script src="/js/firebase.js"></script> <!-- Your own Firebase config -->
+  <meta charset="UTF-8">
+  <title>Gomega Activation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: sans-serif;
+      padding: 2rem;
+      background: #f9f9f9;
+    }
+    .box {
       max-width: 500px;
       margin: 0 auto;
-      padding: 20px;
-      text-align: center;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 5px 10px rgba(0,0,0,0.1);
     }
-    #keyDisplay {
-      font-weight: bold;
-      margin: 20px 0;
-      background: #f0f0f0;
-      padding: 10px;
-      word-break: break-all;
+    .key-display {
+      font-family: monospace;
+      font-size: 1.2rem;
+      background: #eee;
+      padding: 0.5rem 1rem;
       border-radius: 8px;
+      margin: 1rem 0;
+      word-break: break-all;
     }
-    button {
-      padding: 10px 20px;
-      margin: 10px;
-      font-size: 16px;
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
     }
-    #status {
-      margin-top: 15px;
-      color: green;
+    .btn:disabled {
+      background: gray;
     }
   </style>
 </head>
 <body>
-  <h1>Gomega Key Activation</h1>
-  <p>Click below to get your activation key:</p>
-  
-  <div id="keyDisplay">Loading...</div>
+  <div class="box">
+    <h2>Gomega Activation</h2>
+    <p><strong>Status:</strong> <span id="status">Checking...</span></p>
+    <p><strong>Your Key:</strong></p>
+    <div class="key-display" id="keyBox">Loading...</div>
+    <button class="btn" id="activateBtn">Activate Key</button>
+  </div>
 
-  <button onclick="copyKey()">Copy Key</button>
-  <button onclick="activate()">Activate</button>
-
-  <div id="status"></div>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
 
   <script>
-    let currentKey = "";
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
 
-    // Wait for Firebase Auth to load
-    firebase.auth().onAuthStateChanged(async (user) => {
-      if (!user) {
-        document.getElementById("keyDisplay").innerText = "Please sign in first.";
-        return;
-      }
-
-      const uid = user.uid;
-      const key = generateKey(uid);
-      currentKey = key;
-      document.getElementById("keyDisplay").innerText = key;
-
-      // Load previously activated key
-      const savedKey = localStorage.getItem("gomegaKey");
-      if (savedKey === key) {
-        document.getElementById("status").innerText = "Already activated.";
-      }
-    });
-
-    function generateKey(uid) {
-      const salt = "gomega-secret-salt";
-      const time = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
-      const raw = uid + salt + time;
-      return sha256(raw).slice(0, 16); // shorten for simplicity
+    // --- Key Generation ---
+    function getUserKey(uid) {
+      const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
+      const raw = uid + "-gomega-salt-" + interval;
+      return sha256(raw).slice(0, 12);
     }
 
-    function sha256(str) {
-      const buffer = new TextEncoder().encode(str);
-      return crypto.subtle.digest("SHA-256", buffer).then((hash) => {
+    // Simple SHA-256 hash
+    function sha256(input) {
+      const buffer = new TextEncoder().encode(input);
+      return crypto.subtle.digest("SHA-256", buffer).then(hash => {
         return Array.from(new Uint8Array(hash))
-          .map((b) => b.toString(16).padStart(2, "0"))
+          .map(b => b.toString(16).padStart(2, "0"))
           .join("");
       });
     }
 
-    async function activate() {
-      if (!currentKey) return;
-      localStorage.setItem("gomegaKey", currentKey);
-      document.getElementById("status").innerText = "Activated and remembered!";
+    // Check user agent matches the allowed one
+    function isAllowedUserAgent() {
+      return navigator.userAgent.includes("CrOS aarch64 13099.85.0");
     }
 
-    async function copyKey() {
-      await navigator.clipboard.writeText(currentKey);
-      document.getElementById("status").innerText = "Key copied to clipboard!";
-    }
+    // Main Activation Logic
+    auth.onAuthStateChanged(async (user) => {
+      const statusEl = document.getElementById("status");
+      const keyBox = document.getElementById("keyBox");
+      const activateBtn = document.getElementById("activateBtn");
+
+      if (!user) {
+        statusEl.textContent = "Not signed in. Please sign in at gomega.watch/signin";
+        keyBox.textContent = "-";
+        activateBtn.disabled = true;
+        return;
+      }
+
+      if (!isAllowedUserAgent()) {
+        statusEl.textContent = "Wrong browser or user-agent. Launch with the special Chrome shortcut.";
+        keyBox.textContent = "-";
+        activateBtn.disabled = true;
+        return;
+      }
+
+      const uid = user.uid;
+      const key = await getUserKey(uid);
+      keyBox.textContent = key;
+
+      // Check localStorage
+      const savedKey = localStorage.getItem("gomegaKey");
+      if (savedKey === key) {
+        statusEl.textContent = "Already Activated ✅";
+        activateBtn.disabled = true;
+      } else {
+        statusEl.textContent = "Not activated yet ❌";
+        activateBtn.disabled = false;
+      }
+
+      activateBtn.addEventListener("click", () => {
+        localStorage.setItem("gomegaKey", key);
+        statusEl.textContent = "Activated ✅";
+        activateBtn.disabled = true;
+      });
+    });
   </script>
 </body>
 </html>
