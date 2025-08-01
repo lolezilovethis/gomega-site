@@ -4,9 +4,18 @@ const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 
-// --- Email setup ---
-const GMAIL_USER = "your-email@gmail.com";
-const GMAIL_PASS = "your-app-password";
+const app = express();
+app.use(express.json());
+
+// Allow requests only from your site
+const corsHandler = cors({
+  origin: "https://gomega.watch",
+});
+
+// ---------------- EMAIL SYSTEM (optional) ----------------
+
+const GMAIL_USER = "your-email@gmail.com"; // replace with your Gmail
+const GMAIL_PASS = "your-app-password";   // use App Password, not your real password
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -16,7 +25,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// --- Email Cloud Function ---
 exports.sendEmail = functions.https.onRequest(async (req, res) => {
   const { type, email, school } = req.body;
 
@@ -59,37 +67,23 @@ exports.sendEmail = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// --- Express App for /key and /verify-key ---
-const app = express();
-const corsHandler = cors({ origin: "https://gomega.watch" });
+// ---------------- KEY SYSTEM ----------------
 
-app.get("/key", corsHandler, (req, res) => {
-  const key = getCurrentKey();
-  res.json({ key });
-});
-
-app.post("/verify-key", corsHandler, (req, res) => {
-  const { key } = req.body;
-  const isValid = key === getCurrentKey();
-  res.json({ valid: isValid });
-});
-app.use(express.json());
-
-// Generate key that changes every 12 hours
+// Generate a key that changes every 12 hours
 function getCurrentKey() {
-  const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // changes every 12h
+  const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
   const raw = "gomega-secret-salt" + interval;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12);
 }
 
 // Route: GET /key
-app.get("/key", (req, res) => {
+app.get("/key", corsHandler, (req, res) => {
   const key = getCurrentKey();
   res.json({ key });
 });
 
 // Route: POST /verify-key
-app.post("/verify-key", (req, res) => {
+app.post("/verify-key", corsHandler, (req, res) => {
   const { key } = req.body;
   const isValid = key === getCurrentKey();
   res.json({ valid: isValid });
