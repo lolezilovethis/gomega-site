@@ -24,10 +24,6 @@
       margin-top: 10px;
       font-size: 1rem;
     }
-    #status {
-      margin-top: 10px;
-      color: red;
-    }
   </style>
 </head>
 <body>
@@ -36,7 +32,7 @@
     <input type="text" id="keyInput" placeholder="Enter Key..." />
     <button onclick="activate()">Activate</button>
     <button onclick="getKey()">Get Key</button>
-    <p id="status"></p>
+    <p id="status" style="color: red;"></p>
   </div>
 
   <script type="module">
@@ -57,16 +53,30 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
-    auth.languageCode = "en";
+
+    const fs = window.require("fs");
+    const path = window.require("path");
+    const { app: electronApp } = window.require("@electron/remote");
 
     const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
 
-    async function hashKey(uid) {
-      const windowSlot = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // new every 12h
-      const data = uid + windowSlot;
-      const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
-      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    function hashKey(uid) {
+      const data = uid + Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // rotates every 12h
+      return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)).then(buffer => {
+        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      });
+    }
+
+    function getKey() {
+      signInWithPopup(auth, provider).then(async result => {
+        const uid = result.user.uid;
+        const key = await hashKey(uid);
+        keyInput.value = key;
+        status.textContent = "Key generated. Paste and activate.";
+      }).catch(() => {
+        status.textContent = "Failed to get key.";
+      });
     }
 
     function activate() {
@@ -76,25 +86,19 @@
         const inputKey = keyInput.value.trim();
 
         if (inputKey === correctKey) {
-          localStorage.setItem("gomega_key", correctKey);
-          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // +12 hours
+          const keyData = {
+            key: correctKey,
+            expires: Date.now() + 12 * 60 * 60 * 1000
+          };
+          const keyPath = path.join(electronApp.getPath("userData"), "key.json");
+          fs.writeFileSync(keyPath, JSON.stringify(keyData));
+
           window.location.href = "gate.html";
         } else {
           status.textContent = "Invalid key.";
         }
-      }).catch(err => {
-        status.textContent = "Authentication failed.";
-      });
-    }
-
-    function getKey() {
-      signInWithPopup(auth, provider).then(async result => {
-        const uid = result.user.uid;
-        const generatedKey = await hashKey(uid);
-        keyInput.value = generatedKey;
-        status.textContent = "Key copied for you.";
       }).catch(() => {
-        status.textContent = "Sign-in failed.";
+        status.textContent = "Authentication failed.";
       });
     }
   </script>
