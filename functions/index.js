@@ -1,6 +1,10 @@
 const functions = require("firebase-functions");
 const nodemailer = require("nodemailer");
+const express = require("express");
+const cors = require("cors");
+const crypto = require("crypto");
 
+// --- Email setup ---
 const GMAIL_USER = "your-email@gmail.com";
 const GMAIL_PASS = "your-app-password";
 
@@ -12,6 +16,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// --- Email Cloud Function ---
 exports.sendEmail = functions.https.onRequest(async (req, res) => {
   const { type, email, school } = req.body;
 
@@ -53,3 +58,32 @@ exports.sendEmail = functions.https.onRequest(async (req, res) => {
     return res.status(500).send("Failed to send email.");
   }
 });
+
+
+// --- Express App for /key and /verify-key ---
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Generate key that changes every 12 hours
+function getCurrentKey() {
+  const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // changes every 12h
+  const raw = "gomega-secret-salt" + interval;
+  return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12);
+}
+
+// Route: GET /key
+app.get("/key", (req, res) => {
+  const key = getCurrentKey();
+  res.json({ key });
+});
+
+// Route: POST /verify-key
+app.post("/verify-key", (req, res) => {
+  const { key } = req.body;
+  const isValid = key === getCurrentKey();
+  res.json({ valid: isValid });
+});
+
+// Export Express API
+exports.api = functions.https.onRequest(app);

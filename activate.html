@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gomega Activation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 2rem;
+      background-color: #f8f9fa;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    #key-box {
+      background: #e0ffe0;
+      border: 2px solid #28a745;
+      color: #155724;
+      padding: 1rem;
+      margin: 1rem auto;
+      font-size: 1.5rem;
+      width: fit-content;
+      border-radius: 8px;
+      user-select: all;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #copy-msg {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Activate Gomega</h1>
+  <p>Copy the activation key below and paste it into the Gomega launcher.</p>
+
+  <div id="key-box">Loading key...</div>
+  <button onclick="copyKey()">Copy Key</button>
+  <div id="copy-msg"></div>
+
+  <script>
+    async function fetchKey() {
+      try {
+        const response = await fetch("https://us-central1-gomega-65e3f.cloudfunctions.net/api/key");
+        const data = await response.json();
+        document.getElementById("key-box").innerText = data.key;
+      } catch (err) {
+        document.getElementById("key-box").innerText = "Error loading key.";
+        console.error("Failed to fetch key:", err);
+      }
+    }
+
+    function copyKey() {
+      const keyText = document.getElementById("key-box").innerText;
+      navigator.clipboard.writeText(keyText).then(() => {
+        document.getElementById("copy-msg").innerText = "Key copied to clipboard!";
+      }).catch(() => {
+        document.getElementById("copy-msg").innerText = "Failed to copy key.";
+      });
+    }
+
+    fetchKey();
+  </script>
+</body>
+</html>
