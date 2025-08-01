@@ -3,102 +3,91 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gomega Activation</title>
+  <title>Activate Gomega</title>
+  <link rel="stylesheet" href="styles.css" />
   <style>
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
+      background: #f0f2f5;
       padding: 2rem;
-      background-color: #f8f9fa;
+      text-align: center;
     }
-
-    h1 {
-      color: #333;
+    .container {
+      max-width: 400px;
+      margin: 5rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-
-    #key-box {
-      background: #e0ffe0;
-      border: 2px solid #28a745;
-      color: #155724;
-      padding: 1rem;
-      margin: 1rem auto;
-      font-size: 1.5rem;
-      width: fit-content;
+    input {
+      width: 100%;
+      padding: 0.8rem;
+      margin: 1rem 0;
+      border: 1px solid #ccc;
       border-radius: 8px;
-      user-select: all;
-      word-break: break-all;
     }
-
-    #expires {
-      font-size: 0.9rem;
-      color: #666;
-      margin-top: 5px;
-    }
-
     button {
-      padding: 0.6rem 1.2rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 5px;
-      background-color: #007bff;
+      background: #4caf50;
       color: white;
+      padding: 0.8rem 1.2rem;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
+      font-size: 1rem;
+    }
+    .status {
       margin-top: 1rem;
+      font-weight: bold;
     }
-
-    button:hover {
-      background-color: #0056b3;
+    .error {
+      color: red;
     }
-
-    #copy-msg {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
+    .success {
       color: green;
     }
   </style>
 </head>
 <body>
-  <h1>Activate Gomega</h1>
-  <p>Copy the activation key below and paste it into the Gomega launcher.</p>
-
-  <div id="key-box">Loading key...</div>
-  <div id="expires"></div>
-  <button onclick="copyKey()">Copy Key</button>
-  <div id="copy-msg"></div>
+  <div class="container">
+    <h2>Enter Activation Key</h2>
+    <input type="text" id="keyInput" placeholder="Enter your key"/>
+    <button onclick="verifyKey()">Activate</button>
+    <div id="status" class="status"></div>
+  </div>
 
   <script>
+    let currentKey = "";
+
     async function fetchKey() {
       try {
-        const response = await fetch("/api/key"); // Uses your custom domain via Firebase rewrite
-        if (!response.ok) throw new Error("Non-200 response");
-
-        const data = await response.json();
-        const key = data.key;
-
-        document.getElementById("key-box").innerText = key;
-
-        // Calculate expiration time (every 12h interval)
-        const now = Date.now();
-        const interval = 1000 * 60 * 60 * 12;
-        const nextReset = new Date(Math.floor(now / interval) * interval + interval);
-        document.getElementById("expires").innerText = `(Key expires: ${nextReset.toLocaleString()})`;
+        const res = await fetch("https://us-central1-gomega-65e3f.cloudfunctions.net/api/key");
+        if (!res.ok) throw new Error("Failed to load key");
+        const data = await res.json();
+        currentKey = data.key;
+        console.log("Fetched key:", currentKey);
       } catch (err) {
         console.error("Failed to fetch key:", err);
-        document.getElementById("key-box").innerText = "Error loading key.";
+        document.getElementById("status").textContent = "Error loading key.";
+        document.getElementById("status").className = "status error";
       }
     }
 
-    function copyKey() {
-      const keyText = document.getElementById("key-box").innerText;
-      if (!keyText || keyText === "Error loading key.") return;
+    function verifyKey() {
+      const inputKey = document.getElementById("keyInput").value.trim();
+      const statusDiv = document.getElementById("status");
 
-      navigator.clipboard.writeText(keyText).then(() => {
-        document.getElementById("copy-msg").innerText = "Key copied to clipboard!";
-      }).catch(() => {
-        document.getElementById("copy-msg").innerText = "Failed to copy key.";
-      });
+      if (inputKey === currentKey) {
+        statusDiv.textContent = "Activation successful!";
+        statusDiv.className = "status success";
+        // You can redirect or store the state here
+      } else {
+        statusDiv.textContent = "Invalid key.";
+        statusDiv.className = "status error";
+      }
     }
 
+    // Fetch key on page load
     fetchKey();
   </script>
 </body>

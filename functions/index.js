@@ -15,7 +15,7 @@ const corsHandler = cors({
 // ---------------- EMAIL SYSTEM (optional) ----------------
 
 const GMAIL_USER = "your-email@gmail.com"; // replace with your Gmail
-const GMAIL_PASS = "your-app-password";   // use App Password, not your real password
+const GMAIL_PASS = "your-app-password"; // use App Password, not your real password
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -26,7 +26,7 @@ const transporter = nodemailer.createTransport({
 });
 
 exports.sendEmail = functions.https.onRequest(async (req, res) => {
-  const { type, email, school } = req.body;
+  const {type, email, school} = req.body;
 
   if (!email || !school || !type) {
     return res.status(400).send("Missing required fields.");
@@ -79,14 +79,14 @@ function getCurrentKey() {
 // Route: GET /key
 app.get("/key", corsHandler, (req, res) => {
   const key = getCurrentKey();
-  res.json({ key });
+  res.json({key});
 });
 
 // Route: POST /verify-key
 app.post("/verify-key", corsHandler, (req, res) => {
-  const { key } = req.body;
+  const {key} = req.body;
   const isValid = key === getCurrentKey();
-  res.json({ valid: isValid });
+  res.json({valid: isValid});
 });
 
 // Export Express API
