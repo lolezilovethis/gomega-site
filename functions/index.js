@@ -62,7 +62,9 @@ exports.sendEmail = functions.https.onRequest(async (req, res) => {
 
 // --- Express App for /key and /verify-key ---
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "https://gomega.watch"  // Allow only your domain
+}));
 app.use(express.json());
 
 // Generate key that changes every 12 hours
