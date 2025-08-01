@@ -3,76 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gomega Activation</title>
+  <title>Activate Gomega</title>
+  <script src="/js/firebase.js"></script> <!-- Your own Firebase config -->
   <style>
-    body { font-family: sans-serif; padding: 2em; max-width: 600px; margin: auto; text-align: center; }
-    input, button { padding: 0.6em; margin: 1em 0; width: 100%; max-width: 300px; }
-    .key-display { font-family: monospace; font-size: 1.2em; background: #f0f0f0; padding: 0.5em; border-radius: 5px; }
-    .hidden { display: none; }
-    .success { color: green; }
-    .error { color: red; }
+    body {
+      font-family: sans-serif;
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+    }
+    #keyDisplay {
+      font-weight: bold;
+      margin: 20px 0;
+      background: #f0f0f0;
+      padding: 10px;
+      word-break: break-all;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 15px;
+      color: green;
+    }
   </style>
 </head>
 <body>
-  <h1>Gomega Activation</h1>
+  <h1>Gomega Key Activation</h1>
+  <p>Click below to get your activation key:</p>
+  
+  <div id="keyDisplay">Loading...</div>
 
-  <p>Enter your activation key below. Once activated, you won't have to re-enter it unless the key changes.</p>
-  <input type="text" id="keyInput" placeholder="Enter activation key" />
-  <button onclick="verifyKey()">Activate</button>
-  <p id="resultMsg"></p>
+  <button onclick="copyKey()">Copy Key</button>
+  <button onclick="activate()">Activate</button>
 
-  <h3>Current 12-Hour Key (for testing)</h3>
-  <div class="key-display" id="generatedKey">Loading...</div>
+  <div id="status"></div>
 
   <script>
-    async function sha256(message) {
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
+    let currentKey = "";
 
-    function getCurrentInterval() {
-      return Math.floor(Date.now() / (1000 * 60 * 60 * 12));
-    }
-
-    async function getCurrentKey() {
-      const raw = "gomega-secret-" + getCurrentInterval();
-      const hash = await sha256(raw);
-      return hash.slice(0, 12);
-    }
-
-    async function displayCurrentKey() {
-      const key = await getCurrentKey();
-      document.getElementById("generatedKey").innerText = key;
-    }
-
-    async function verifyKey() {
-      const input = document.getElementById("keyInput").value.trim();
-      const validKey = await getCurrentKey();
-      const resultMsg = document.getElementById("resultMsg");
-
-      if (input === validKey) {
-        localStorage.setItem("gomegaActivated", validKey);
-        resultMsg.innerText = "✅ Activation successful!";
-        resultMsg.className = "success";
-      } else {
-        resultMsg.innerText = "❌ Invalid key.";
-        resultMsg.className = "error";
+    // Wait for Firebase Auth to load
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) {
+        document.getElementById("keyDisplay").innerText = "Please sign in first.";
+        return;
       }
-    }
 
-    async function autoCheck() {
-      const savedKey = localStorage.getItem("gomegaActivated");
-      const currentKey = await getCurrentKey();
-      if (savedKey === currentKey) {
-        document.body.innerHTML = "<h1>✅ Already activated for this 12-hour period!</h1>";
+      const uid = user.uid;
+      const key = generateKey(uid);
+      currentKey = key;
+      document.getElementById("keyDisplay").innerText = key;
+
+      // Load previously activated key
+      const savedKey = localStorage.getItem("gomegaKey");
+      if (savedKey === key) {
+        document.getElementById("status").innerText = "Already activated.";
       }
+    });
+
+    function generateKey(uid) {
+      const salt = "gomega-secret-salt";
+      const time = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
+      const raw = uid + salt + time;
+      return sha256(raw).slice(0, 16); // shorten for simplicity
     }
 
-    // Run on load
-    autoCheck();
-    displayCurrentKey();
+    function sha256(str) {
+      const buffer = new TextEncoder().encode(str);
+      return crypto.subtle.digest("SHA-256", buffer).then((hash) => {
+        return Array.from(new Uint8Array(hash))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      });
+    }
+
+    async function activate() {
+      if (!currentKey) return;
+      localStorage.setItem("gomegaKey", currentKey);
+      document.getElementById("status").innerText = "Activated and remembered!";
+    }
+
+    async function copyKey() {
+      await navigator.clipboard.writeText(currentKey);
+      document.getElementById("status").innerText = "Key copied to clipboard!";
+    }
   </script>
 </body>
 </html>
