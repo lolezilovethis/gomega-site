@@ -3,20 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Activate Gomega</title>
+  <title>Gomega Activation</title>
   <style>
-    body { font-family: sans-serif; padding: 2em; max-width: 500px; margin: auto; }
-    input, button { padding: 0.5em; margin-top: 1em; width: 100%; }
+    body { font-family: sans-serif; padding: 2em; max-width: 600px; margin: auto; text-align: center; }
+    input, button { padding: 0.6em; margin: 1em 0; width: 100%; max-width: 300px; }
+    .key-display { font-family: monospace; font-size: 1.2em; background: #f0f0f0; padding: 0.5em; border-radius: 5px; }
     .hidden { display: none; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <h2>Activate Gomega</h2>
-  <p>Enter your activation key below:</p>
+  <h1>Gomega Activation</h1>
 
+  <p>Enter your activation key below. Once activated, you won't have to re-enter it unless the key changes.</p>
   <input type="text" id="keyInput" placeholder="Enter activation key" />
   <button onclick="verifyKey()">Activate</button>
-  <p id="result"></p>
+  <p id="resultMsg"></p>
+
+  <h3>Current 12-Hour Key (for testing)</h3>
+  <div class="key-display" id="generatedKey">Loading...</div>
 
   <script>
     async function sha256(message) {
@@ -27,32 +33,46 @@
     }
 
     function getCurrentInterval() {
-      return Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // 12h interval
+      return Math.floor(Date.now() / (1000 * 60 * 60 * 12));
     }
 
-    async function getValidKey() {
-      const base = "gomega-secret-" + getCurrentInterval();
-      const fullHash = await sha256(base);
-      return fullHash.slice(0, 12); // First 12 chars
+    async function getCurrentKey() {
+      const raw = "gomega-secret-" + getCurrentInterval();
+      const hash = await sha256(raw);
+      return hash.slice(0, 12);
+    }
+
+    async function displayCurrentKey() {
+      const key = await getCurrentKey();
+      document.getElementById("generatedKey").innerText = key;
     }
 
     async function verifyKey() {
-      const inputKey = document.getElementById("keyInput").value.trim();
-      const validKey = await getValidKey();
+      const input = document.getElementById("keyInput").value.trim();
+      const validKey = await getCurrentKey();
+      const resultMsg = document.getElementById("resultMsg");
 
-      const result = document.getElementById("result");
-      if (inputKey === validKey) {
-        result.innerText = "✅ Key is valid! Activating...";
-        result.style.color = "green";
-
-        // You can now enable features or redirect
-        // localStorage.setItem("gomegaActivated", "true");
-
+      if (input === validKey) {
+        localStorage.setItem("gomegaActivated", validKey);
+        resultMsg.innerText = "✅ Activation successful!";
+        resultMsg.className = "success";
       } else {
-        result.innerText = "❌ Invalid key. Try again.";
-        result.style.color = "red";
+        resultMsg.innerText = "❌ Invalid key.";
+        resultMsg.className = "error";
       }
     }
+
+    async function autoCheck() {
+      const savedKey = localStorage.getItem("gomegaActivated");
+      const currentKey = await getCurrentKey();
+      if (savedKey === currentKey) {
+        document.body.innerHTML = "<h1>✅ Already activated for this 12-hour period!</h1>";
+      }
+    }
+
+    // Run on load
+    autoCheck();
+    displayCurrentKey();
   </script>
 </body>
 </html>
