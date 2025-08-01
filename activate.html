@@ -24,6 +24,10 @@
       margin-top: 10px;
       font-size: 1rem;
     }
+    #status {
+      margin-top: 10px;
+      color: red;
+    }
   </style>
 </head>
 <body>
@@ -31,7 +35,8 @@
     <h2>Activate Gomega</h2>
     <input type="text" id="keyInput" placeholder="Enter Key..." />
     <button onclick="activate()">Activate</button>
-    <p id="status" style="color: red;"></p>
+    <button onclick="getKey()">Get Key</button>
+    <p id="status"></p>
   </div>
 
   <script type="module">
@@ -52,17 +57,16 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
-
     auth.languageCode = "en";
 
     const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
 
-    function hashKey(uid) {
-      const data = uid + Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // rotates every 12h
-      return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)).then(buffer => {
-        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      });
+    async function hashKey(uid) {
+      const windowSlot = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // new every 12h
+      const data = uid + windowSlot;
+      const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     function activate() {
@@ -73,13 +77,24 @@
 
         if (inputKey === correctKey) {
           localStorage.setItem("gomega_key", correctKey);
-          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // 12h
+          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // +12 hours
           window.location.href = "gate.html";
         } else {
           status.textContent = "Invalid key.";
         }
       }).catch(err => {
         status.textContent = "Authentication failed.";
+      });
+    }
+
+    function getKey() {
+      signInWithPopup(auth, provider).then(async result => {
+        const uid = result.user.uid;
+        const generatedKey = await hashKey(uid);
+        keyInput.value = generatedKey;
+        status.textContent = "Key copied for you.";
+      }).catch(() => {
+        status.textContent = "Sign-in failed.";
       });
     }
   </script>
