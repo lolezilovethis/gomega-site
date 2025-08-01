@@ -5,10 +5,30 @@
   <title>Gomega Activation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { font-family: Arial, sans-serif; background: #fafafa; padding: 2rem; }
-    .box { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
-    input, button { width: 100%; padding: 0.75rem; margin-top: 1rem; font-size: 1rem; }
-    #status { margin-top: 1rem; color: #e00; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      padding: 2rem;
+    }
+    .box {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 1rem;
+      font-size: 1rem;
+    }
+    #status {
+      margin-top: 1rem;
+      color: #e00;
+    }
   </style>
 </head>
 <body>
@@ -42,16 +62,15 @@
     const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
 
-    // Redirect automatically if key still valid
+    // Redirect if key is still valid
     const storedKey = localStorage.getItem("gomega_key");
     const expiry = localStorage.getItem("gomega_key_expires");
     if (storedKey && expiry && Date.now() < parseInt(expiry)) {
       window.location.href = "gate.html";
     }
 
-    // 12‑hour rotating SHA‑256 key generator
     async function hashKey(uid) {
-      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
+      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // 12-hour window
       const data = uid + slot;
       const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -92,6 +111,10 @@
         status.textContent = `Logged in as ${user.email}`;
       }
     });
+
+    // Expose to window so onclick can access them
+    window.activate = activate;
+    window.getKey = getKey;
   </script>
 </body>
 </html>
