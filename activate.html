@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Gomega Activation</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: sans-serif;
@@ -16,7 +16,7 @@
       background: white;
       padding: 2rem;
       border-radius: 12px;
-      box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
     }
     .key-display {
       font-family: monospace;
@@ -52,58 +52,48 @@
     <button class="btn" id="activateBtn">Activate Key</button>
   </div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <!-- Firebase SDKs (Compat for browser support) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+  <!-- Your firebase.js config -->
+  <script src="/js/firebase.js"></script>
 
   <script>
-    // --- Firebase Config ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
-    // --- Key Generation ---
     function getUserKey(uid) {
       const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
       const raw = uid + "-gomega-salt-" + interval;
-      return sha256(raw).slice(0, 12);
+      return sha256(raw).then(hash => hash.slice(0, 12));
     }
 
-    // Simple SHA-256 hash
     function sha256(input) {
-      const buffer = new TextEncoder().encode(input);
-      return crypto.subtle.digest("SHA-256", buffer).then(hash => {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(input);
+      return crypto.subtle.digest("SHA-256", data).then((hash) => {
         return Array.from(new Uint8Array(hash))
-          .map(b => b.toString(16).padStart(2, "0"))
+          .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
       });
     }
 
-    // Check user agent matches the allowed one
     function isAllowedUserAgent() {
       return navigator.userAgent.includes("CrOS aarch64 13099.85.0");
     }
 
-    // Main Activation Logic
-    auth.onAuthStateChanged(async (user) => {
+    firebase.auth().onAuthStateChanged(async (user) => {
       const statusEl = document.getElementById("status");
       const keyBox = document.getElementById("keyBox");
       const activateBtn = document.getElementById("activateBtn");
 
       if (!user) {
-        statusEl.textContent = "Not signed in. Please sign in at gomega.watch/signin";
+        statusEl.textContent = "Not signed in. Sign in at gomega.watch/signin";
         keyBox.textContent = "-";
         activateBtn.disabled = true;
         return;
       }
 
       if (!isAllowedUserAgent()) {
-        statusEl.textContent = "Wrong browser or user-agent. Launch with the special Chrome shortcut.";
+        statusEl.textContent = "Wrong browser or user-agent.";
         keyBox.textContent = "-";
         activateBtn.disabled = true;
         return;
@@ -113,7 +103,6 @@
       const key = await getUserKey(uid);
       keyBox.textContent = key;
 
-      // Check localStorage
       const savedKey = localStorage.getItem("gomegaKey");
       if (savedKey === key) {
         statusEl.textContent = "Already Activated ✅";
