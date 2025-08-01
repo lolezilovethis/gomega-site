@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Get Your Gomega Key</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .box {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #0f0;
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .key {
+      font-size: 1.2rem;
+      margin: 20px 0;
+      word-break: break-all;
+      background: #222;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #0c0;
+    }
+
+    small {
+      display: block;
+      margin-top: 15px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>🔑 Your Gomega Key</h1>
+    <div class="key" id="keyDisplay">Generating...</div>
+    <button onclick="copyKey()">📋 Copy Key</button>
+    <small>This key will expire in 12 hours. Paste it into the Gomega Browser to continue.</small>
+  </div>
+
+  <script>
+    function generateKey(length = 32) {
+      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let key = '';
+      for (let i = 0; i < length; i++) {
+        key += charset[Math.floor(Math.random() * charset.length)];
+      }
+      return key;
+    }
+
+    const key = generateKey();
+    document.getElementById('keyDisplay').textContent = key;
+
+    function copyKey() {
+      navigator.clipboard.writeText(key).then(() => {
+        alert('Key copied to clipboard!');
+      });
+    }
+  </script>
+</body>
+</html>
