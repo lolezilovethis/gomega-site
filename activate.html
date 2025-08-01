@@ -5,37 +5,18 @@
   <title>Gomega Activation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 2rem;
-      background: #f9f9f9;
-    }
-    .box {
-      max-width: 400px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 0 10px #ccc;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 1rem;
-    }
-    #status {
-      margin-top: 10px;
-      color: red;
-    }
+    body { font-family: Arial, sans-serif; background: #fafafa; padding: 2rem; }
+    .box { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
+    input, button { width: 100%; padding: 0.75rem; margin-top: 1rem; font-size: 1rem; }
+    #status { margin-top: 1rem; color: #e00; }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>Activate Gomega</h2>
-    <input type="text" id="keyInput" placeholder="Enter Key..." />
-    <button onclick="activate()">Activate</button>
-    <button onclick="getKey()">Get Key</button>
+    <input type="text" id="keyInput" placeholder="Enter Key…" />
+    <button id="activateBtn" onclick="activate()">Activate</button>
+    <button id="getKeyBtn" onclick="getKey()">Get Key</button>
     <p id="status"></p>
   </div>
 
@@ -49,11 +30,11 @@
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID"
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
     };
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
@@ -61,55 +42,54 @@
     const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
 
-    // Check expiration
+    // Redirect automatically if key still valid
     const storedKey = localStorage.getItem("gomega_key");
     const expiry = localStorage.getItem("gomega_key_expires");
     if (storedKey && expiry && Date.now() < parseInt(expiry)) {
       window.location.href = "gate.html";
     }
 
-    function hashKey(uid) {
-      const data = uid + Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // rotates every 12 hours
-      return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)).then(buffer => {
-        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      });
+    // 12‑hour rotating SHA‑256 key generator
+    async function hashKey(uid) {
+      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
+      const data = uid + slot;
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    function activate() {
-      const inputKey = keyInput.value.trim();
+    async function activate() {
       const user = auth.currentUser;
-
       if (!user) {
         status.textContent = "Please log in first.";
         return;
       }
 
-      hashKey(user.uid).then(correctKey => {
-        if (inputKey === correctKey) {
-          localStorage.setItem("gomega_key", correctKey);
-          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // 12h
-          window.location.href = "gate.html";
-        } else {
-          status.textContent = "Invalid key.";
-        }
-      });
+      const correct = await hashKey(user.uid);
+      const input = keyInput.value.trim();
+      if (input === correct) {
+        localStorage.setItem("gomega_key", correct);
+        localStorage.setItem("gomega_key_expires", (Date.now() + 12 * 60 * 60 * 1000).toString());
+        window.location.href = "gate.html";
+      } else {
+        status.textContent = "Invalid key.";
+      }
     }
 
-    function getKey() {
-      signInWithPopup(auth, provider).then(async result => {
+    async function getKey() {
+      try {
+        const result = await signInWithPopup(auth, provider);
         const uid = result.user.uid;
         const key = await hashKey(uid);
         keyInput.value = key;
-        status.textContent = "Key generated successfully.";
-      }).catch(err => {
+        status.textContent = "Key generated.";
+      } catch {
         status.textContent = "Login failed.";
-      });
+      }
     }
 
-    // Auto-login if possible
     onAuthStateChanged(auth, user => {
       if (user) {
-        console.log("Logged in as:", user.email);
+        status.textContent = `Logged in as ${user.email}`;
       }
     });
   </script>
