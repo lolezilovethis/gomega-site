@@ -1,116 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gomega Activation</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Activate Gomega Browser</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #fafafa; padding: 2rem; }
-    .box { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
-    input, button { width: 100%; padding: 0.75rem; margin-top: 1rem; font-size: 1rem; }
-    #status { margin-top: 1rem; color: #e00; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f0f0f;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      margin: 0.5rem 0;
+    }
+
+    input {
+      padding: 0.5rem;
+      width: 300px;
+      font-size: 1rem;
+      margin: 1rem 0;
+    }
+
+    button {
+      padding: 0.5rem 1.2rem;
+      font-size: 1rem;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #3e8e41;
+    }
+
+    .note {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-top: 2rem;
+    }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Activate Gomega</h2>
-    <input type="text" id="keyInput" placeholder="Enter Key…" />
-    <button onclick="activate()">Activate</button>
-    <button onclick="getKey()">Get Key</button>
-    <p id="status"></p>
-  </div>
+  <h1>🔐 Enter Your Gomega Key</h1>
+  <p>To use Gomega Browser, get a key at:</p>
+  <p><a href="https://gomega.watch/activate" target="_blank" style="color: #4CAF50;">https://gomega.watch/activate</a></p>
+
+  <input type="text" id="keyInput" placeholder="Paste your key here" />
+  <button onclick="submitKey()">Submit Key</button>
+
+  <div class="note">Key expires every 12 hours. After that, re-enter a new key.</div>
 
   <script>
-    const { ipcRenderer, remote } = require('electron');
-    const fs = require('fs');
-    const path = require('path');
-    const { app } = remote;
-
-    const firebase = require('firebase/app');
-    require('firebase/auth');
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
-    };
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    const auth = firebase.auth();
-    const provider = new firebase.auth.GoogleAuthProvider();
-
-    const keyInput = document.getElementById("keyInput");
-    const status = document.getElementById("status");
-
-    // Check local key first
-    const keyPath = path.join(app.getPath('userData'), 'gomega-key.json');
-    if (fs.existsSync(keyPath)) {
-      try {
-        const data = JSON.parse(fs.readFileSync(keyPath));
-        if (data.key && data.expires > Date.now()) {
-          ipcRenderer.send('load-gate');
-        }
-      } catch (err) {
-        console.error('Corrupted key file:', err);
-      }
-    }
-
-    async function hashKey(uid) {
-      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
-      const data = uid + slot;
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function activate() {
-      const user = auth.currentUser;
-      if (!user) {
-        status.textContent = "Please log in first.";
+    async function submitKey() {
+      const key = document.getElementById('keyInput').value.trim();
+      if (!key) {
+        alert("⚠️ Please enter a valid key.");
         return;
       }
 
-      const correct = await hashKey(user.uid);
-      const input = keyInput.value.trim();
-      if (input === correct) {
-        // Save to local file
-        const keyData = {
-          key: correct,
-          expires: Date.now() + 12 * 60 * 60 * 1000
-        };
-        fs.writeFileSync(keyPath, JSON.stringify(keyData));
-
-        ipcRenderer.send('load-gate');
-      } else {
-        status.textContent = "Invalid key.";
-      }
-    }
-
-    async function getKey() {
       try {
-        const result = await auth.signInWithPopup(provider);
-        const uid = result.user.uid;
-        const key = await hashKey(uid);
-        keyInput.value = key;
-        status.textContent = "Key generated.";
+        await window.electronAPI.saveKey(key);
+        window.electronAPI.loadPage('gate.html');
       } catch (err) {
-        status.textContent = "Login failed.";
+        alert("❌ Failed to save key. Please try again.");
         console.error(err);
       }
     }
-
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        status.textContent = `Logged in as ${user.email}`;
-      }
-    });
-
-    // Expose to window for inline onclick
-    window.activate = activate;
-    window.getKey = getKey;
   </script>
 </body>
 </html>
