@@ -6,126 +6,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f2f5;
-      margin: 0;
+      font-family: sans-serif;
       padding: 2rem;
+      background: #f9f9f9;
     }
-
-    .container {
-      max-width: 500px;
-      margin: 0 auto;
-      background: #fff;
+    .box {
+      max-width: 400px;
+      margin: auto;
+      background: white;
       padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
     }
-
-    h2 {
-      margin-top: 0;
-    }
-
-    .status {
-      font-weight: bold;
-      margin-bottom: 1rem;
-    }
-
-    .key-display {
-      font-family: monospace;
-      background: #eee;
-      padding: 0.75rem;
-      border-radius: 8px;
-      margin: 1rem 0;
-      word-break: break-word;
-    }
-
-    .btn {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
-      cursor: pointer;
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
       font-size: 1rem;
-    }
-
-    .btn:disabled {
-      background-color: gray;
-      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Gomega Activation</h2>
-    <p class="status">Status: <span id="status">Checking...</span></p>
-    <p><strong>Your Key:</strong></p>
-    <div class="key-display" id="keyBox">Loading...</div>
-    <button class="btn" id="activateBtn">Activate Key</button>
+  <div class="box">
+    <h2>Activate Gomega</h2>
+    <input type="text" id="keyInput" placeholder="Enter Key..." />
+    <button onclick="activate()">Activate</button>
+    <p id="status" style="color: red;"></p>
   </div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithPopup,
+      GoogleAuthProvider
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-  <script>
-    // Firebase Configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-      authDomain: "gomega-65e3f.firebaseapp.com",
-      projectId: "gomega-65e3f",
-      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
+      projectId: "YOUR_FIREBASE_PROJECT"
     };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
 
-    // SHA256 Hash function
-    async function sha256(text) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(text);
-      const hash = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-    // Generate activation key
-    async function getUserKey(uid) {
-      const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12 hours
-      const raw = uid + "-gomega-salt-" + interval;
-      const hash = await sha256(raw);
-      return hash.slice(0, 12);
-    }
+    auth.languageCode = "en";
 
-    const statusEl = document.getElementById("status");
-    const keyBox = document.getElementById("keyBox");
-    const activateBtn = document.getElementById("activateBtn");
+    const keyInput = document.getElementById("keyInput");
+    const status = document.getElementById("status");
 
-    auth.onAuthStateChanged(async user => {
-      if (!user) {
-        statusEl.textContent = "Not signed in. Please sign in at gomega.watch/signin";
-        keyBox.textContent = "-";
-        activateBtn.disabled = true;
-        return;
-      }
-
-      const uid = user.uid;
-      const key = await getUserKey(uid);
-      keyBox.textContent = key;
-
-      const savedKey = localStorage.getItem("gomegaKey");
-      if (savedKey === key) {
-        statusEl.textContent = "Already Activated ✅";
-        activateBtn.disabled = true;
-      } else {
-        statusEl.textContent = "Not activated yet ❌";
-        activateBtn.disabled = false;
-      }
-
-      activateBtn.addEventListener("click", () => {
-        localStorage.setItem("gomegaKey", key);
-        statusEl.textContent = "Activated ✅";
-        activateBtn.disabled = true;
+    function hashKey(uid) {
+      const data = uid + Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // rotates every 12h
+      return crypto.subtle.digest("SHA-256", new TextEncoder().encode(data)).then(buffer => {
+        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
       });
-    });
+    }
+
+    function activate() {
+      signInWithPopup(auth, provider).then(async result => {
+        const uid = result.user.uid;
+        const correctKey = await hashKey(uid);
+        const inputKey = keyInput.value.trim();
+
+        if (inputKey === correctKey) {
+          localStorage.setItem("gomega_key", correctKey);
+          localStorage.setItem("gomega_key_expires", Date.now() + 12 * 60 * 60 * 1000); // 12h
+          window.location.href = "gate.html";
+        } else {
+          status.textContent = "Invalid key.";
+        }
+      }).catch(err => {
+        status.textContent = "Authentication failed.";
+      });
+    }
   </script>
 </body>
 </html>
