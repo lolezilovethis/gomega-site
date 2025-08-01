@@ -5,49 +5,29 @@
   <title>Gomega Activation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #fafafa;
-      padding: 2rem;
-    }
-    .box {
-      max-width: 400px;
-      margin: auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      text-align: center;
-    }
-    input, button {
-      width: 100%;
-      padding: 0.75rem;
-      margin-top: 1rem;
-      font-size: 1rem;
-    }
-    #status {
-      margin-top: 1rem;
-      color: #e00;
-    }
+    body { font-family: Arial, sans-serif; background: #fafafa; padding: 2rem; }
+    .box { max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
+    input, button { width: 100%; padding: 0.75rem; margin-top: 1rem; font-size: 1rem; }
+    #status { margin-top: 1rem; color: #e00; }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>Activate Gomega</h2>
     <input type="text" id="keyInput" placeholder="Enter Key…" />
-    <button id="activateBtn" onclick="activate()">Activate</button>
-    <button id="getKeyBtn" onclick="getKey()">Get Key</button>
+    <button onclick="activate()">Activate</button>
+    <button onclick="getKey()">Get Key</button>
     <p id="status"></p>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getAuth,
-      onAuthStateChanged,
-      signInWithPopup,
-      GoogleAuthProvider
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <script>
+    const { ipcRenderer, remote } = require('electron');
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = remote;
+
+    const firebase = require('firebase/app');
+    require('firebase/auth');
 
     const firebaseConfig = {
       apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
@@ -55,22 +35,32 @@
       projectId: "gomega-65e3f",
       appId: "1:212961835634:web:12330a07ff79668ea060eb"
     };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
 
     const keyInput = document.getElementById("keyInput");
     const status = document.getElementById("status");
 
-    // Redirect if key is still valid
-    const storedKey = localStorage.getItem("gomega_key");
-    const expiry = localStorage.getItem("gomega_key_expires");
-    if (storedKey && expiry && Date.now() < parseInt(expiry)) {
-      window.location.href = "gate.html";
+    // Check local key first
+    const keyPath = path.join(app.getPath('userData'), 'gomega-key.json');
+    if (fs.existsSync(keyPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(keyPath));
+        if (data.key && data.expires > Date.now()) {
+          ipcRenderer.send('load-gate');
+        }
+      } catch (err) {
+        console.error('Corrupted key file:', err);
+      }
     }
 
     async function hashKey(uid) {
-      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // 12-hour window
+      const slot = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
       const data = uid + slot;
       const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -86,9 +76,14 @@
       const correct = await hashKey(user.uid);
       const input = keyInput.value.trim();
       if (input === correct) {
-        localStorage.setItem("gomega_key", correct);
-        localStorage.setItem("gomega_key_expires", (Date.now() + 12 * 60 * 60 * 1000).toString());
-        window.location.href = "gate.html";
+        // Save to local file
+        const keyData = {
+          key: correct,
+          expires: Date.now() + 12 * 60 * 60 * 1000
+        };
+        fs.writeFileSync(keyPath, JSON.stringify(keyData));
+
+        ipcRenderer.send('load-gate');
       } else {
         status.textContent = "Invalid key.";
       }
@@ -96,23 +91,24 @@
 
     async function getKey() {
       try {
-        const result = await signInWithPopup(auth, provider);
+        const result = await auth.signInWithPopup(provider);
         const uid = result.user.uid;
         const key = await hashKey(uid);
         keyInput.value = key;
         status.textContent = "Key generated.";
-      } catch {
+      } catch (err) {
         status.textContent = "Login failed.";
+        console.error(err);
       }
     }
 
-    onAuthStateChanged(auth, user => {
+    auth.onAuthStateChanged(user => {
       if (user) {
         status.textContent = `Logged in as ${user.email}`;
       }
     });
 
-    // Expose to window so onclick can access them
+    // Expose to window for inline onclick
     window.activate = activate;
     window.getKey = getKey;
   </script>
