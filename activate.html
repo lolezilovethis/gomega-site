@@ -95,12 +95,10 @@
       return hash.slice(0, 12);
     }
 
-    // UI Elements
     const statusEl = document.getElementById("status");
     const keyBox = document.getElementById("keyBox");
     const activateBtn = document.getElementById("activateBtn");
 
-    // Auth check
     auth.onAuthStateChanged(async user => {
       if (!user) {
         statusEl.textContent = "Not signed in. Please sign in at gomega.watch/signin";
