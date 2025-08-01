@@ -16,7 +16,7 @@
       background: white;
       padding: 2rem;
       border-radius: 12px;
-      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 5px 10px rgba(0,0,0,0.1);
     }
     .key-display {
       font-family: monospace;
@@ -52,14 +52,23 @@
     <button class="btn" id="activateBtn">Activate Key</button>
   </div>
 
-  <!-- Firebase SDKs (Compat for browser support) -->
+  <!-- Firebase SDK (compat versions for browser use) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
-  <!-- Your firebase.js config -->
-  <script src="/js/firebase.js"></script>
-
   <script>
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
+      authDomain: "gomega-65e3f.firebaseapp.com",
+      projectId: "gomega-65e3f",
+      appId: "1:212961835634:web:12330a07ff79668ea060eb"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // --- Key Generation ---
     function getUserKey(uid) {
       const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
       const raw = uid + "-gomega-salt-" + interval;
@@ -69,9 +78,9 @@
     function sha256(input) {
       const encoder = new TextEncoder();
       const data = encoder.encode(input);
-      return crypto.subtle.digest("SHA-256", data).then((hash) => {
-        return Array.from(new Uint8Array(hash))
-          .map((b) => b.toString(16).padStart(2, "0"))
+      return crypto.subtle.digest("SHA-256", data).then(buffer => {
+        return Array.from(new Uint8Array(buffer))
+          .map(b => b.toString(16).padStart(2, "0"))
           .join("");
       });
     }
@@ -80,20 +89,20 @@
       return navigator.userAgent.includes("CrOS aarch64 13099.85.0");
     }
 
-    firebase.auth().onAuthStateChanged(async (user) => {
+    auth.onAuthStateChanged(async (user) => {
       const statusEl = document.getElementById("status");
       const keyBox = document.getElementById("keyBox");
       const activateBtn = document.getElementById("activateBtn");
 
       if (!user) {
-        statusEl.textContent = "Not signed in. Sign in at gomega.watch/signin";
+        statusEl.textContent = "Not signed in. Please sign in at gomega.watch/signin";
         keyBox.textContent = "-";
         activateBtn.disabled = true;
         return;
       }
 
       if (!isAllowedUserAgent()) {
-        statusEl.textContent = "Wrong browser or user-agent.";
+        statusEl.textContent = "Wrong browser or user-agent. Use the special Chrome shortcut.";
         keyBox.textContent = "-";
         activateBtn.disabled = true;
         return;
