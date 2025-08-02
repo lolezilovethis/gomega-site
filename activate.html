@@ -30,6 +30,10 @@
       width: 300px;
       font-size: 1rem;
       margin: 1rem 0;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background-color: #1a1a1a;
+      color: white;
     }
 
     button {
@@ -50,34 +54,42 @@
       font-size: 0.9rem;
       color: #ccc;
       margin-top: 2rem;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    a {
+      color: #4CAF50;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <h1>🔐 Enter Your Gomega Key</h1>
-  <p>To use Gomega Browser, get a key at:</p>
-  <p><a href="https://gomega.watch/activate" target="_blank" style="color: #4CAF50;">https://gomega.watch/activate</a></p>
+  <p>To get a key, go to:</p>
+  <p><a href="https://gomega.watch/key.html" target="_blank">https://gomega.watch/key.html</a></p>
 
   <input type="text" id="keyInput" placeholder="Paste your key here" />
   <button onclick="submitKey()">Submit Key</button>
 
-  <div class="note">Key expires every 12 hours. After that, re-enter a new key.</div>
+  <div class="note">
+    This key will expire in 12 hours. Once submitted, you will be redirected to the main browser.
+  </div>
 
   <script>
-    async function submitKey() {
+    function submitKey() {
       const key = document.getElementById('keyInput').value.trim();
       if (!key) {
         alert("⚠️ Please enter a valid key.");
         return;
       }
 
-      try {
-        await window.electronAPI.saveKey(key);
-        window.electronAPI.loadPage('gate.html');
-      } catch (err) {
-        alert("❌ Failed to save key. Please try again.");
-        console.error(err);
-      }
+      // Send key to Electron via postMessage
+      window.postMessage({ type: 'submit-key', key }, '*');
     }
   </script>
 </body>
