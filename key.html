@@ -1,104 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Enter Key – Gomega</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Get Your Gomega Key</title>
   <style>
     body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
       margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #111;
-      color: white;
     }
 
-    input, button {
+    .box {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #0f0;
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .key {
+      font-size: 1.2rem;
+      margin: 20px 0;
+      word-break: break-all;
+      background: #222;
       padding: 10px;
-      font-size: 16px;
-      margin: 10px 0;
-      width: 300px;
-      border-radius: 8px;
-      border: none;
-    }
-
-    input {
-      background-color: #222;
-      color: #fff;
+      border-radius: 6px;
     }
 
     button {
-      background-color: #4CAF50;
-      color: white;
+      padding: 10px 20px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
+      font-weight: bold;
     }
 
-    .message {
-      margin-top: 10px;
-      color: lightgreen;
+    button:hover {
+      background: #0c0;
+    }
+
+    small {
+      display: block;
+      margin-top: 15px;
+      color: #888;
     }
   </style>
 </head>
 <body>
-  <h2>Paste Your Activation Key</h2>
-  <input id="keyInput" placeholder="Enter your key or paste..." />
-  <button onclick="submitKey()">Activate</button>
-  <button onclick="pasteFromClipboard()">Paste from Clipboard</button>
-  <div class="message" id="message"></div>
+  <div class="box">
+    <h1>🔑 Your Gomega Key</h1>
+    <div class="key" id="keyDisplay">Generating...</div>
+    <button onclick="copyKey()">📋 Copy Key</button>
+    <small>This key will expire in 12 hours. Paste it into the Gomega Browser to continue.</small>
+  </div>
 
   <script>
-    async function submitKey() {
-      const key = document.getElementById('keyInput').value.trim();
-      if (!key) return showMessage("Please enter a key.");
-
-      try {
-        const res = await fetch("https://gomega.watch/api/validate_key", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ key })
-        });
-
-        const data = await res.json();
-
-        if (data.valid) {
-          const expiry = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
-
-          // Save locally
-          localStorage.setItem("gomega_key", key);
-          localStorage.setItem("gomega_key_expiry", expiry);
-
-          // Notify Electron
-          window.postMessage({ type: "KEY_VALID", key, expiry }, "*");
-
-          showMessage("✅ Key activated! You may now launch the browser.");
-        } else {
-          showMessage("❌ Invalid key.");
-        }
-      } catch (err) {
-        console.error(err);
-        showMessage("⚠️ Error validating key.");
+    function generateKey(length = 32) {
+      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let key = '';
+      for (let i = 0; i < length; i++) {
+        key += charset[Math.floor(Math.random() * charset.length)];
       }
+      return key;
     }
 
-    async function pasteFromClipboard() {
-      try {
-        const text = await navigator.clipboard.readText();
-        document.getElementById('keyInput').value = text.trim();
-        submitKey();
-      } catch {
-        showMessage("Clipboard access denied.");
-      }
-    }
+    const key = generateKey();
+    document.getElementById('keyDisplay').textContent = key;
 
-    function showMessage(msg) {
-      document.getElementById("message").innerText = msg;
+    function copyKey() {
+      navigator.clipboard.writeText(key).then(() => {
+        alert('Key copied to clipboard!');
+      });
     }
   </script>
 </body>
