@@ -60,11 +60,13 @@
   <div class="box">
     <h1>🔑 Your Gomega Key</h1>
     <div class="key" id="keyDisplay">Generating...</div>
-    <button onclick="copyKey()">📋 Copy Key</button>
-    <small>This key will expire in 12 hours. Paste it into the Gomega Browser to continue.</small>
+    <button onclick="copyAndSendKey()">📋 Copy & Activate</button>
+    <small>This key will expire in 12 hours. It will be activated in Gomega Browser.</small>
   </div>
 
   <script>
+    const { ipcRenderer } = require("electron");
+
     function generateKey(length = 32) {
       const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let key = '';
@@ -77,9 +79,10 @@
     const key = generateKey();
     document.getElementById('keyDisplay').textContent = key;
 
-    function copyKey() {
+    function copyAndSendKey() {
       navigator.clipboard.writeText(key).then(() => {
-        alert('Key copied to clipboard!');
+        alert('Key copied and activating Gomega...');
+        ipcRenderer.send("save-key", key); // Send key to main process
       });
     }
   </script>
