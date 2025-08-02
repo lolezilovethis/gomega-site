@@ -1,86 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Get Your Gomega Key</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Enter Key – Gomega</title>
+  <link rel="stylesheet" href="style.css" />
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #fff;
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       height: 100vh;
       margin: 0;
+      font-family: sans-serif;
+      background-color: #121212;
+      color: #fff;
     }
-
     .box {
       background: #1e1e1e;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px #0f0;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #0ff;
       text-align: center;
-      max-width: 500px;
-      width: 100%;
     }
-
-    .key {
-      font-size: 1.2rem;
-      margin: 20px 0;
-      word-break: break-all;
-      background: #222;
+    input {
       padding: 10px;
-      border-radius: 6px;
+      width: 100%;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: none;
     }
-
     button {
       padding: 10px 20px;
-      background: #0f0;
-      color: #000;
       border: none;
-      border-radius: 6px;
-      cursor: pointer;
+      background: #00e676;
+      color: #000;
       font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
     }
-
-    button:hover {
-      background: #0c0;
-    }
-
-    small {
-      display: block;
-      margin-top: 15px;
-      color: #888;
+    .error {
+      color: red;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div class="box">
-    <h1>🔑 Your Gomega Key</h1>
-    <div class="key" id="keyDisplay">Generating...</div>
-    <button onclick="copyKey()">📋 Copy Key</button>
-    <small>This key will expire in 12 hours. Paste it into the Gomega Browser to continue.</small>
+    <h2>Enter Your Gomega Key</h2>
+    <input type="text" id="keyInput" placeholder="Paste your key here..." />
+    <button onclick="submitKey()">Validate</button>
+    <div id="error" class="error"></div>
   </div>
 
   <script>
-    function generateKey(length = 32) {
-      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let key = '';
-      for (let i = 0; i < length; i++) {
-        key += charset[Math.floor(Math.random() * charset.length)];
+    async function submitKey() {
+      const key = document.getElementById("keyInput").value.trim();
+      const errorBox = document.getElementById("error");
+
+      try {
+        const res = await fetch("https://gomega.watch/api/validate_key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key })
+        });
+
+        const data = await res.json();
+        if (data.valid) {
+          // Save key and expiration to localStorage
+          const expiration = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
+          localStorage.setItem("gomegaKey", key);
+          localStorage.setItem("gomegaKeyExpires", expiration);
+          window.location.href = "welcome.html"; // or wherever you go next
+        } else {
+          errorBox.textContent = "Invalid key. Please try again.";
+        }
+      } catch (err) {
+        console.error(err);
+        errorBox.textContent = "Error validating key.";
       }
-      return key;
-    }
-
-    const key = generateKey();
-    document.getElementById('keyDisplay').textContent = key;
-
-    function copyKey() {
-      navigator.clipboard.writeText(key).then(() => {
-        alert('Key copied to clipboard!');
-      });
     }
   </script>
 </body>
