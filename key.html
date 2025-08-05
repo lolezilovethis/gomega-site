@@ -2,130 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Get & Activate Your Gomega Key</title>
+  <title>Gomega Key Generator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #121212;
+      background: #111;
       color: #fff;
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       height: 100vh;
       margin: 0;
     }
 
-    .box {
-      background: #1e1e1e;
+    .container {
+      background: #1d1d1d;
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px #0f0;
+      border-radius: 10px;
       text-align: center;
-      max-width: 500px;
-      width: 100%;
+      box-shadow: 0 0 15px #0f0;
+      width: 400px;
     }
 
-    .box h1 {
-      margin: 0 0 20px;
-      font-size: 2rem;
+    h1 {
+      margin-bottom: 20px;
+      font-size: 1.8rem;
     }
 
-    .key {
-      font-size: 1.2rem;
-      margin: 20px 0;
-      word-break: break-all;
+    .key-box {
       background: #222;
       padding: 15px;
-      border-radius: 6px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 1.2rem;
+      word-break: break-all;
       user-select: all;
+      margin-bottom: 15px;
     }
 
     button {
-      padding: 12px 24px;
       background: #0f0;
       color: #000;
       border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
+      padding: 10px 20px;
       font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
     button:hover {
       background: #0c0;
     }
 
-    .note {
+    small {
       display: block;
       margin-top: 15px;
       color: #888;
-      font-size: 0.9rem;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 0.95rem;
+      color: #4CAF50;
     }
   </style>
 </head>
-
 <body>
-  <div class="box">
+  <div class="container">
     <h1>🔑 Your Gomega Key</h1>
-    <div class="key" id="keyDisplay">Generating...</div>
-    <button id="activateBtn">🚀 Activate Key</button>
-    <small class="note">
-      Key expires 2 hours after activation. Come back here to regenerate or reactivate.
-    </small>
+    <div class="key-box" id="keyDisplay">Generating key...</div>
+    <button onclick="activateKey()">🚀 Activate Key</button>
+    <div id="status"></div>
+    <small>This key expires 2 hours after activation. Return here to get a new one.</small>
   </div>
 
   <script>
-    // Generate a random alphanumeric key of given length
     function generateKey(length = 32) {
       const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let result = '';
+      let key = '';
       for (let i = 0; i < length; i++) {
-        result += charset.charAt(Math.floor(Math.random() * charset.length));
+        key += charset.charAt(Math.floor(Math.random() * charset.length));
       }
-      return result;
+      return key;
     }
 
-    // Save key and new expiry (2h from now) to localStorage
-    function storeKey(key) {
-      const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
-      localStorage.setItem('gomegaKey', key);
-      localStorage.setItem('gomegaExpires', expiresAt);
-    }
-
-    // Load key if still valid, else null
-    function loadKey() {
-      const key = localStorage.getItem('gomegaKey');
+    function loadOrGenerateKey() {
+      const storedKey = localStorage.getItem('gomegaKey');
       const expires = parseInt(localStorage.getItem('gomegaExpires') || '0', 10);
-      if (key && expires > Date.now()) {
-        return key;
+      if (storedKey && expires > Date.now()) {
+        return storedKey;
+      } else {
+        const newKey = generateKey();
+        localStorage.setItem('gomegaKey', newKey);
+        localStorage.setItem('gomegaExpires', Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+        return newKey;
       }
-      return null;
     }
 
-    // Initialize on page load
+    function activateKey() {
+      const key = document.getElementById('keyDisplay').textContent;
+      const status = document.getElementById('status');
+
+      navigator.clipboard.writeText(key)
+        .then(() => {
+          status.style.color = '#4CAF50';
+          status.textContent = '✅ Key copied to clipboard! Now go to Gomega Browser to activate.';
+        })
+        .catch(() => {
+          status.style.color = '#ff4c4c';
+          status.textContent = '⚠️ Could not copy to clipboard.';
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      let key = loadKey();
-      if (!key) {
-        key = generateKey();
-        // but don’t store expiry until “Activate Key” is clicked
-      }
+      const key = loadOrGenerateKey();
       document.getElementById('keyDisplay').textContent = key;
-
-      document.getElementById('activateBtn').onclick = () => {
-        // Copy to clipboard
-        navigator.clipboard.writeText(key)
-          .then(() => alert('✅ Key copied to clipboard!'))
-          .catch(() => alert('⚠️ Could not copy key, please copy manually.'));
-
-        // Store key + expiry
-        storeKey(key);
-
-        // Send to Electron (if app is running)
-        if (window.electron && typeof window.electron.sendKeyToMain === 'function') {
-          window.electron.sendKeyToMain(key);
-        }
-      };
     });
   </script>
 </body>
