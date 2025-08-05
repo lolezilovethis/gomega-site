@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Gomega Activation</title>
+  <meta charset="UTF-8" />
+  <title>Activate Key – Gomega</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #0f0f0f;
+      background: #0d0d0d;
       color: white;
       display: flex;
       flex-direction: column;
@@ -15,97 +15,113 @@
       height: 100vh;
       margin: 0;
     }
-    input {
-      padding: 10px;
-      width: 280px;
-      margin-bottom: 15px;
-      border-radius: 5px;
-      border: none;
-      background: #1f1f1f;
-      color: white;
+
+    .container {
+      background: #1a1a1a;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #00ff00;
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
     }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      margin-bottom: 15px;
+    }
+
     button {
       padding: 10px 20px;
-      background: #4CAF50;
-      color: white;
+      background: #00ff00;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #000;
       cursor: pointer;
     }
+
     button:hover {
-      background: #45a049;
+      background: #0c0;
     }
+
     #message {
       margin-top: 15px;
-      color: #ff4c4c;
-    }
-    a {
-      color: #4CAF50;
-      margin-top: 10px;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
+      min-height: 1.2em;
     }
   </style>
 </head>
 <body>
-  <h2>🔐 Activate Gomega</h2>
-  <input type="text" id="keyInput" placeholder="Paste your key..." />
-  <button onclick="activate()">Activate</button>
-  <div id="message"></div>
-  <a href="https://gomega.watch/key" target="_blank">Need a key?</a>
+  <div class="container">
+    <h2>🔓 Activate Your Key</h2>
+    <input type="text" id="keyInput" placeholder="Paste your key here" />
+    <button onclick="activateKey()">Activate</button>
+    <div id="message"></div>
+  </div>
 
   <script>
-    async function activate() {
+    async function activateKey() {
       const key = document.getElementById("keyInput").value.trim();
-      const msg = document.getElementById("message");
+      const message = document.getElementById("message");
 
       if (!key) {
-        msg.textContent = "⚠️ Enter a key first.";
+        message.textContent = "⚠️ Please enter your key.";
+        message.style.color = "#ff4c4c";
         return;
       }
 
-      msg.textContent = "⏳ Verifying...";
+      message.textContent = "🔄 Validating...";
+      message.style.color = "#aaa";
+
       try {
-        const res = await fetch("https://gomega.watch/api/validate_key", {
+        const response = await fetch("https://gomega.watch/api/validate_key", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({ key })
         });
 
-        const data = await res.json();
+        const result = await response.json();
 
-        if (data.valid) {
-          // Store key locally
+        if (result.valid) {
+          // Store key and expiration
+          const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
           localStorage.setItem("gomegaKey", key);
-          localStorage.setItem("keyExpires", Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+          localStorage.setItem("gomegaExpires", expiresAt);
 
-          // Notify Electron main process
-          if (window.electron?.sendKeyToMain) {
-            window.electron.sendKeyToMain(key);
-          }
-
-          msg.style.color = "#4CAF50";
-          msg.textContent = "✅ Key valid. Launching Chrome...";
+          message.style.color = "#00ff00";
+          message.textContent = "✅ Key activated! Redirecting...";
 
           setTimeout(() => {
-            window.location.href = "browser.html";
-          }, 800);
+            window.location.href = "success.html"; // or your app page
+          }, 1000);
         } else {
-          msg.textContent = "❌ Invalid key.";
+          message.textContent = "❌ Invalid key. Please try again.";
+          message.style.color = "#ff4c4c";
         }
       } catch (err) {
-        msg.textContent = "❌ Error validating key.";
+        message.textContent = "❌ Network error. Please try again later.";
+        message.style.color = "#ff4c4c";
       }
     }
 
-    // Auto-redirect if key is still valid
+    // Auto-redirect if valid key exists
     const savedKey = localStorage.getItem("gomegaKey");
-    const expires = parseInt(localStorage.getItem("keyExpires") || "0", 10);
-
+    const expires = parseInt(localStorage.getItem("gomegaExpires") || "0", 10);
     if (savedKey && expires > Date.now()) {
-      window.location.href = "browser.html";
+      window.location.href = "success.html";
     }
   </script>
 </body>
