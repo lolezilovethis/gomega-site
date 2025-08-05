@@ -57,9 +57,26 @@
       100% { transform: rotate(360deg); }
     }
 
+    .open-button {
+      margin-top: 20px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #000;
+      background-color: #00ff88;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .open-button:hover {
+      background-color: #00e67a;
+    }
+
     small {
       color: #888;
       font-size: 0.85rem;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -71,6 +88,8 @@
 
   <div class="info">Time Left Until Expiry:</div>
   <div class="countdown" id="timeLeft">Calculating...</div>
+
+  <button class="open-button" onclick="openBrowser()">🚀 Click Me to Open Browser</button>
 
   <small>This page will redirect to /activate when the key expires.</small>
 
@@ -106,6 +125,14 @@
     } else {
       keyDisplay.textContent = "No active key found.";
       timeLeftDisplay.textContent = "N/A";
+    }
+
+    function openBrowser() {
+      if (window.electron && typeof window.electron.openBrowser === "function") {
+        window.electron.openBrowser(); // This calls preload to open Google in Chrome
+      } else {
+        alert("This function is only available in the Gomega App.");
+      }
     }
   </script>
 </body>
