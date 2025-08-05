@@ -58,6 +58,11 @@
       max-width: 400px;
     }
 
+    .error {
+      color: #ff4c4c;
+      margin-top: 10px;
+    }
+
     a {
       color: #4CAF50;
       text-decoration: none;
@@ -76,20 +81,45 @@
   <input type="text" id="keyInput" placeholder="Paste your key here" />
   <button onclick="submitKey()">Submit Key</button>
 
+  <div id="errorMsg" class="error"></div>
+
   <div class="note">
-    This key will expire in 12 hours. Once submitted, you will be redirected to the main browser.
+    This key will activate your browser for 2 hours.
   </div>
 
   <script>
     function submitKey() {
       const key = document.getElementById('keyInput').value.trim();
-      if (!key) {
-        alert("⚠️ Please enter a valid key.");
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!key || key.length < 8) {
+        errorMsg.textContent = "⚠️ Please enter a valid key.";
         return;
       }
 
-      // Send key to Electron via postMessage
-      window.postMessage({ type: 'submit-key', key }, '*');
+      // Clear any previous error
+      errorMsg.textContent = "";
+
+      // Save key locally (in browser, optional)
+      localStorage.setItem("gomegaKey", key);
+      localStorage.setItem("keyExpires", Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+
+      // Send to Electron if inside Gomega
+      if (window.electron && window.electron.sendKeyToMain) {
+        window.electron.sendKeyToMain(key);
+        alert("✅ Key submitted. Launching Gomega...");
+      } else {
+        alert("✅ Key submitted. This only works inside the Gomega Browser.");
+      }
+    }
+
+    // Optional auto-redirect if key already exists and not expired
+    const savedKey = localStorage.getItem("gomegaKey");
+    const expires = localStorage.getItem("keyExpires");
+
+    if (savedKey && expires && Date.now() < parseInt(expires)) {
+      // Uncomment if you want auto-redirect behavior
+      // window.location.href = "https://gomega.watch";
     }
   </script>
 </body>
