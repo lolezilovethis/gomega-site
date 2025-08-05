@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gomega Activated</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0e0e0e;
+      color: #00ff88;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      font-size: 1.1rem;
+      color: #b6ffdc;
+      margin-bottom: 10px;
+    }
+
+    .key-box {
+      background: #1c1c1c;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+
+    .countdown {
+      font-size: 1.4rem;
+      color: #00ffaa;
+      margin-top: 10px;
+    }
+
+    .loader {
+      border: 6px solid #1d1d1d;
+      border-top: 6px solid #00ff88;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    small {
+      color: #888;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <h1>✅ Gomega Key Activated</h1>
+  <div class="info">Your Key:</div>
+  <div class="key-box" id="keyDisplay">Loading...</div>
+
+  <div class="info">Time Left Until Expiry:</div>
+  <div class="countdown" id="timeLeft">Calculating...</div>
+
+  <small>This page will redirect to /activate when the key expires.</small>
+
+  <script>
+    const key = localStorage.getItem("gomegaKey");
+    const expiresAt = parseInt(localStorage.getItem("gomegaExpires") || "0", 10);
+
+    const keyDisplay = document.getElementById("keyDisplay");
+    const timeLeftDisplay = document.getElementById("timeLeft");
+
+    if (key && expiresAt) {
+      keyDisplay.textContent = key;
+
+      function updateCountdown() {
+        const now = Date.now();
+        const diff = expiresAt - now;
+
+        if (diff <= 0) {
+          alert("⚠️ Your key has expired.");
+          window.location.href = "/activate";
+          return;
+        }
+
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        timeLeftDisplay.textContent = `${hours}h ${minutes}m ${seconds}s`;
+      }
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+    } else {
+      keyDisplay.textContent = "No active key found.";
+      timeLeftDisplay.textContent = "N/A";
+    }
+  </script>
+</body>
+</html>
