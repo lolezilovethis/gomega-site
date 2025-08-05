@@ -7,7 +7,7 @@
     body {
       font-family: Arial, sans-serif;
       background: #0f0f0f;
-      color: white;
+      color: #ffffff;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -27,20 +27,20 @@
 
     input {
       padding: 0.5rem;
-      width: 300px;
+      width: 320px;
       font-size: 1rem;
       margin: 1rem 0;
       border-radius: 6px;
       border: 1px solid #555;
       background-color: #1a1a1a;
-      color: white;
+      color: #ffffff;
     }
 
     button {
-      padding: 0.5rem 1.2rem;
+      padding: 0.6rem 1.4rem;
       font-size: 1rem;
-      background: #4CAF50;
-      color: white;
+      background: #4caf50;
+      color: #ffffff;
       border: none;
       border-radius: 6px;
       cursor: pointer;
@@ -50,21 +50,22 @@
       background: #3e8e41;
     }
 
+    .error {
+      color: #ff4c4c;
+      margin-top: 0.5rem;
+      min-height: 1.2em;
+    }
+
     .note {
       font-size: 0.9rem;
-      color: #ccc;
+      color: #cccccc;
       margin-top: 2rem;
       text-align: center;
       max-width: 400px;
     }
 
-    .error {
-      color: #ff4c4c;
-      margin-top: 10px;
-    }
-
     a {
-      color: #4CAF50;
+      color: #4caf50;
       text-decoration: none;
     }
 
@@ -74,52 +75,70 @@
   </style>
 </head>
 <body>
-  <h1>🔐 Enter Your Gomega Key</h1>
-  <p>To get a key, go to:</p>
-  <p><a href="https://gomega.watch/key" target="_blank">https://gomega.watch/key</a></p>
-
+  <h1>🔐 Activate Gomega Browser</h1>
+  <p>Paste your key below to unlock for 2 hours:</p>
   <input type="text" id="keyInput" placeholder="Paste your key here" />
-  <button onclick="submitKey()">Submit Key</button>
-
-  <div id="errorMsg" class="error"></div>
-
+  <button id="submitBtn">Activate Key</button>
+  <div class="error" id="errorMsg"></div>
   <div class="note">
-    This key will activate your browser for 2 hours.
+    Don’t have a key? Get one at<br>
+    <a href="https://gomega.watch/key" target="_blank">https://gomega.watch/key</a>
   </div>
 
   <script>
-    function submitKey() {
-      const key = document.getElementById('keyInput').value.trim();
-      const errorMsg = document.getElementById('errorMsg');
+    // Minimum key length check (adjust as needed)
+    const MIN_KEY_LENGTH = 8;
 
-      if (!key || key.length < 8) {
-        errorMsg.textContent = "⚠️ Please enter a valid key.";
-        return;
-      }
+    function showError(msg) {
+      const errEl = document.getElementById('errorMsg');
+      errEl.textContent = msg;
+    }
 
-      // Clear any previous error
-      errorMsg.textContent = "";
+    function clearError() {
+      showError('');
+    }
 
-      // Save key locally (in browser, optional)
-      localStorage.setItem("gomegaKey", key);
-      localStorage.setItem("keyExpires", Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    function storeKey(key) {
+      const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+      localStorage.setItem('gomegaKey', key);
+      localStorage.setItem('gomegaExpires', expiresAt.toString());
+    }
 
-      // Send to Electron if inside Gomega
-      if (window.electron && window.electron.sendKeyToMain) {
+    function sendToElectron(key) {
+      if (window.electron && typeof window.electron.sendKeyToMain === 'function') {
         window.electron.sendKeyToMain(key);
-        alert("✅ Key submitted. Launching Gomega...");
-      } else {
-        alert("✅ Key submitted. This only works inside the Gomega Browser.");
       }
     }
 
-    // Optional auto-redirect if key already exists and not expired
-    const savedKey = localStorage.getItem("gomegaKey");
-    const expires = localStorage.getItem("keyExpires");
+    function handleSubmit() {
+      clearError();
+      const input = document.getElementById('keyInput');
+      const key = input.value.trim();
 
-    if (savedKey && expires && Date.now() < parseInt(expires)) {
-      // Uncomment if you want auto-redirect behavior
-      // window.location.href = "https://gomega.watch";
+      if (!key || key.length < MIN_KEY_LENGTH) {
+        showError('⚠️ Please paste a valid key.');
+        return;
+      }
+
+      // Save locally and start 2h timer
+      storeKey(key);
+
+      // Send to Electron (if inside app)
+      sendToElectron(key);
+
+      // Feedback to user
+      alert('✅ Key activated! You have 2 hours of access.');
+
+      // Optionally, redirect or close page
+      // window.location.href = '/';
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+
+    // If key already active, you could optionally inform user:
+    const expires = parseInt(localStorage.getItem('gomegaExpires') || '0', 10);
+    if (expires > Date.now()) {
+      document.getElementById('errorMsg').textContent = '🔓 Already activated until ' + new Date(expires).toLocaleTimeString();
     }
   </script>
 </body>
