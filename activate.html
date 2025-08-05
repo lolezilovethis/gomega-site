@@ -50,6 +50,7 @@
       font-weight: bold;
       color: #000;
       cursor: pointer;
+      margin-top: 10px;
     }
 
     button:hover {
@@ -67,6 +68,7 @@
     <h2>🔓 Activate Your Key</h2>
     <input type="text" id="keyInput" placeholder="Paste your key here" />
     <button onclick="activateKey()">Activate</button>
+    <button onclick="openApp()">Click Me</button>
     <div id="message"></div>
   </div>
 
@@ -96,8 +98,7 @@
         const result = await response.json();
 
         if (result.valid) {
-          // Store key and expiration
-          const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+          const expiresAt = Date.now() + 2 * 60 * 60 * 1000;
           localStorage.setItem("gomegaKey", key);
           localStorage.setItem("gomegaExpires", expiresAt);
 
@@ -105,7 +106,7 @@
           message.textContent = "✅ Key activated! Redirecting...";
 
           setTimeout(() => {
-            window.location.href = "success.html"; // or your app page
+            window.location.href = "success.html";
           }, 1000);
         } else {
           message.textContent = "❌ Invalid key. Please try again.";
@@ -117,7 +118,14 @@
       }
     }
 
-    // Auto-redirect if valid key exists
+    function openApp() {
+      if (window.electron && typeof window.electron.openApp === "function") {
+        window.electron.openApp(); // For Electron app integration
+      } else {
+        alert("⚠️ App not available in browser.");
+      }
+    }
+
     const savedKey = localStorage.getItem("gomegaKey");
     const expires = parseInt(localStorage.getItem("gomegaExpires") || "0", 10);
     if (savedKey && expires > Date.now()) {
