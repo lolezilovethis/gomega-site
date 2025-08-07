@@ -1,0 +1,5 @@
+{
+  "title": "grow a garden AV Hub",
+  "description": "Grow a garden AV Hub script.",
+  "code": "loadstring(game:HttpGet(\"https://get-avth-ontop.netlify.app/my-paste/script.lua\"))()"
+}
