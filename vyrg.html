@@ -5,40 +5,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Link No Longer Available</title>
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f2f2f2;
-      color: #333;
+      height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+      background: linear-gradient(135deg, #1e1e2f, #2b2b40);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #ffffff;
+    }
+
+    .card {
+      background: #2c2c3f;
+      padding: 40px;
+      max-width: 500px;
       text-align: center;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      border: 1px solid #3c3c55;
     }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
+
+    .card h1 {
+      font-size: 2.4rem;
+      margin-bottom: 20px;
+      color: #ff4c60;
     }
-    p {
-      font-size: 1.2rem;
-      max-width: 600px;
+
+    .card p {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #cfcfe2;
     }
-    a {
-      color: #007bff;
+
+    .card a {
+      display: inline-block;
+      margin-top: 25px;
+      padding: 12px 24px;
+      background-color: #ff4c60;
+      color: #fff;
       text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+
+    .card a:hover {
+      background-color: #e03b50;
     }
   </style>
 </head>
 <body>
-  <h1>This Link Is No Longer Active</h1>
-  <p>
-    The content that was previously available at this link has been removed.
-    <br><br>
-    Gomega originally offered a sponsorship opportunity to the streamer <strong>Vyrg</strong>, but he politely declined. We respect his decision, and as a result, this page is no longer in use.
-    <br><br>
-    For more content and collaborations, visit our <a href="https://gomega.watch/">homepage</a>.
-  </p>
+  <div class="card">
+    <h1>Link Unavailable</h1>
+    <p>
+      This page is no longer active.
+      <br><br>
+      Gomega previously reached out to the streamer <strong>Vyrg</strong> for a sponsorship opportunity. While the offer was respectfully declined, we fully support his choice and wish him continued success.
+      <br><br>
+      Thanks for your interest!
+    </p>
+    <a href="https://gomega.watch/">Return to Gomega</a>
+  </div>
 </body>
 </html>
