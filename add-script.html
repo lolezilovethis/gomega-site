@@ -5,129 +5,143 @@
   <title>Add Script – Gomega Watch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    h1 { text-align: center; margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    textarea { resize: vertical; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; }
+    .checkbox-group input { width: auto; }
+    #numAds { max-width: 80px; }
+    .btn { display: block; width: 100%; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 4px; font-size: 16px; cursor: pointer; }
+    .btn:disabled { background: #a0c4ff; cursor: not-allowed; }
+    #successMsg { color: green; text-align: center; margin-top: 15px; }
+    #errorMsg { color: red; text-align: center; margin-top: 15px; }
+  </style>
 </head>
 <body>
-  <div class="container center">
+  <div class="container">
     <h1>🆕 Add New Script</h1>
     <form id="scriptForm">
-      <label>
-        Title:<br>
+      <div class="form-group">
+        <label for="title">Title</label>
         <input type="text" id="title" placeholder="Example: Auto Farm" required>
-      </label><br><br>
-
-      <label>
-        Description:<br>
-        <input type="text" id="description" placeholder="Short description (optional)">
-      </label><br><br>
-
-      <label>
-        Script Code:<br>
-        <textarea id="code" rows="10" placeholder="Paste Lua script here..." required></textarea>
-      </label><br><br>
-
-      <label>
-        Brand Name:<br>
+      </div>
+      <div class="form-group">
+        <label for="description">Description <small>(optional)</small></label>
+        <input type="text" id="description" placeholder="Short description...">
+      </div>
+      <div class="form-group">
+        <label for="code">Script Code</label>
+        <textarea id="code" rows="8" placeholder="Paste Lua script here..." required></textarea>
+      </div>
+      <div class="form-group">
+        <label for="brandName">Brand Name</label>
         <input type="text" id="brandName" placeholder="Your publishing brand" required>
-      </label><br><br>
-
-      <label>
+        <small id="brandHint">Your unique brand (only you can use this)</small>
+      </div>
+      <div class="form-group checkbox-group">
         <input type="checkbox" id="includeAds">
-        Include Ads?
-      </label><br><br>
-
-      <label>
-        Number of Ads (1–15):<br>
-        <input type="number" id="numAds" value="1" min="1" max="15">
-      </label><br><br>
-
-      <label>
+        <label for="includeAds">Include Ads?</label>
+      </div>
+      <div class="form-group">
+        <label for="numAds">Number of Ads (1–15)</label>
+        <input type="number" id="numAds" value="1" min="1" max="15" disabled>
+      </div>
+      <div class="form-group checkbox-group">
         <input type="checkbox" id="getPaid">
-        💸 I want to get paid in the future
-      </label><br><br>
-
-      <button type="submit">💾 Publish Script</button>
+        <label for="getPaid">
+          <i class="fas fa-money-bill-wave"></i> I want to get paid
+        </label>
+      </div>
+      <button type="submit" class="btn" id="submitBtn">💾 Publish Script</button>
+      <p id="errorMsg"></p>
+      <p id="successMsg"></p>
     </form>
-
-    <p id="successMsg" style="color: green; margin-top: 20px;"></p>
   </div>
 
   <script type="module">
     import { auth, db } from './js/firebase.js';
     import {
-      doc,
-      setDoc,
-      getDoc,
-      collection,
-      addDoc
+      doc, setDoc, getDoc, collection, addDoc, query, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     let currentUser;
 
-    onAuthStateChanged(auth, async (user) => {
+    // Enable/disable numAds based on includeAds
+    document.getElementById('includeAds').addEventListener('change', e => {
+      document.getElementById('numAds').disabled = !e.target.checked;
+    });
+
+    // Auth guard + load existing brand
+    onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "/";
       currentUser = user;
 
-      const userDoc = doc(db, "users", user.uid);
-      const snapshot = await getDoc(userDoc);
-
-      if (snapshot.exists()) {
-        const brandName = snapshot.data().brandName;
-        document.getElementById("brandName").value = brandName;
-        document.getElementById("brandName").disabled = true;
+      const userRef = doc(db, 'users', user.uid);
+      const snap = await getDoc(userRef);
+      if (snap.exists() && snap.data().brandName) {
+        const brandInput = document.getElementById('brandName');
+        brandInput.value = snap.data().brandName;
+        brandInput.disabled = true;
+        document.getElementById('brandHint').textContent = 'Brand locked';
       }
     });
 
-    document.getElementById("scriptForm").addEventListener("submit", async function (e) {
+    document.getElementById('scriptForm').addEventListener('submit', async e => {
       e.preventDefault();
+      const errorEl = document.getElementById('errorMsg');
+      const successEl = document.getElementById('successMsg');
+      errorEl.textContent = '';
+      successEl.textContent = '';
 
-      const title = document.getElementById("title").value.trim();
-      const description = document.getElementById("description").value.trim();
-      const code = document.getElementById("code").value.trim();
-      const brandNameInput = document.getElementById("brandName");
-      const brandName = brandNameInput.value.trim();
-      const includeAds = document.getElementById("includeAds").checked;
-      const numAds = parseInt(document.getElementById("numAds").value);
-      const getPaid = document.getElementById("getPaid").checked;
+      const title = document.getElementById('title').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const code = document.getElementById('code').value.trim();
+      const brandInput = document.getElementById('brandName');
+      const brandName = brandInput.value.trim();
+      const includeAds = document.getElementById('includeAds').checked;
+      const numAds = parseInt(document.getElementById('numAds').value);
+      const getPaid = document.getElementById('getPaid').checked;
 
+      // Validation
       if (!title || !code || !brandName) {
-        return alert("❌ Title, Code, and Brand Name are required.");
+        return errorEl.textContent = 'Please fill in title, code, and brand.';
       }
-
       if (includeAds && (numAds < 1 || numAds > 15)) {
-        return alert("❌ Number of ads must be between 1 and 15.");
+        return errorEl.textContent = 'Ads count must be between 1 and 15.';
       }
 
-      // Save brand name if it's first time
-      if (!brandNameInput.disabled) {
-        await setDoc(doc(db, "users", currentUser.uid), {
-          brandName: brandName
-        });
-      }
-
-      // Save the script directly to "approved_scripts"
-      const scriptData = {
-        title,
-        description,
-        code,
-        brandName,
-        includeAds,
-        numAds: includeAds ? numAds : 0,
-        getPaid,
-        submittedBy: currentUser.uid,
-        timestamp: Date.now()
-      };
-
-      try {
-        await addDoc(collection(db, "approved_scripts"), scriptData);
-        document.getElementById("successMsg").textContent = "✅ Script published successfully!";
-        document.getElementById("scriptForm").reset();
-        if (brandNameInput.disabled === false) {
-          brandNameInput.disabled = true;
+      // Prevent duplicate brands
+      if (!brandInput.disabled) {
+        const q = query(collection(db, 'users'), where('brandName', '==', brandName));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          return errorEl.textContent = 'That brand name is already taken.';
         }
+      }
+
+      // Save brand if first time
+      if (!brandInput.disabled) {
+        await setDoc(doc(db, 'users', currentUser.uid), { brandName });
+      }
+
+      // Prepare script data
+      const scriptData = { title, description, code, brandName, includeAds, numAds: includeAds ? numAds : 0, getPaid, submittedBy: currentUser.uid, timestamp: Date.now() };
+      try {
+        await addDoc(collection(db, 'approved_scripts'), scriptData);
+        successEl.textContent = 'Script published!';
+        document.getElementById('scriptForm').reset();
+        document.getElementById('numAds').disabled = true;
+        brandInput.disabled = true;
+        document.getElementById('brandHint').textContent = 'Brand locked';
       } catch (err) {
-        console.error("Error publishing script:", err);
-        alert("❌ Failed to publish script.");
+        console.error(err);
+        errorEl.textContent = 'Failed to publish.';
       }
     });
   </script>
