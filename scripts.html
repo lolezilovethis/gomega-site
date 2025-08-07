@@ -5,22 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scripts – Gomega Watch</title>
 
-  <!-- Firebase Initialization -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-    };
-    const app = initializeApp(firebaseConfig);
-    export const auth = getAuth(app);
-    export const db = getFirestore(app);
-  </script>
-
   <!-- AdSense Auto Ads -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
 
@@ -51,6 +35,7 @@
   <!-- Auth Redirect -->
   <script type="module">
     import { auth } from './js/firebase.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     onAuthStateChanged(auth, user => { if (!user) location.href = '/'; });
   </script>
 
@@ -91,17 +76,19 @@
       try {
         const res = await fetch('scripts/index.json');
         const files = await res.json();
-        allLocal = await Promise.all(files.map(name=>fetch(`scripts/${name}`).then(r=>r.json())));
+        allLocal = await Promise.all(files.map(name => fetch(`scripts/${name}`).then(r => r.json())));
         mergeAndRender();
-      } catch(e) { console.error('Local load error',e); }
+      } catch (e) {
+        console.error('Local load error', e);
+      }
     }
 
     function loadRemote() {
-      const col = collection(db,'approved_scripts');
-      onSnapshot(col, snap=>{
-        allRemote = snap.docs.map(d=>d.data());
+      const col = collection(db, 'approved_scripts');
+      onSnapshot(col, snap => {
+        allRemote = snap.docs.map(d => d.data());
         mergeAndRender();
-      }, err=>console.error('Remote load error',err));
+      }, err => console.error('Remote load error', err));
     }
 
     function mergeAndRender() {
@@ -113,58 +100,73 @@
       const list = document.getElementById('scriptList');
       const count = document.getElementById('scriptCount');
       list.innerHTML = '';
-      scripts.forEach(script=>{
-        const id = script.title.toLowerCase().replace(/\s+/g,'-');
-        const adsInfo = script.includeAds?`${script.numAds} ad${script.numAds>1?'s':''}`:'No ads';
-        const publisher = script.brandName||'Admin';
-        list.insertAdjacentHTML('beforeend',`<div class="script-card">
-          <h2>${script.title}</h2>
-          <p>${script.description||'No description.'}</p>
-          <p class="info"><strong>Publisher:</strong> ${publisher}</p>
-          <p class="info"><strong>Ads:</strong> ${adsInfo}</p>
-          ${script.getPaid?`<p class="info">💰 Publisher will earn revenue</p>`:''}
-          <button class="get-btn" data-id="${id}">📥 Get Script</button>
-          <pre id="code-${id}" style="display:none;"></pre>
-        </div>`);
+      scripts.forEach(script => {
+        const id = script.title.toLowerCase().replace(/\s+/g, '-');
+        const adsInfo = script.includeAds ? `${script.numAds} ad${script.numAds > 1 ? 's' : ''}` : 'No ads';
+        const publisher = script.brandName || 'Admin';
+        list.insertAdjacentHTML('beforeend', `
+          <div class="script-card">
+            <h2>${script.title}</h2>
+            <p>${script.description || 'No description.'}</p>
+            <p class="info"><strong>Publisher:</strong> ${publisher}</p>
+            <p class="info"><strong>Ads:</strong> ${adsInfo}</p>
+            ${script.getPaid ? `<p class="info">💰 Publisher will earn revenue</p>` : ''}
+            <button class="get-btn" data-id="${id}">📥 Get Script</button>
+            <pre id="code-${id}" style="display:none;"></pre>
+          </div>
+        `);
       });
       count.textContent = `Total Scripts: ${scripts.length}`;
       attachUnlockHandlers();
     }
 
     function attachUnlockHandlers() {
-      document.querySelectorAll('.get-btn').forEach(btn=>{
-        btn.onclick = async ()=>{
+      document.querySelectorAll('.get-btn').forEach(btn => {
+        btn.onclick = async () => {
           const id = btn.dataset.id;
-          const script = [...allRemote, ...allLocal].find(s=>s.title.toLowerCase().replace(/\s+/g,'-')===id);
+          const script = [...allRemote, ...allLocal].find(s => s.title.toLowerCase().replace(/\s+/g, '-') === id);
           const box = document.getElementById(`code-${id}`);
-          if(script.includeAds&&script.numAds>0){
-            if(!confirm(`You must view ${script.numAds} ad${script.numAds>1?'s':''}.`)) return;
-            for(let i=0;i<script.numAds;i++){ window.open('https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431','_blank'); await new Promise(r=>setTimeout(r,1500)); }
+          if (script.includeAds && script.numAds > 0) {
+            if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
+            for (let i = 0; i < script.numAds; i++) {
+              window.open('https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431', '_blank');
+              await new Promise(r => setTimeout(r, 1500));
+            }
           }
-          box.style.display='block';box.textContent=script.code;
-          try{ await navigator.clipboard.writeText(script.code); alert('✅ Copied!'); }
-          catch{ alert('⚠️ Copy failed'); }
+          box.style.display = 'block';
+          box.textContent = script.code;
+          try {
+            await navigator.clipboard.writeText(script.code);
+            alert('✅ Copied!');
+          } catch {
+            alert('⚠️ Copy failed');
+          }
         };
       });
     }
 
-    document.getElementById('searchBox').addEventListener('input',e=>{
-      const term=e.target.value.toLowerCase();
-      const merged=[...allRemote,...allLocal];
-      renderScripts(merged.filter(s=>s.title.toLowerCase().includes(term)||(s.description&&s.description.toLowerCase().includes(term))));
+    document.getElementById('searchBox').addEventListener('input', e => {
+      const term = e.target.value.toLowerCase();
+      const merged = [...allRemote, ...allLocal];
+      renderScripts(merged.filter(s =>
+        s.title.toLowerCase().includes(term) ||
+        (s.description && s.description.toLowerCase().includes(term))
+      ));
     });
 
-    document.getElementById('darkToggle').onclick=()=>document.body.classList.toggle('dark-mode');
-    document.getElementById('settingsBtn').onclick=()=>location.href='settings';
+    document.getElementById('darkToggle').onclick = () => document.body.classList.toggle('dark-mode');
+    document.getElementById('settingsBtn').onclick = () => location.href = 'settings';
 
-    loadLocal(); loadRemote();
+    loadLocal();
+    loadRemote();
   </script>
 
   <script>
-    const canvas=document.getElementById('hoverParticles'),ctx=canvas.getContext('2d');let particles=[];
-    function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}window.addEventListener('resize',resize);resize();
-    document.addEventListener('mousemove',e=>{for(let i=0;i<3;i++)particles.push({x:e.clientX,y:e.clientY,r:Math.random()*2+1,vx:Math.random()*2-1,vy:Math.random()*2-1,life:60});});
-    (function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);particles=particles.filter(p=>p.life>0);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,2*Math.PI);ctx.fillStyle=`rgba(0,217,255,${p.life/60})`;ctx.fill();});requestAnimationFrame(draw);})();
+    const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
+    function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+    window.addEventListener('resize', resize); resize();
+    document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
+    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = `rgba(0,217,255,${p.life/60})`; ctx.fill(); }); requestAnimationFrame(draw); })();
   </script>
 
 </body>
