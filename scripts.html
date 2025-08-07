@@ -100,189 +100,124 @@
       gap: 10px;
     }
 
-    #hoverParticles {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
+    .info {
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    .ad-tag {
+      font-size: 0.85rem;
+      color: gray;
+    }
+
+    @media (max-width: 600px) {
+      .script-card {
+        padding: 10px;
+      }
+
+      button {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <script type="module">
-  import { auth } from './js/firebase.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+<script type="module">
+  import { db } from './js/firebase.js';
+  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // Check if user is logged in
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      // Redirect to homepage if not logged in
-      location.href = "https://gomega.watch/";
+  let allScripts = [];
+
+  async function loadScripts() {
+    try {
+      const snapshot = await getDocs(collection(db, "approved_scripts"));
+      allScripts = snapshot.docs.map(doc => doc.data());
+      renderScripts(allScripts);
+    } catch (err) {
+      document.getElementById("scriptList").innerHTML = "<p>❌ Error loading scripts.</p>";
+      console.error(err);
     }
-  });
-</script>
-  <script async type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script> 
- <ins class="eas6a97888e2" data-zoneid="5672278"></ins> 
- <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
-  <div class="top-bar">
-    <div class="logo">
-      <img src="assets/logo.png" alt="Gomega Watch Logo">
-      <h1>Gomega Scripts</h1>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
-      <button onclick="location.href='settings'">⚙️ Settings</button>
-    </div>
-  </div>
+  }
 
-  <input class="search-box" id="searchBox" placeholder="Search scripts…" oninput="filterScripts()">
-  <p id="scriptCount"></p>
-  <div id="scriptList"><p>🔄 Loading scripts...</p></div>
+  function renderScripts(scripts) {
+    const list = document.getElementById("scriptList");
+    const count = document.getElementById("scriptCount");
+    list.innerHTML = "";
 
-  <footer>
-    <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
-  </footer>
-
-  <canvas id="hoverParticles"></canvas>
-
-  <script defer>
-    let allScripts = [];
-
-    async function loadScripts() {
-      try {
-        const res = await fetch("scripts/index.json");
-        const scriptFiles = await res.json();
-        const promises = scriptFiles.map(async file => {
-          const script = await fetch(`scripts/${file}`).then(res => res.json());
-          return script;
-        });
-        allScripts = await Promise.all(promises);
-        renderScripts(allScripts);
-      } catch (err) {
-        document.getElementById("scriptList").innerHTML = "<p>❌ Error loading scripts.</p>";
-        console.error(err);
-      }
-    }
-
-    function renderScripts(scripts) {
-      const list = document.getElementById("scriptList");
-      const count = document.getElementById("scriptCount");
-      list.innerHTML = "";
-
-      scripts.forEach(script => {
-        const id = script.title.toLowerCase().replace(/\s+/g, "-");
-
-        const div = document.createElement("div");
-        div.className = "script-card";
-        div.innerHTML = `
-          <h2>${script.title}</h2>
-          <p>${script.description || "No description."}</p>
-          <button onclick="unlockScript('${script.title.replace(/'/g, "\\'")}', '${id}')">📥 Get Script</button>
-          <pre id="code-${id}" style="display:none;"></pre>
-        `;
-        list.appendChild(div);
-      });
-
-      count.textContent = `Total Scripts: ${scripts.length}`;
-    }
-
-    function filterScripts() {
-      const term = document.getElementById("searchBox").value.toLowerCase();
-      const filtered = allScripts.filter(s =>
-        s.title.toLowerCase().includes(term) ||
-        (s.description && s.description.toLowerCase().includes(term))
-      );
-      renderScripts(filtered);
-    }
-
-    async function unlockScript(title, id) {
-      const codeBox = document.getElementById(`code-${id}`);
-
-      if (!confirm("You must view 4 ads to unlock the script. Click OK to begin.")) return;
-
-      const adUrls = [
-        "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
-        "https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431",
-        "https://hidcolouredclink.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2",
-        "https://hidcolouredclink.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2"
-      ];
-
-      for (let i = 0; i < adUrls.length; i++) {
-        window.open(adUrls[i], "_blank");
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-
-      try {
-        const fileEntry = allScripts.find(s => s.title === title);
-        if (!fileEntry || !fileEntry.code) return alert("❌ Script not found.");
-
-        codeBox.style.display = "block";
-        codeBox.textContent = fileEntry.code;
-
-        try {
-          await navigator.clipboard.writeText(fileEntry.code);
-          alert("✅ Script copied to clipboard!");
-        } catch {
-          alert("⚠️ Could not copy. Please copy manually.");
-        }
-      } catch (err) {
-        alert("❌ Failed to load script.");
-        console.error(err);
-      }
-    }
-
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark-mode");
-    }
-
-    loadScripts();
-  </script>
-
-  <script defer>
-    const canvas = document.getElementById("hoverParticles");
-    const ctx = canvas.getContext("2d");
-    let particles = [];
-
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    function createParticle(x, y) {
-      particles.push({
-        x, y,
-        radius: Math.random() * 2 + 1,
-        speedX: Math.random() * 2 - 1,
-        speedY: Math.random() * 2 - 1,
-        life: 60
-      });
-    }
-
-    document.addEventListener("mousemove", e => {
-      for (let i = 0; i < 3; i++) createParticle(e.clientX, e.clientY);
+    scripts.forEach(script => {
+      const id = script.title.toLowerCase().replace(/\s+/g, "-");
+      const div = document.createElement("div");
+      div.className = "script-card";
+      div.innerHTML = `
+        <h2>${script.title}</h2>
+        <p>${script.description || "No description."}</p>
+        <p class="info">Publisher: <strong>${script.brandName}</strong></p>
+        <p class="info">Ads: <strong>${script.adsEnabled ? script.adsCount : "No"}</strong></p>
+        <button onclick="unlockScript('${id}')">📥 Get Script</button>
+        <pre id="code-${id}" style="display:none;"></pre>
+      `;
+      list.appendChild(div);
     });
 
-    function animateParticles() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach((p, i) => {
-        p.x += p.speedX;
-        p.y += p.speedY;
-        p.life -= 1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI);
-        ctx.fillStyle = `rgba(0, 217, 255, ${p.life / 60})`;
-        ctx.fill();
-        if (p.life <= 0) particles.splice(i, 1);
-      });
-      requestAnimationFrame(animateParticles);
+    count.textContent = `Total Scripts: ${scripts.length}`;
+  }
+
+  async function unlockScript(id) {
+    const script = allScripts.find(s => s.title.toLowerCase().replace(/\s+/g, "-") === id);
+    const codeBox = document.getElementById(`code-${id}`);
+
+    if (script.adsEnabled && script.adsCount > 0) {
+      if (!confirm(`You must view ${script.adsCount} ads to unlock this script.`)) return;
+      for (let i = 0; i < script.adsCount; i++) {
+        window.open("https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431", "_blank");
+        await new Promise(r => setTimeout(r, 1500));
+      }
     }
-    animateParticles();
-  </script>
+
+    codeBox.style.display = "block";
+    codeBox.textContent = script.code;
+
+    try {
+      await navigator.clipboard.writeText(script.code);
+      alert("✅ Script copied to clipboard!");
+    } catch {
+      alert("⚠️ Could not copy. Please copy manually.");
+    }
+  }
+
+  function filterScripts() {
+    const term = document.getElementById("searchBox").value.toLowerCase();
+    const filtered = allScripts.filter(s =>
+      s.title.toLowerCase().includes(term) ||
+      (s.description && s.description.toLowerCase().includes(term))
+    );
+    renderScripts(filtered);
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+  }
+
+  loadScripts();
+</script>
+
+<div class="top-bar">
+  <div class="logo">
+    <img src="assets/logo.png" alt="Gomega Watch Logo">
+    <h1>Gomega Scripts</h1>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
+    <button onclick="location.href='settings'">⚙️ Settings</button>
+  </div>
+</div>
+
+<input class="search-box" id="searchBox" placeholder="Search scripts…" oninput="filterScripts()">
+<p id="scriptCount"></p>
+<div id="scriptList"><p>🔄 Loading scripts...</p></div>
+
+<footer>
+  <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
+</footer>
 </body>
 </html>

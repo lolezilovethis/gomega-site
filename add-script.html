@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Add Script – Gomega Watch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
@@ -25,61 +25,109 @@
         <textarea id="code" rows="10" placeholder="Paste Lua script here..." required></textarea>
       </label><br><br>
 
-      <button type="submit">💾 Save Script JSON</button>
+      <label>
+        Brand Name:<br>
+        <input type="text" id="brandName" placeholder="Your publishing brand" required>
+      </label><br><br>
+
+      <label>
+        <input type="checkbox" id="includeAds">
+        Include Ads?
+      </label><br><br>
+
+      <label>
+        Number of Ads (1–15):<br>
+        <input type="number" id="numAds" value="1" min="1" max="15">
+      </label><br><br>
+
+      <label>
+        <input type="checkbox" id="getPaid">
+        💸 I want to get paid in the future
+      </label><br><br>
+
+      <button type="submit">💾 Publish Script</button>
     </form>
 
-    <p id="successMsg" style="color:green; margin-top:20px;"></p>
+    <p id="successMsg" style="color: green; margin-top: 20px;"></p>
   </div>
 
-  <script>
-    document.getElementById("scriptForm").addEventListener("submit", async function(e) {
+  <script type="module">
+    import { auth, db } from './js/firebase.js';
+    import {
+      doc,
+      setDoc,
+      getDoc,
+      collection,
+      addDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    let currentUser;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return location.href = "/";
+      currentUser = user;
+
+      const userDoc = doc(db, "users", user.uid);
+      const snapshot = await getDoc(userDoc);
+
+      if (snapshot.exists()) {
+        const brandName = snapshot.data().brandName;
+        document.getElementById("brandName").value = brandName;
+        document.getElementById("brandName").disabled = true;
+      }
+    });
+
+    document.getElementById("scriptForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       const title = document.getElementById("title").value.trim();
       const description = document.getElementById("description").value.trim();
       const code = document.getElementById("code").value.trim();
+      const brandNameInput = document.getElementById("brandName");
+      const brandName = brandNameInput.value.trim();
+      const includeAds = document.getElementById("includeAds").checked;
+      const numAds = parseInt(document.getElementById("numAds").value);
+      const getPaid = document.getElementById("getPaid").checked;
 
-      if (!title || !code) {
-        alert("❌ Title and Code are required.");
-        return;
+      if (!title || !code || !brandName) {
+        return alert("❌ Title, Code, and Brand Name are required.");
       }
 
-      const script = {
+      if (includeAds && (numAds < 1 || numAds > 15)) {
+        return alert("❌ Number of ads must be between 1 and 15.");
+      }
+
+      // Save brand name if it's first time
+      if (!brandNameInput.disabled) {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          brandName: brandName
+        });
+      }
+
+      // Save the script directly to "approved_scripts"
+      const scriptData = {
         title,
         description,
-        views: 0,
-        code
+        code,
+        brandName,
+        includeAds,
+        numAds: includeAds ? numAds : 0,
+        getPaid,
+        submittedBy: currentUser.uid,
+        timestamp: Date.now()
       };
 
-      const filename = `${title.toLowerCase().replace(/\s+/g, "-")}.json`;
-      const blob = new Blob([JSON.stringify(script, null, 2)], { type: "application/json" });
-
-      // Offer download to user
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-
-      // Optional: POST to backend to save (if using backend)
       try {
-        await fetch('/scripts/' + filename, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(script)
-        });
-
-        // Also update index.json (if your server supports it)
-        await fetch('/update-index', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename })
-        });
-
-        document.getElementById("successMsg").textContent = "✅ Script saved successfully to server.";
+        await addDoc(collection(db, "approved_scripts"), scriptData);
+        document.getElementById("successMsg").textContent = "✅ Script published successfully!";
+        document.getElementById("scriptForm").reset();
+        if (brandNameInput.disabled === false) {
+          brandNameInput.disabled = true;
+        }
       } catch (err) {
-        console.warn("Server save failed:", err);
-        document.getElementById("successMsg").textContent = "✅ Script JSON file downloaded locally.";
+        console.error("Error publishing script:", err);
+        alert("❌ Failed to publish script.");
       }
     });
   </script>
