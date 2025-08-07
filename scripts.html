@@ -1,223 +1,198 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <title>Roblox Script Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scripts – Gomega Watch</title>
-
-  <!-- AdSense Auto Ads -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
-          crossorigin="anonymous"></script>
-
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
       padding: 20px;
-      max-width: 800px;
-      margin: auto;
-      background: white;
-      color: black;
-      transition: background 0.3s, color 0.3s;
+      color: #333;
     }
 
     .dark-mode {
-      background: #121212;
+      background: #111;
+      color: #eee;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #searchBox {
+      display: block;
+      margin: 20px auto;
+      padding: 10px;
+      font-size: 16px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #toggleDark {
+      margin: 0 auto 20px auto;
+      display: block;
+      padding: 10px 20px;
+      background: #333;
       color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
     .script-card {
-      border: 1px solid #ccc;
-      padding: 15px;
-      margin-bottom: 20px;
+      background: white;
+      margin: 10px auto;
+      padding: 20px;
       border-radius: 10px;
-      background: #f9f9f9;
+      max-width: 800px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
 
     .dark-mode .script-card {
-      background: #1f1f1f;
-      border-color: #333;
+      background: #222;
+      color: #ccc;
     }
 
-    .search-box {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 15px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      background-color: #3b82f6;
-      color: white;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    pre {
-      background: #f2f2f2;
-      padding: 10px;
-      border-radius: 8px;
-      white-space: pre-wrap;
-      font-family: monospace;
-    }
-
-    .dark-mode pre {
-      background: #2a2a2a;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .logo img {
-      height: 40px;
-    }
-
-    footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 14px;
-    }
-
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
+    .script-card h2 {
+      margin-top: 0;
     }
 
     .info {
-      font-size: 0.9rem;
-      margin-top: 8px;
+      font-size: 0.9em;
+      color: #666;
     }
 
-    .ad-tag {
-      font-size: 0.85rem;
-      color: gray;
+    .dark-mode .info {
+      color: #aaa;
     }
 
-    @media (max-width: 600px) {
-      .script-card {
-        padding: 10px;
-      }
+    pre {
+      background: #eee;
+      padding: 10px;
+      overflow-x: auto;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
 
-      button {
-        width: 100%;
-      }
+    .dark-mode pre {
+      background: #333;
+      color: #eee;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .dark-mode button {
+      background-color: #2ecc71;
+    }
+
+    #scriptCount {
+      text-align: center;
+      font-size: 1.1em;
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
-<script type="module">
-  import { db } from './js/firebase.js';
-  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  <h1>📜 Roblox Script Hub</h1>
+  <input id="searchBox" placeholder="Search scripts..." oninput="filterScripts()" />
+  <button id="toggleDark" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+  <div id="scriptCount"></div>
+  <div id="scriptList"></div>
 
-  let allScripts = [];
+  <script type="module">
+    let allScripts = [];
 
-  async function loadScripts() {
-    try {
-      const snapshot = await getDocs(collection(db, "approved_scripts"));
-      allScripts = snapshot.docs.map(doc => doc.data());
-      renderScripts(allScripts);
-    } catch (err) {
-      document.getElementById("scriptList").innerHTML = "<p>❌ Error loading scripts.</p>";
-      console.error(err);
-    }
-  }
+    async function loadScripts() {
+      try {
+        const indexRes = await fetch("scripts/index.json");
+        const index = await indexRes.json();
 
-  function renderScripts(scripts) {
-    const list = document.getElementById("scriptList");
-    const count = document.getElementById("scriptCount");
-    list.innerHTML = "";
+        const fetches = index.map(name =>
+          fetch(`scripts/${name}`).then(res => res.json())
+        );
 
-    scripts.forEach(script => {
-      const id = script.title.toLowerCase().replace(/\s+/g, "-");
-      const div = document.createElement("div");
-      div.className = "script-card";
-      div.innerHTML = `
-        <h2>${script.title}</h2>
-        <p>${script.description || "No description."}</p>
-        <p class="info">Publisher: <strong>${script.brandName}</strong></p>
-        <p class="info">Ads: <strong>${script.adsEnabled ? script.adsCount : "No"}</strong></p>
-        <button onclick="unlockScript('${id}')">📥 Get Script</button>
-        <pre id="code-${id}" style="display:none;"></pre>
-      `;
-      list.appendChild(div);
-    });
-
-    count.textContent = `Total Scripts: ${scripts.length}`;
-  }
-
-  async function unlockScript(id) {
-    const script = allScripts.find(s => s.title.toLowerCase().replace(/\s+/g, "-") === id);
-    const codeBox = document.getElementById(`code-${id}`);
-
-    if (script.adsEnabled && script.adsCount > 0) {
-      if (!confirm(`You must view ${script.adsCount} ads to unlock this script.`)) return;
-      for (let i = 0; i < script.adsCount; i++) {
-        window.open("https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431", "_blank");
-        await new Promise(r => setTimeout(r, 1500));
+        allScripts = await Promise.all(fetches);
+        renderScripts(allScripts);
+      } catch (err) {
+        document.getElementById("scriptList").innerHTML = "<p>❌ Error loading scripts.</p>";
+        console.error(err);
       }
     }
 
-    codeBox.style.display = "block";
-    codeBox.textContent = script.code;
+    function renderScripts(scripts) {
+      const list = document.getElementById("scriptList");
+      const count = document.getElementById("scriptCount");
+      list.innerHTML = "";
 
-    try {
-      await navigator.clipboard.writeText(script.code);
-      alert("✅ Script copied to clipboard!");
-    } catch {
-      alert("⚠️ Could not copy. Please copy manually.");
+      scripts.forEach(script => {
+        const id = script.title.toLowerCase().replace(/\s+/g, "-");
+        const div = document.createElement("div");
+        div.className = "script-card";
+        div.innerHTML = `
+          <h2>${script.title}</h2>
+          <p>${script.description || "No description."}</p>
+          <p class="info">Publisher: <strong>${script.brandName || "Unknown"}</strong></p>
+          <p class="info">Ads: <strong>${script.adsEnabled ? script.adsCount : "No"}</strong></p>
+          <button onclick="unlockScript('${id}')">📥 Get Script</button>
+          <pre id="code-${id}" style="display:none;"></pre>
+        `;
+        list.appendChild(div);
+      });
+
+      count.textContent = `Total Scripts: ${scripts.length}`;
     }
-  }
 
-  function filterScripts() {
-    const term = document.getElementById("searchBox").value.toLowerCase();
-    const filtered = allScripts.filter(s =>
-      s.title.toLowerCase().includes(term) ||
-      (s.description && s.description.toLowerCase().includes(term))
-    );
-    renderScripts(filtered);
-  }
+    async function unlockScript(id) {
+      const script = allScripts.find(s => s.title.toLowerCase().replace(/\s+/g, "-") === id);
+      const codeBox = document.getElementById(`code-${id}`);
 
-  function toggleDarkMode() {
-    document.body.classList.toggle("dark-mode");
-  }
+      if (script.adsEnabled && script.adsCount > 0) {
+        if (!confirm(`You must view ${script.adsCount} ads to unlock this script.`)) return;
+        for (let i = 0; i < script.adsCount; i++) {
+          window.open("https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431", "_blank");
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
 
-  loadScripts();
-</script>
+      codeBox.style.display = "block";
+      codeBox.textContent = script.code;
 
-<div class="top-bar">
-  <div class="logo">
-    <img src="assets/logo.png" alt="Gomega Watch Logo">
-    <h1>Gomega Scripts</h1>
-  </div>
-  <div style="display: flex; gap: 10px;">
-    <button onclick="toggleDarkMode()">🌓 Dark Mode</button>
-    <button onclick="location.href='settings'">⚙️ Settings</button>
-  </div>
-</div>
+      try {
+        await navigator.clipboard.writeText(script.code);
+        alert("✅ Script copied to clipboard!");
+      } catch {
+        alert("⚠️ Could not copy. Please copy manually.");
+      }
+    }
 
-<input class="search-box" id="searchBox" placeholder="Search scripts…" oninput="filterScripts()">
-<p id="scriptCount"></p>
-<div id="scriptList"><p>🔄 Loading scripts...</p></div>
+    function filterScripts() {
+      const term = document.getElementById("searchBox").value.toLowerCase();
+      const filtered = allScripts.filter(s =>
+        s.title.toLowerCase().includes(term) ||
+        (s.description && s.description.toLowerCase().includes(term))
+      );
+      renderScripts(filtered);
+    }
 
-<footer>
-  <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
-</footer>
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+
+    loadScripts();
+  </script>
 </body>
 </html>
