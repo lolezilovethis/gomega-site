@@ -2,148 +2,165 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Add Script – Gomega Watch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scripts – Gomega Watch</title>
+
+  <!-- AdSense Auto Ads -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558"
+          crossorigin="anonymous"></script>
+
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-    h1 { text-align: center; margin-bottom: 20px; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; font-weight: bold; margin-bottom: 5px; }
-    input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-    textarea { resize: vertical; }
-    .checkbox-group { display: flex; align-items: center; gap: 8px; }
-    .checkbox-group input { width: auto; }
-    #numAds { max-width: 80px; }
-    .btn { display: block; width: 100%; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 4px; font-size: 16px; cursor: pointer; }
-    .btn:disabled { background: #a0c4ff; cursor: not-allowed; }
-    #successMsg { color: green; text-align: center; margin-top: 15px; }
-    #errorMsg { color: red; text-align: center; margin-top: 15px; }
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background: white; color: black; transition: background 0.3s, color 0.3s; }
+    .dark-mode { background: #121212; color: white; }
+    .script-card { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 10px; background: #f9f9f9; }
+    .dark-mode .script-card { background: #1f1f1f; border-color: #333; }
+    .search-box { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc; }
+    button { background-color: #3b82f6; color: white; padding: 10px; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+    button:hover { opacity: 0.9; }
+    pre { background: #f2f2f2; padding: 10px; border-radius: 8px; white-space: pre-wrap; font-family: monospace; }
+    .dark-mode pre { background: #2a2a2a; }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .logo img { height: 40px; }
+    footer { margin-top: 40px; text-align: center; font-size: 14px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .info { font-size: 0.9rem; margin-top: 4px; }
+    @media (max-width: 600px) { .script-card { padding: 10px; } button { width: 100%; } }
+    #hoverParticles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🆕 Add New Script</h1>
-    <form id="scriptForm">
-      <div class="form-group">
-        <label for="title">Title</label>
-        <input type="text" id="title" placeholder="Example: Auto Farm" required>
-      </div>
-      <div class="form-group">
-        <label for="description">Description <small>(optional)</small></label>
-        <input type="text" id="description" placeholder="Short description...">
-      </div>
-      <div class="form-group">
-        <label for="code">Script Code</label>
-        <textarea id="code" rows="8" placeholder="Paste Lua script here..." required></textarea>
-      </div>
-      <div class="form-group">
-        <label for="brandName">Brand Name</label>
-        <input type="text" id="brandName" placeholder="Your publishing brand" required>
-        <small id="brandHint">Your unique brand (only you can use this)</small>
-      </div>
-      <div class="form-group checkbox-group">
-        <input type="checkbox" id="includeAds">
-        <label for="includeAds">Include Ads?</label>
-      </div>
-      <div class="form-group">
-        <label for="numAds">Number of Ads (1–15)</label>
-        <input type="number" id="numAds" value="1" min="1" max="15" disabled>
-      </div>
-      <div class="form-group checkbox-group">
-        <input type="checkbox" id="getPaid">
-        <label for="getPaid">
-          <i class="fas fa-money-bill-wave"></i> I want to get paid
-        </label>
-      </div>
-      <button type="submit" class="btn" id="submitBtn">💾 Publish Script</button>
-      <p id="errorMsg"></p>
-      <p id="successMsg"></p>
-    </form>
+
+  <!-- Firebase Auth Redirect -->
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    onAuthStateChanged(auth, user => { if (!user) location.href = '/'; });
+  </script>
+
+  <!-- Third-Party Ad Provider -->
+  <script async src="https://a.magsrv.com/ad-provider.js"></script>
+  <ins class="eas6a97888e2" data-zoneid="5672278"></ins>
+  <script> (AdProvider = window.AdProvider||[]).push({serve:{}}); </script>
+
+  <div class="top-bar">
+    <div class="logo">
+      <img src="assets/logo.png" alt="Gomega Watch Logo">
+      <h1>Gomega Scripts</h1>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button id="darkToggle">🌓 Dark Mode</button>
+      <button id="settingsBtn">⚙️ Settings</button>
+    </div>
   </div>
 
+  <input class="search-box" id="searchBox" placeholder="Search scripts…">
+  <p id="scriptCount"></p>
+  <div id="scriptList"><p>🔄 Loading scripts...</p></div>
+
+  <footer>
+    <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
+  </footer>
+
+  <canvas id="hoverParticles"></canvas>
+
   <script type="module">
-    import { auth, db } from './js/firebase.js';
-    import {
-      doc, setDoc, getDoc, collection, addDoc, query, where, getDocs
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    let allScripts = [];
 
-    let currentUser;
-
-    // Enable/disable numAds based on includeAds
-    document.getElementById('includeAds').addEventListener('change', e => {
-      document.getElementById('numAds').disabled = !e.target.checked;
-    });
-
-    // Auth guard + load existing brand
-    onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "/";
-      currentUser = user;
-
-      const userRef = doc(db, 'users', user.uid);
-      const snap = await getDoc(userRef);
-      if (snap.exists() && snap.data().brandName) {
-        const brandInput = document.getElementById('brandName');
-        brandInput.value = snap.data().brandName;
-        brandInput.disabled = true;
-        document.getElementById('brandHint').textContent = 'Brand locked';
-      }
-    });
-
-    document.getElementById('scriptForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const errorEl = document.getElementById('errorMsg');
-      const successEl = document.getElementById('successMsg');
-      errorEl.textContent = '';
-      successEl.textContent = '';
-
-      const title = document.getElementById('title').value.trim();
-      const description = document.getElementById('description').value.trim();
-      const code = document.getElementById('code').value.trim();
-      const brandInput = document.getElementById('brandName');
-      const brandName = brandInput.value.trim();
-      const includeAds = document.getElementById('includeAds').checked;
-      const numAds = parseInt(document.getElementById('numAds').value);
-      const getPaid = document.getElementById('getPaid').checked;
-
-      // Validation
-      if (!title || !code || !brandName) {
-        return errorEl.textContent = 'Please fill in title, code, and brand.';
-      }
-      if (includeAds && (numAds < 1 || numAds > 15)) {
-        return errorEl.textContent = 'Ads count must be between 1 and 15.';
-      }
-
-      // Prevent duplicate brands
-      if (!brandInput.disabled) {
-        const q = query(collection(db, 'users'), where('brandName', '==', brandName));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          return errorEl.textContent = 'That brand name is already taken.';
-        }
-      }
-
-      // Save brand if first time
-      if (!brandInput.disabled) {
-        await setDoc(doc(db, 'users', currentUser.uid), { brandName });
-      }
-
-      // Prepare script data
-      const scriptData = { title, description, code, brandName, includeAds, numAds: includeAds ? numAds : 0, getPaid, submittedBy: currentUser.uid, timestamp: Date.now() };
+    // Load and render
+    async function loadScripts() {
       try {
-        await addDoc(collection(db, 'approved_scripts'), scriptData);
-        successEl.textContent = 'Script published!';
-        document.getElementById('scriptForm').reset();
-        document.getElementById('numAds').disabled = true;
-        brandInput.disabled = true;
-        document.getElementById('brandHint').textContent = 'Brand locked';
-      } catch (err) {
-        console.error(err);
-        errorEl.textContent = 'Failed to publish.';
+        const res = await fetch('scripts/index.json');
+        const files = await res.json();
+        // Mark all as admin-published
+        const promises = files.map(name => fetch(`scripts/${name}`).then(r => r.json()));
+        allScripts = await Promise.all(promises);
+        renderScripts(allScripts);
+      } catch (e) {
+        document.getElementById('scriptList').innerHTML = '<p>❌ Error loading scripts.</p>';
+        console.error(e);
       }
-    });
+    }
+
+    // Render list
+    function renderScripts(scripts) {
+      const list = document.getElementById('scriptList');
+      const count = document.getElementById('scriptCount');
+      list.innerHTML = '';
+      scripts.forEach(script => {
+        const id = script.title.toLowerCase().replace(/\s+/g, '-');
+        const adsInfo = script.includeAds ? `${script.numAds} ad${script.numAds>1?'s':''}` : 'No ads';
+        list.insertAdjacentHTML('beforeend', `
+          <div class="script-card">
+            <h2>${script.title}</h2>
+            <p>${script.description||'No description.'}</p>
+            <p class="info"><strong>Publisher:</strong> ${script.brandName||'Admin'}</p>
+            <p class="info"><strong>Ads:</strong> ${adsInfo}</p>
+            ${script.getPaid?`<p class="info">💰 Publisher will earn revenue</p>`:''}
+            <button class="get-btn" data-id="${id}">📥 Get Script</button>
+            <pre id="code-${id}" style="display:none;"></pre>
+          </div>
+        `);
+      });
+      count.textContent = `Total Scripts: ${scripts.length}`;
+      attachUnlockHandlers();
+    }
+
+    // Attach filter and button handlers
+    function attachEvents() {
+      document.getElementById('searchBox').addEventListener('input', () => filterScripts());
+      document.getElementById('darkToggle').addEventListener('click', toggleDarkMode);
+      document.getElementById('settingsBtn').addEventListener('click', () => location.href='settings');
+    }
+
+    // Unlock script
+    function attachUnlockHandlers() {
+      document.querySelectorAll('.get-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const script = allScripts.find(s => s.title.toLowerCase().replace(/\s+/g,'-')===id);
+          const box = document.getElementById(`code-${id}`);
+          if (script.includeAds && script.numAds>0) {
+            if (!confirm(`You must view ${script.numAds} ad${script.numAds>1?'s':''}. Click OK to begin.`)) return;
+            for (let i=0;i<script.numAds;i++) {
+              window.open('https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431','_blank');
+              await new Promise(r=>setTimeout(r,1500));
+            }
+          }
+          box.style.display='block';
+          box.textContent = script.code;
+          try { await navigator.clipboard.writeText(script.code); alert('✅ Script copied to clipboard!'); }
+          catch { alert('⚠️ Could not copy. Please copy manually.'); }
+        });
+      });
+    }
+
+    // Filter
+    function filterScripts() {
+      const term = document.getElementById('searchBox').value.toLowerCase();
+      renderScripts(allScripts.filter(s =>
+        s.title.toLowerCase().includes(term) ||
+        (s.description&&s.description.toLowerCase().includes(term))
+      ));
+    }
+
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+
+    // Init
+    attachEvents();
+    loadScripts();
   </script>
+
+  <!-- Hover particles -->
+  <script>
+    const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles=[];
+    function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+    window.addEventListener('resize',resize); resize();
+    document.addEventListener('mousemove',e=>{ for(let i=0;i<3;i++) particles.push({x:e.clientX,y:e.clientY,r:Math.random()*2+1,vx:Math.random()*2-1,vy:Math.random()*2-1,life:60}); });
+    (function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height); particles=particles.filter(p=>p.life>0); particles.forEach(p=>{p.x+=p.vx; p.y+=p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,2*Math.PI); ctx.fillStyle=`rgba(0,217,255,${p.life/60})`; ctx.fill(); }); requestAnimationFrame(draw); })();
+  </script>
+
 </body>
 </html>
