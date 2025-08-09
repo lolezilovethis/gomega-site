@@ -52,6 +52,7 @@
     <div style="display:flex; gap:10px;">
       <button id="darkToggle">🌓 Dark Mode</button>
       <button id="settingsBtn">⚙️ Settings</button>
+      <button id="makeScriptBtn">✏️ Make a Script</button>
     </div>
   </div>
 
@@ -112,6 +113,7 @@
             <p class="info"><strong>Ads:</strong> ${adsInfo}</p>
             ${script.getPaid ? `<p class="info">💰 Publisher will earn revenue</p>` : ''}
             <button class="get-btn" data-id="${id}">📥 Get Script</button>
+            <button class="copy-btn" data-id="${id}" style="display:none;">📋 Copy Script</button>
             <pre id="code-${id}" style="display:none;"></pre>
           </div>
         `);
@@ -126,21 +128,40 @@
           const id = btn.dataset.id;
           const script = [...allRemote, ...allLocal].find(s => s.title.toLowerCase().replace(/\s+/g, '-') === id);
           const box = document.getElementById(`code-${id}`);
+          const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
+
           if (script.includeAds && script.numAds > 0) {
             if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
-            for (let i = 0; i < script.numAds; i++) {
+            let openedAds = 0;
+            while (openedAds < script.numAds) {
               window.open('https://hidcolouredclink.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431', '_blank');
+              openedAds++;
               await new Promise(r => setTimeout(r, 1500));
             }
           }
+
           box.style.display = 'block';
           box.textContent = script.code;
+          copyBtn.style.display = 'inline-block';
+
           try {
             await navigator.clipboard.writeText(script.code);
             alert('✅ Copied!');
           } catch {
-            alert('⚠️ Copy failed');
+            alert('⚠️ Copy failed. Use the "Copy Script" button.');
           }
+        };
+      });
+
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const code = document.getElementById(`code-${id}`).textContent;
+          navigator.clipboard.writeText(code).then(() => {
+            alert('✅ Script copied!');
+          }).catch(() => {
+            alert('⚠️ Could not copy script.');
+          });
         };
       });
     }
@@ -156,6 +177,7 @@
 
     document.getElementById('darkToggle').onclick = () => document.body.classList.toggle('dark-mode');
     document.getElementById('settingsBtn').onclick = () => location.href = 'settings';
+    document.getElementById('makeScriptBtn').onclick = () => location.href = 'add-script.html';
 
     loadLocal();
     loadRemote();
