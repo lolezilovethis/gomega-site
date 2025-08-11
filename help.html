@@ -23,8 +23,10 @@
     .hero{margin:18px 0;padding:18px;border-radius:12px;background:var(--card);display:flex;gap:18px;align-items:center}
     .hero .left{flex:1}
 
-    .search-row{display:flex;gap:8px;margin:14px 0;align-items:center}
+    .search-row{display:flex;gap:8px;margin:14px 0;align-items:center;position:relative}
     .search{flex:1;padding:10px;border-radius:10px;border:1px solid #e6e6e6}
+    .search-actions{display:flex;gap:8px;align-items:center}
+    button.clear-btn{background:transparent;border:0;font-size:1.1rem;cursor:pointer;padding:6px}
 
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
     .card{background:var(--card);padding:14px;border-radius:10px}
@@ -41,6 +43,16 @@
 
     /* Highlighting for matches */
     mark.gomega-match { background: #fffb8f; padding: 0 2px; border-radius: 2px; }
+
+    /* Search results panel */
+    .results-panel{position:absolute;left:0;right:0;top:56px;z-index:80;background:var(--card);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);max-height:320px;overflow:auto;padding:8px;border:1px solid #e6e6e6}
+    .result-item{padding:8px;border-radius:6px;cursor:pointer}
+    .result-item:hover{background:rgba(0,0,0,0.04)}
+    .result-title{font-weight:700}
+    .result-snippet{font-size:0.95rem;color:var(--muted);margin-top:4px}
+    .result-meta{font-size:0.85rem;color:var(--muted);margin-left:6px}
+
+    .no-results{padding:14px;color:var(--muted);text-align:center}
 
     @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)} }
     @media (max-width:600px){.grid{grid-template-columns:1fr}.hero{flex-direction:column}}
@@ -70,10 +82,15 @@
         <p style="margin:6px 0 0;color:var(--muted)">Search the FAQs, follow step-by-step troubleshooting, or contact support if you can’t find an answer.</p>
 
         <div class="search-row">
-          <input id="faqSearch" class="search" placeholder="Search help — try: 'brand', 'ads', 'publish', 'copy'">
-          <!-- ADDED: small results info (non-destructive addition) -->
-          <div id="searchInfo" style="min-width:140px;text-align:right;color:var(--muted);font-size:0.95rem">Results: <span id="searchCount">0</span></div>
-          <button id="openDiscord" class="btn">💬 Ask on Discord</button>
+          <input id="faqSearch" class="search" autocomplete="off" placeholder="Search help — try: 'brand', 'ads', 'publish', 'copy'">
+          <div class="search-actions">
+            <button title="Clear" id="clearSearch" class="clear-btn" style="display:none">×</button>
+            <div id="searchInfo" style="min-width:140px;text-align:right;color:var(--muted);font-size:0.95rem">Results: <span id="searchCount">0</span></div>
+            <button id="openDiscord" class="btn">💬 Ask on Discord</button>
+          </div>
+
+          <!-- results panel (hidden until needed) -->
+          <div id="resultsPanel" class="results-panel" style="display:none"></div>
         </div>
 
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -172,6 +189,23 @@
         <summary>How do I request an opt-out for my school?</summary>
         <div style="color:var(--muted);margin-top:8px">Use the <a href="/admin-optout">Admin Opt-Out</a> page. Only verified staff with a school email can submit requests.</div>
       </details>
+
+      <!-- NEW, simple-to-understand FAQs (added as requested) -->
+      <details>
+        <summary>How do I change my username?</summary>
+        <div style="color:var(--muted);margin-top:8px">Go to Settings → Profile. Pick a new username (unique). You can change it once every 15 days. Old names may be reused later.</div>
+      </details>
+
+      <details>
+        <summary>How do I reset my password?</summary>
+        <div style="color:var(--muted);margin-top:8px">Click "Forgot password" on the sign-in page. We'll send an email with a reset link. If you don't get the email, check spam or try resending.</div>
+      </details>
+
+      <details>
+        <summary>Why was my account banned?</summary>
+        <div style="color:var(--muted);margin-top:8px">Accounts are banned for rule violations (spam, fraud, abuse). Check the ban message in your account email or contact support with your account email for details.</div>
+      </details>
+
     </section>
 
     <section style="margin-top:18px">
@@ -228,18 +262,6 @@
         localStorage.setItem('gomega_dark', on ? '1':'0');
       });
 
-      // FAQ search: filter details elements
-      const faqSearch = document.getElementById('faqSearch');
-      if (faqSearch) {
-        faqSearch.addEventListener('input', ()=>{
-          const q = faqSearch.value.trim().toLowerCase();
-          document.querySelectorAll('.faq-list details').forEach(d=>{
-            const text = (d.textContent || '').toLowerCase();
-            d.style.display = text.includes(q) ? '' : 'none';
-          });
-        });
-      }
-
       // Discord / contact handlers
       const openDiscord = document.getElementById('openDiscord');
       if (openDiscord) openDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
@@ -247,120 +269,291 @@
       const reportDiscord = document.getElementById('reportDiscord');
       if (reportDiscord) reportDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
 
+      /* ===============================
+         SMARTER SEARCH (enhanced)
+         - minChars before searching (2)
+         - debounced input (250ms)
+         - results panel with clickable snippets
+         - ranking: title > content
+         - highlights only matched words
+         =============================== */
 
-      /* =========================================================
-         ADDED SEARCH ENHANCEMENTS (non-destructive)
-         - Searches multiple sections (FAQ, cards, steps, troubleshooting)
-         - Highlights matches with <mark class="gomega-match">
-         - Opens matching <details>
-         - Shows a result count in #searchCount
-         - Restores original content when cleared
-         ========================================================= */
+      const faqSearch = document.getElementById('faqSearch');
+      const resultsPanel = document.getElementById('resultsPanel');
+      const searchCountEl = document.getElementById('searchCount');
+      const clearBtn = document.getElementById('clearSearch');
+
+      const MIN_CHARS = 2;
+      const DEBOUNCE = 250;
+      let timer = null;
 
       // helper to escape regex special chars
       function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }
 
-      // Gather elements we want to search; store original HTML so we can restore it
-      const searchTargets = Array.from(document.querySelectorAll(
-        '.faq-list details, .grid .card, .steps .step, #troubleshooting, .hero .left, .card'
-      )).filter(Boolean);
-
-      searchTargets.forEach(el => {
-        if (!el.dataset.origHtml) el.dataset.origHtml = el.innerHTML;
-      });
-
-      const searchCountEl = document.getElementById('searchCount');
-
-      function clearHighlightsAndRestore() {
-        searchTargets.forEach(el => {
-          if (el.dataset.origHtml) el.innerHTML = el.dataset.origHtml;
-          if (el.tagName.toLowerCase() === 'details') {
-            el.style.display = '';
-            el.open = false;
-          } else {
-            el.style.display = '';
-          }
+      // Build a simple search index of items we want to show in results
+      // each entry: {id, el, title, text, type}
+      function buildIndex() {
+        const items = [];
+        // FAQs (details)
+        document.querySelectorAll('.faq-list details').forEach((d, i) => {
+          const summary = d.querySelector('summary');
+          const title = summary ? summary.textContent.trim() : ('FAQ ' + (i+1));
+          const text = (d.textContent || '').replace(title, '').trim();
+          items.push({ id: 'faq-'+i, el: d, title, text, type: 'FAQ' });
         });
-        if (searchCountEl) searchCountEl.textContent = '0';
+
+        // Grid cards (cards with h3)
+        document.querySelectorAll('.grid .card').forEach((c, i) => {
+          const h = c.querySelector('h3');
+          const title = h ? h.textContent.trim() : 'Card ' + (i+1);
+          const text = (c.textContent || '').replace(title, '').trim();
+          items.push({ id: 'card-'+i, el: c, title, text, type: 'Guide' });
+        });
+
+        // Steps / troubleshooting entries
+        document.querySelectorAll('.steps .step').forEach((s, i) => {
+          const titleNode = s.querySelector('strong');
+          const title = titleNode ? titleNode.textContent.trim() : 'Step ' + (i+1);
+          const text = (s.textContent || '').replace(title, '').trim();
+          items.push({ id: 'step-'+i, el: s, title, text, type: 'Troubleshooting' });
+        });
+
+        // troubleshooting section main text
+        const troubleshooting = document.getElementById('troubleshooting');
+        if (troubleshooting) {
+          const h = troubleshooting.querySelector('h2');
+          const title = h ? h.textContent.trim() : 'Troubleshooting';
+          const text = (troubleshooting.textContent || '').replace(title, '').trim();
+          items.push({ id: 'tr-main', el: troubleshooting, title, text, type: 'Troubleshooting' });
+        }
+
+        // hero left (quick help text)
+        const heroLeft = document.querySelector('.hero .left');
+        if (heroLeft) {
+          const h = heroLeft.querySelector('h2');
+          const title = h ? h.textContent.trim() : 'Help';
+          const text = (heroLeft.textContent || '').replace(title, '').trim();
+          items.push({ id: 'hero-left', el: heroLeft, title, text, type: 'Intro' });
+        }
+
+        // dedupe same element if added twice
+        const seen = new Set();
+        return items.filter(it => {
+          if (seen.has(it.el)) return false;
+          seen.add(it.el);
+          return true;
+        });
       }
 
-      function doSearch(q) {
-        const query = q.trim();
-        if (!query) {
-          clearHighlightsAndRestore();
+      const INDEX = buildIndex();
+
+      // restore original HTML for any indexed element
+      INDEX.forEach(it => {
+        if (!it.el.dataset.origHtml) it.el.dataset.origHtml = it.el.innerHTML;
+      });
+
+      function clearResults() {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+        searchCountEl.textContent = '0';
+        // restore highlights if needed
+        INDEX.forEach(it => { if (it.el.dataset.origHtml) it.el.innerHTML = it.el.dataset.origHtml; if (it.el.tagName.toLowerCase()==='details') it.el.open = false; });
+        clearBtn.style.display = 'none';
+      }
+
+      function highlightText(html, tokens) {
+        // highlight each token with word-boundary or substring (case-insens)
+        // operate on the HTML string - safe for these short content blocks
+        tokens.forEach(t => {
+          if (!t) return;
+          const re = new RegExp('\\b(' + escapeRegExp(t) + ')\\b', 'ig');
+          html = html.replace(re, '<mark class="gomega-match">$1</mark>');
+        });
+        return html;
+      }
+
+      function makeSnippet(text, tokens, maxLen = 140) {
+        // find best position: earliest token match
+        const lower = text.toLowerCase();
+        let pos = -1;
+        for (const t of tokens) {
+          if (!t) continue;
+          const p = lower.indexOf(t.toLowerCase());
+          if (p !== -1 && (pos === -1 || p < pos)) pos = p;
+        }
+        if (pos === -1) {
+          // fallback: start
+          return text.slice(0, maxLen) + (text.length > maxLen ? '…' : '');
+        }
+        const start = Math.max(0, pos - 40);
+        const snip = text.slice(start, start + maxLen);
+        return (start > 0 ? '…' : '') + snip + (start + maxLen < text.length ? '…' : '');
+      }
+
+      function scoreItem(it, tokens) {
+        // simple scoring: title matches * 3 + content matches
+        let score = 0;
+        const titleLower = (it.title || '').toLowerCase();
+        const textLower = (it.text || '').toLowerCase();
+        for (const t of tokens) {
+          if (!t) continue;
+          if (titleLower.includes(t.toLowerCase())) score += 3;
+          // count occurrences in text
+          const idx = textLower.split(t.toLowerCase()).length - 1;
+          score += idx;
+        }
+        return score;
+      }
+
+      function doSearch(query) {
+        const q = query.trim();
+        if (q.length < MIN_CHARS) {
+          clearResults();
           return;
         }
 
-        const re = new RegExp('(' + escapeRegExp(query) + ')', 'ig');
-        let totalMatches = 0;
-        let firstMatchEl = null;
+        const tokens = q.split(/\s+/).filter(Boolean);
+        const matches = [];
 
-        searchTargets.forEach(el => {
-          // work with original HTML to avoid nested highlights
-          let original = el.dataset.origHtml || el.innerHTML;
-          const text = (el.textContent || '').toLowerCase();
-          const matches = text.includes(query.toLowerCase());
-
-          if (matches) {
-            // highlight by replacing matched text in the original HTML
-            // we operate on the text nodes inside the element by doing a simple HTML replace
-            // (safe for these simple help snippets)
-            const highlighted = original.replace(re, '<mark class="gomega-match">$1</mark>');
-            el.innerHTML = highlighted;
-            el.style.display = '';
-            // if it's a details element, open it so the user sees the answer
-            if (el.tagName.toLowerCase() === 'details') {
-              el.open = true;
-            }
-            // count occurrences (approx by counting <mark> tags)
-            const count = (highlighted.match(/<mark class="gomega-match">/g) || []).length;
-            totalMatches += count;
-            if (!firstMatchEl) firstMatchEl = el;
-          } else {
-            // hide non-matching items so results are focused
-            el.style.display = 'none';
-            // also close details that don't match
-            if (el.tagName.toLowerCase() === 'details') el.open = false;
+        INDEX.forEach(it => {
+          const combined = (it.title + ' ' + it.text).toLowerCase();
+          // require that all tokens appear somewhere (AND) — reduces noisy single-letter matches
+          const allPresent = tokens.every(t => combined.includes(t.toLowerCase()));
+          if (allPresent) {
+            const score = scoreItem(it, tokens);
+            matches.push({ it, score });
           }
         });
 
-        // Update result count
-        if (searchCountEl) searchCountEl.textContent = String(totalMatches || 0);
+        // sort by score desc
+        matches.sort((a,b) => b.score - a.score);
 
-        // Scroll first match into view for convenience
-        if (firstMatchEl) {
-          firstMatchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // update UI
+        resultsPanel.innerHTML = '';
+        if (matches.length === 0) {
+          resultsPanel.innerHTML = '<div class="no-results">No results found. Try different words (e.g. "publish", "ads")</div>';
+          resultsPanel.style.display = 'block';
+          searchCountEl.textContent = '0';
+          clearBtn.style.display = 'inline';
+          // hide non-matching items
+          INDEX.forEach(it => { it.el.style.display = 'none'; if (it.el.tagName.toLowerCase()==='details') it.el.open = false; });
+          return;
         }
+
+        // show top 10 matches
+        const top = matches.slice(0, 20);
+        let totalMatches = 0;
+        top.forEach(m => { totalMatches += m.score; });
+
+        top.forEach(m => {
+          const it = m.it;
+          const snippet = makeSnippet(it.text || it.title || '', tokens, 140);
+          // make HTML snippet with highlights
+          const snippetHtml = highlightText(escapeHtml(snippet), tokens);
+          const titleHtml = highlightText(escapeHtml(it.title), tokens);
+
+          const div = document.createElement('div');
+          div.className = 'result-item';
+          div.tabIndex = 0;
+          div.innerHTML = '<div class="result-title">' + titleHtml + 
+                          ' <span class="result-meta">[' + it.type + ']</span></div>' +
+                          '<div class="result-snippet">' + snippetHtml + '</div>';
+          div.addEventListener('click', ()=> {
+            // scroll to element and open details if needed
+            resultsPanel.style.display = 'none';
+            try {
+              // restore original HTML then apply highlights to target only
+              INDEX.forEach(ii => { if (ii.el.dataset.origHtml) ii.el.innerHTML = ii.el.dataset.origHtml; });
+              // highlight in the target element
+              it.el.innerHTML = highlightText(it.el.dataset.origHtml || it.el.innerHTML, tokens);
+              if (it.el.tagName.toLowerCase() === 'details') it.el.open = true;
+              it.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (e) { console.warn('scroll error', e); }
+          });
+          div.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') div.click(); });
+          resultsPanel.appendChild(div);
+        });
+
+        resultsPanel.style.display = 'block';
+        searchCountEl.textContent = String(top.length);
+        clearBtn.style.display = 'inline';
+        // hide non-matching items, show matching items (but don't re-highlight all of them)
+        const matchedEls = new Set(matches.map(m => m.it.el));
+        INDEX.forEach(it => {
+          if (matchedEls.has(it.el)) {
+            it.el.style.display = '';
+            // don't open details automatically to reduce visual jump — only when user clicks result
+            if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+          } else {
+            it.el.style.display = 'none';
+            if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+          }
+        });
       }
 
-      // Wire this up alongside the existing input listener
+      // small helper to escape HTML for snippet injection
+      function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, function (c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      // debounce wrapper
+      function scheduleSearch(v) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(()=> {
+          doSearch(v);
+        }, DEBOUNCE);
+      }
+
       if (faqSearch) {
-        // run an initial restore to ensure originals captured
         faqSearch.addEventListener('input', (ev) => {
-          try {
-            doSearch(ev.target.value || '');
-          } catch (err) {
-            console.warn('Search error', err);
+          const v = ev.target.value || '';
+          if (v.trim().length < MIN_CHARS) {
+            // if cleared or too short -> restore
+            if (v.trim() === '') clearResults();
+            else {
+              // show hint but don't run search
+              resultsPanel.style.display = 'block';
+              resultsPanel.innerHTML = '<div class="no-results">Type ' + MIN_CHARS + ' or more characters to search</div>';
+              searchCountEl.textContent = '0';
+              clearBtn.style.display = 'inline';
+            }
+            return;
           }
+          scheduleSearch(v);
         });
 
-        // support Enter to focus the first result (if any)
         faqSearch.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Enter') {
-            ev.preventDefault();
-            const q = faqSearch.value.trim();
-            if (!q) return;
-            // if we have results, the first visible element should be scrolled already
-            // additionally, if it's a details element, focus the summary
-            const firstVisible = searchTargets.find(el => el.style.display !== 'none');
-            if (firstVisible) {
-              const summary = firstVisible.querySelector('summary');
-              if (summary) summary.focus();
+          if (ev.key === 'Escape') {
+            faqSearch.value = '';
+            clearResults();
+            faqSearch.blur();
+          } else if (ev.key === 'Enter') {
+            // focus first result if present
+            const first = resultsPanel.querySelector('.result-item');
+            if (first) {
+              first.click();
             }
           }
         });
+
+        // clear button
+        clearBtn.addEventListener('click', ()=> {
+          faqSearch.value = '';
+          faqSearch.focus();
+          clearResults();
+        });
+
+        // close results on outside click
+        document.addEventListener('click', (e) => {
+          if (!resultsPanel.contains(e.target) && !faqSearch.contains(e.target)) {
+            resultsPanel.style.display = 'none';
+          }
+        });
+
       }
 
       // optional: prefill search from ?q=... query string
@@ -369,18 +562,12 @@
         const q = params.get('q');
         if (faqSearch) {
           faqSearch.value = q;
-          // trigger a manual search run after a short delay so DOM finishes initializing
-          setTimeout(()=> doSearch(q), 60);
+          setTimeout(()=> scheduleSearch(q), 120);
         }
       }
 
-      // ensure clearing input restores original appearance
-      // (this helps if other code manipulated display earlier)
-      if (faqSearch) {
-        faqSearch.addEventListener('blur', ()=> {
-          if (faqSearch.value.trim() === '') clearHighlightsAndRestore();
-        });
-      }
+      // ensure initial state is restored
+      clearResults();
 
     })();
   </script>
