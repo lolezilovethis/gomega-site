@@ -111,47 +111,14 @@
   <canvas id="hoverParticles"></canvas>
 
   <script type="module">
-    // ========= DEBUGGING HELPERS (ADD THESE near the top of your module script) =========
-import { auth } from './js/firebase.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    /* ===========================
+       MAIN MODULE SCRIPT (with debug helpers)
+       =========================== */
 
-const dbg = (...args) => console.log('[DBG]', ...args);
-
-// Log Firebase app/project used by this page
-try {
-  const app = getApp();
-  dbg('Firebase app name:', app.name);
-  dbg('Firebase projectId:', app.options && app.options.projectId);
-} catch (e) {
-  dbg('No firebase app found (getApp() failed):', e);
-}
-
-// Log auth state and token claims
-getAuth().onAuthStateChanged(async user => {
-  dbg('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
-  if (user) {
-    try {
-      const token = await user.getIdTokenResult();
-      dbg('ID token claims:', token && token.claims);
-    } catch (err) {
-      dbg('Failed to getIdTokenResult:', err);
-    }
-  }
-});
-
-// Patch update flow to log payload (where you call updateDoc)
-async function safeUpdateDocWithLog(docRef, payload) {
-  dbg('Attempting updateDoc:', docRef?.path || docRef, 'payload:', payload);
-  try {
-    await updateDoc(docRef, payload);
-    dbg('updateDoc succeeded for', docRef?.path || docRef);
-  } catch (err) {
-    dbg('updateDoc failed:', err && err.code, err && err.message, err);
-    throw err;
-  }
-}
+    // core firebase imports
     import { db } from './js/firebase.js';
+
+    // Firestore helpers
     import {
       collection,
       onSnapshot,
@@ -160,6 +127,10 @@ async function safeUpdateDocWithLog(docRef, payload) {
       setDoc,
       increment
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // debug / auth helpers
+    import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, getIdTokenResult } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
@@ -199,6 +170,51 @@ async function safeUpdateDocWithLog(docRef, payload) {
       const el = document.getElementById('pendingCount');
       if (el) el.textContent = `Pending: ${count}`;
     }
+
+    // ========== DEBUG HELPERS (Option 1) ==========
+    const dbg = (...args) => console.log('[DBG]', ...args);
+
+    try {
+      const app = getApp();
+      dbg('Firebase app name:', app.name);
+      dbg('Firebase projectId:', app.options && app.options.projectId);
+    } catch (e) {
+      dbg('No firebase app found (getApp() failed):', e);
+    }
+
+    // Log auth state & token claims
+    try {
+      const ga = getAuth();
+      ga.onAuthStateChanged && ga.onAuthStateChanged(async user => {
+        dbg('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
+        if (user) {
+          try {
+            const token = await user.getIdTokenResult();
+            dbg('ID token claims:', token && token.claims);
+          } catch (err) {
+            dbg('Failed to getIdTokenResult:', err);
+          }
+        }
+      });
+    } catch (e) {
+      dbg('getAuth() failed:', e);
+    }
+
+    // Wrapper to log update attempts and results
+    async function safeUpdateDocWithLog(docRef, payload) {
+      try {
+        dbg('Attempting updateDoc:', docRef && (docRef.path || docRef), 'payload:', payload);
+      } catch (e) { console.log('dbg failed', e); }
+
+      try {
+        await updateDoc(docRef, payload);
+        dbg('updateDoc succeeded for', docRef && (docRef.path || docRef));
+      } catch (err) {
+        dbg('updateDoc failed:', err && err.code, err && err.message, err);
+        throw err;
+      }
+    }
+    // ========== end DEBUG HELPERS ==========
 
     // helper: safely read timestamp in ms
     function scriptTimestampMs(s) {
@@ -362,7 +378,7 @@ async function safeUpdateDocWithLog(docRef, payload) {
       attachUnlockHandlers();
     }
 
-    // Try flushing pending increments to Firestore
+    // Try flushing pending increments to Firestore (uses debug wrapper)
     async function tryFlushPending() {
       const q = readPending();
       if (!q || q.length === 0) {
@@ -375,21 +391,25 @@ async function safeUpdateDocWithLog(docRef, payload) {
         try {
           const fsId = item.id;
           const scriptRef = doc(db, 'approved_scripts', fsId);
-          await updateDoc(scriptRef, { clicks: increment(1) });
-          // if success, remove first item and continue
-          popPending();
-          i--; // adjust index because we popped front
-        } catch (err) {
-          // If permission denied, stop trying further: rules need change
-          if (err && err.code === 'permission-denied') {
-            console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
-            break;
-          } else {
-            console.warn('Flush attempt failed for', item.id, err);
-            // leave item in queue and continue to next (or break)
-            // We'll try again later
-            break;
+          // replaced updateDoc with safe wrapper for logging
+          try {
+            await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
+            // if success, remove first item and continue
+            popPending();
+            i--; // adjust index because we popped front
+          } catch (err) {
+            // If permission denied, stop trying further: rules need change
+            if (err && err.code === 'permission-denied') {
+              console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
+              break;
+            } else {
+              console.warn('Flush attempt failed for', item.id, err);
+              break;
+            }
           }
+        } catch (err) {
+          console.warn('tryFlushPending internal error', err);
+          break;
         }
       }
       updatePendingUI();
@@ -442,29 +462,27 @@ async function safeUpdateDocWithLog(docRef, payload) {
             if (fsCandidate) {
               try {
                 const scriptRef = doc(db, 'approved_scripts', fsCandidate);
-                await updateDoc(scriptRef, { clicks: increment(1) });
-              } catch (uErr) {
-                // permission denied -> queue for later
-                console.warn('updateDoc failed:', uErr);
-                if (uErr && uErr.code === 'permission-denied') {
-                  enqueuePending(fsCandidate);
-                } else {
-                  // attempt setDoc (fallback) and queue if permissions prevent it
-                  try {
-                    await setDoc(doc(db,'approved_scripts',fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
-                  } catch (sErr) {
-                    console.warn('setDoc fallback failed:', sErr);
-                    if (sErr && sErr.code === 'permission-denied') {
-                      enqueuePending(fsCandidate);
-                    } else {
-                      // other error: queue to be safe
+                // replaced updateDoc with safe wrapper for logging
+                try {
+                  await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
+                } catch (uErr) {
+                  console.warn('updateDoc failed:', uErr);
+                  if (uErr && uErr.code === 'permission-denied') {
+                    enqueuePending(fsCandidate);
+                  } else {
+                    try {
+                      await setDoc(doc(db,'approved_scripts',fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
+                    } catch (sErr) {
+                      console.warn('setDoc fallback failed:', sErr);
                       enqueuePending(fsCandidate);
                     }
                   }
                 }
+              } catch (err) {
+                console.error('Failed to attempt firestore update:', err);
+                enqueuePending(fsCandidate);
               }
             } else {
-              // no firestore id candidate -> queue the normalized id so admin/server can map later
               enqueuePending(id);
             }
 
@@ -485,138 +503,4 @@ async function safeUpdateDocWithLog(docRef, payload) {
         });
       });
 
-      document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.onclick = null;
-        btn.addEventListener('click', () => {
-          try {
-            const id = btn.dataset.id;
-            const codeEl = document.getElementById(`code-${id}`);
-            const code = codeEl ? codeEl.textContent : '';
-            navigator.clipboard.writeText(code).then(() => {
-              alert('✅ Script copied!');
-            }).catch(() => {
-              alert('⚠️ Could not copy script.');
-            });
-          } catch (err) {
-            console.error('Copy handler error:', err);
-            alert('Could not copy (check console).');
-          }
-        });
-      });
-    }
-
-    // search input
-    document.getElementById('searchBox').addEventListener('input', e => {
-      searchTerm = e.target.value;
-      visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || visibleCount;
-      applyFiltersAndRender();
-    });
-
-    // sort select
-    document.getElementById('sortSelect').addEventListener('change', e => {
-      currentSort = e.target.value;
-      applyFiltersAndRender();
-    });
-
-    // per page
-    document.getElementById('perPageSelect').addEventListener('change', e => {
-      visibleCount = parseInt(e.target.value, 10) || visibleCount;
-      applyFiltersAndRender();
-    });
-
-    // refresh
-    document.getElementById('refreshBtn').addEventListener('click', () => {
-      loadLocal();
-      loadRemote();
-    });
-
-    // load more button
-    document.getElementById('loadMoreBtn').addEventListener('click', () => {
-      const add = parseInt(document.getElementById('perPageSelect').value, 10) || 10;
-      visibleCount += add;
-      if (window.__gomega_fullFiltered) {
-        renderScripts(window.__gomega_fullFiltered.slice(0, visibleCount));
-        document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}`;
-      } else {
-        applyFiltersAndRender();
-      }
-    });
-
-    // util: escape html
-    function escapeHtml(unsafe) {
-      if (unsafe === undefined || unsafe === null) return '';
-      return String(unsafe)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    // init
-    updatePendingUI();
-    loadLocal();
-    loadRemote();
-
-    // Try flushing pending when auth state changes (if you have firebase auth exposed)
-    import { auth } from './js/firebase.js';
-    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        // attempt flush when user signs in
-        tryFlushPending();
-      }
-    });
-
-    // pending UI button
-    document.getElementById('syncPendingBtn').addEventListener('click', async () => {
-      await tryFlushPending();
-      alert('Sync attempt finished (check console for details).');
-    });
-
-    // ------------------ Dark mode handling
-    const darkToggle = document.getElementById('darkToggle');
-    function applyDarkModeState(on) {
-      if (on) {
-        document.body.classList.add('dark-mode');
-        darkToggle.textContent = '🌙 Dark';
-      } else {
-        document.body.classList.remove('dark-mode');
-        darkToggle.textContent = '☀️ Light';
-      }
-    }
-    const saved = localStorage.getItem('gomega_dark');
-    const initialDark = saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    applyDarkModeState(initialDark);
-
-    darkToggle.addEventListener('click', () => {
-      const isDark = document.body.classList.toggle('dark-mode');
-      localStorage.setItem('gomega_dark', isDark ? '1' : '0');
-      applyDarkModeState(isDark);
-    });
-
-    // settings & make script
-    document.getElementById('settingsBtn').addEventListener('click', () => {
-      if (location.pathname.endsWith('/scripts')) {
-        window.location.href = '/settings';
-      } else {
-        alert('Open settings (not implemented)');
-      }
-    });
-    document.getElementById('makeScriptBtn').addEventListener('click', () => {
-      window.location.href = '/add-script';
-    });
-
-  </script>
-
-  <script>
-    // particle background
-    const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
-    function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
-    window.addEventListener('resize', resize); resize();
-    document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
-    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(0,217,255,' + (p.life/60) + ')'; ctx.fill(); }); requestAnimationFrame(draw); })();
-  </script>
-
-</body>
-</html>
+      document.querySelectorAll('.copy
