@@ -102,7 +102,15 @@
 
   <script type="module">
     import { db } from './js/firebase.js';
-    import { collection, onSnapshot, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // ADDED: import Firestore helpers needed to atomically increment and update docs
+    import {
+      collection,
+      onSnapshot,
+      doc,
+      updateDoc,
+      setDoc,
+      increment
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
@@ -243,7 +251,7 @@
       scripts.forEach(script => {
         const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
-        const publisher = script.brandName || 'Unknown';
+        const publisher = script.brandName || 'Admin';
         const remoteClicks = getRemoteClicks(script);
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
@@ -251,8 +259,8 @@
         // admin badge (kept for visual, does not affect filtering)
         const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
-        list.insertAdjacentHTML('beforeend', `
-          <div class="script-card" data-script-id="${id}">
+        list.insertAdjacentHTML('beforeend', 
+          `<div class="script-card" data-script-id="${id}">
             <h2>${escapeHtml(script.title || 'Untitled')}</h2>
             <p>${escapeHtml(script.description || 'No description.')}</p>
             <div class="script-meta">
@@ -264,8 +272,8 @@
             <button class="get-btn" data-id="${id}">📥 Get Script</button>
             <button class="copy-btn" data-id="${id}" style="display:none;">📋 Copy Script</button>
             <pre id="code-${id}" style="display:none;">${escapeHtml(script.code || '')}</pre>
-          </div>
-        `);
+          </div>`
+        );
       });
       attachUnlockHandlers(); // reattach handlers to new DOM
     }
@@ -311,33 +319,34 @@
           }
 
           // increment local popularity
-          // Attempt to persist the click to Firestore for global counts. If that fails, fall back to local storage.
-          let remoteUpdated = false;
-          try {
-            // only try remote update for scripts that came from Firestore (i.e. have a remote doc id)
-            const isRemoteDoc = allRemote.some(r => r.id === id);
-            if (isRemoteDoc) {
-              const docRef = doc(db, 'approved_scripts', id);
-              await updateDoc(docRef, { clicks: increment(1) });
-              remoteUpdated = true;
+          const newLocal = incLocalClicks(id);
+
+          // ADD: increment in Firebase so all users see the new count (atomic increment)
+          if (script.id) {
+            try {
+              const scriptRef = doc(db, 'approved_scripts', script.id);
+              // Try updating (works if doc exists); if it doesn't, create/merge with clicks:1
+              try {
+                await updateDoc(scriptRef, { clicks: increment(1) });
+              } catch (uErr) {
+                // fallback: create/merge the document with clicks = 1
+                try {
+                  await setDoc(scriptRef, { clicks: 1 }, { merge: true });
+                } catch (sErr) {
+                  console.error('Failed to write clicks to Firestore (setDoc fallback):', sErr);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to update clicks in Firestore:', err);
             }
-          } catch (err) {
-            console.error('Failed to update remote clicks:', err);
-            remoteUpdated = false;
           }
 
-          // If remote update failed (or script is local-only), increment local counter so user still sees feedback
-          if (!remoteUpdated) {
-            incLocalClicks(id);
-          }
-
-          // Update UI immediately to reflect change: use remote value + local value (+1 pre-emptively if remote updated)
+          // update shown popularity count in the card immediately
           const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
           if (card) {
             const popEl = card.querySelector('.popularity');
-            const remoteVal = getRemoteClicks(script) + (remoteUpdated ? 1 : 0);
-            const localVal = getLocalClicks(id);
-            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remoteVal + localVal} clicks`;
+            const remote = getRemoteClicks(script);
+            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
           }
 
           // Show copy button after revealing code (like original logic)
@@ -438,26 +447,26 @@
     // settings & make script buttons
     document.getElementById('settingsBtn').addEventListener('click', () => {
       // simple placeholder: open settings page or modal
-      if (location.pathname.endsWith('/scripts.html')) {
+      if (location.pathname.endsWith('/scripts')) {
         // try to open "settings.html" if it exists, otherwise alert
-        window.location.href = '/settings.html';
+        window.location.href = '/settings';
       } else {
         alert('Open settings (not implemented)');
       }
     });
     document.getElementById('makeScriptBtn').addEventListener('click', () => {
-      window.location.href = '/add-script.html';
+      window.location.href = '/add-script';
     });
 
   </script>
 
   <script>
-    // particle background (unchanged)
+    // particle background (unchanged visually, fixed color string)
     const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
     function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
     window.addEventListener('resize', resize); resize();
     document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
-    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = `rgba(0,217,255,${p.life/60})`; ctx.fill(); }); requestAnimationFrame(draw); })();
+    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(0,217,255,' + (p.life/60) + ')'; ctx.fill(); }); requestAnimationFrame(draw); })();
   </script>
 
 </body>
