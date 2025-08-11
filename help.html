@@ -23,7 +23,7 @@
     .hero{margin:18px 0;padding:18px;border-radius:12px;background:var(--card);display:flex;gap:18px;align-items:center}
     .hero .left{flex:1}
 
-    .search-row{display:flex;gap:8px;margin:14px 0}
+    .search-row{display:flex;gap:8px;margin:14px 0;align-items:center}
     .search{flex:1;padding:10px;border-radius:10px;border:1px solid #e6e6e6}
 
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
@@ -38,6 +38,9 @@
     .step{background:linear-gradient(180deg,#ffffff00, #00000000);padding:12px;border-radius:8px;border:1px dashed #e8eef2}
 
     footer{margin-top:28px;color:var(--muted);text-align:center}
+
+    /* Highlighting for matches */
+    mark.gomega-match { background: #fffb8f; padding: 0 2px; border-radius: 2px; }
 
     @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)} }
     @media (max-width:600px){.grid{grid-template-columns:1fr}.hero{flex-direction:column}}
@@ -68,6 +71,8 @@
 
         <div class="search-row">
           <input id="faqSearch" class="search" placeholder="Search help — try: 'brand', 'ads', 'publish', 'copy'">
+          <!-- ADDED: small results info (non-destructive addition) -->
+          <div id="searchInfo" style="min-width:140px;text-align:right;color:var(--muted);font-size:0.95rem">Results: <span id="searchCount">0</span></div>
           <button id="openDiscord" class="btn">💬 Ask on Discord</button>
         </div>
 
@@ -241,6 +246,142 @@
 
       const reportDiscord = document.getElementById('reportDiscord');
       if (reportDiscord) reportDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
+
+
+      /* =========================================================
+         ADDED SEARCH ENHANCEMENTS (non-destructive)
+         - Searches multiple sections (FAQ, cards, steps, troubleshooting)
+         - Highlights matches with <mark class="gomega-match">
+         - Opens matching <details>
+         - Shows a result count in #searchCount
+         - Restores original content when cleared
+         ========================================================= */
+
+      // helper to escape regex special chars
+      function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      // Gather elements we want to search; store original HTML so we can restore it
+      const searchTargets = Array.from(document.querySelectorAll(
+        '.faq-list details, .grid .card, .steps .step, #troubleshooting, .hero .left, .card'
+      )).filter(Boolean);
+
+      searchTargets.forEach(el => {
+        if (!el.dataset.origHtml) el.dataset.origHtml = el.innerHTML;
+      });
+
+      const searchCountEl = document.getElementById('searchCount');
+
+      function clearHighlightsAndRestore() {
+        searchTargets.forEach(el => {
+          if (el.dataset.origHtml) el.innerHTML = el.dataset.origHtml;
+          if (el.tagName.toLowerCase() === 'details') {
+            el.style.display = '';
+            el.open = false;
+          } else {
+            el.style.display = '';
+          }
+        });
+        if (searchCountEl) searchCountEl.textContent = '0';
+      }
+
+      function doSearch(q) {
+        const query = q.trim();
+        if (!query) {
+          clearHighlightsAndRestore();
+          return;
+        }
+
+        const re = new RegExp('(' + escapeRegExp(query) + ')', 'ig');
+        let totalMatches = 0;
+        let firstMatchEl = null;
+
+        searchTargets.forEach(el => {
+          // work with original HTML to avoid nested highlights
+          let original = el.dataset.origHtml || el.innerHTML;
+          const text = (el.textContent || '').toLowerCase();
+          const matches = text.includes(query.toLowerCase());
+
+          if (matches) {
+            // highlight by replacing matched text in the original HTML
+            // we operate on the text nodes inside the element by doing a simple HTML replace
+            // (safe for these simple help snippets)
+            const highlighted = original.replace(re, '<mark class="gomega-match">$1</mark>');
+            el.innerHTML = highlighted;
+            el.style.display = '';
+            // if it's a details element, open it so the user sees the answer
+            if (el.tagName.toLowerCase() === 'details') {
+              el.open = true;
+            }
+            // count occurrences (approx by counting <mark> tags)
+            const count = (highlighted.match(/<mark class="gomega-match">/g) || []).length;
+            totalMatches += count;
+            if (!firstMatchEl) firstMatchEl = el;
+          } else {
+            // hide non-matching items so results are focused
+            el.style.display = 'none';
+            // also close details that don't match
+            if (el.tagName.toLowerCase() === 'details') el.open = false;
+          }
+        });
+
+        // Update result count
+        if (searchCountEl) searchCountEl.textContent = String(totalMatches || 0);
+
+        // Scroll first match into view for convenience
+        if (firstMatchEl) {
+          firstMatchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      // Wire this up alongside the existing input listener
+      if (faqSearch) {
+        // run an initial restore to ensure originals captured
+        faqSearch.addEventListener('input', (ev) => {
+          try {
+            doSearch(ev.target.value || '');
+          } catch (err) {
+            console.warn('Search error', err);
+          }
+        });
+
+        // support Enter to focus the first result (if any)
+        faqSearch.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            const q = faqSearch.value.trim();
+            if (!q) return;
+            // if we have results, the first visible element should be scrolled already
+            // additionally, if it's a details element, focus the summary
+            const firstVisible = searchTargets.find(el => el.style.display !== 'none');
+            if (firstVisible) {
+              const summary = firstVisible.querySelector('summary');
+              if (summary) summary.focus();
+            }
+          }
+        });
+      }
+
+      // optional: prefill search from ?q=... query string
+      const params = new URLSearchParams(location.search);
+      if (params.get('q')) {
+        const q = params.get('q');
+        if (faqSearch) {
+          faqSearch.value = q;
+          // trigger a manual search run after a short delay so DOM finishes initializing
+          setTimeout(()=> doSearch(q), 60);
+        }
+      }
+
+      // ensure clearing input restores original appearance
+      // (this helps if other code manipulated display earlier)
+      if (faqSearch) {
+        faqSearch.addEventListener('blur', ()=> {
+          if (faqSearch.value.trim() === '') clearHighlightsAndRestore();
+        });
+      }
+
     })();
   </script>
 </body>
