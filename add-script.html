@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Same dark theme styles as before */
+    /* Global Dark Theme */
     body {
       font-family: Arial, sans-serif;
       background: #121212;
@@ -14,6 +14,8 @@
       margin: 0;
       padding: 20px;
     }
+
+    /* Container */
     .container {
       max-width: 600px;
       margin: auto;
@@ -21,27 +23,65 @@
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      animation: fadeIn 0.4s ease-in-out;
     }
-    h1 { text-align: center; color: #00d4ff; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; color: #ccc; font-weight: bold; }
-    input, textarea {
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #00d4ff;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #ccc;
+    }
+
+    input[type="text"], input[type="number"], textarea {
       width: 100%;
       padding: 10px;
       border: 1px solid #333;
       border-radius: 6px;
       background: #2a2a2a;
       color: #f5f5f5;
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
+
     input:focus, textarea:focus {
       border-color: #00d4ff;
-      outline: none;
       box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+      outline: none;
     }
-    textarea { resize: vertical; }
-    .checkbox-group { display: flex; align-items: center; gap: 8px; color: #ddd; }
-    #numAds { max-width: 100px; }
+
+    textarea {
+      resize: vertical;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #ddd;
+    }
+
+    .checkbox-group input {
+      width: auto;
+    }
+
+    #numAds {
+      max-width: 100px;
+    }
+
+    /* Buttons */
     .btn {
+      display: block;
       width: 100%;
       background: linear-gradient(90deg, #00d4ff, #0066ff);
       color: white;
@@ -51,14 +91,61 @@
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
     }
+
     .btn:hover:not(:disabled) {
       background: linear-gradient(90deg, #00f7ff, #3399ff);
+      transform: translateY(-2px);
     }
-    .btn:disabled { background: #444; cursor: not-allowed; }
-    #successMsg { color: #4caf50; text-align: center; font-weight: bold; }
-    #errorMsg { color: #ff5252; text-align: center; font-weight: bold; }
-    small { color: #999; }
+
+    .btn:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    /* Messages */
+    #successMsg {
+      color: #4caf50;
+      text-align: center;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    #errorMsg {
+      color: #ff5252;
+      text-align: center;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    small {
+      color: #999;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 15px;
+      }
+    }
+
+    /* small availability indicator */
+    #brandAvailable {
+      display:block;
+      margin-top:6px;
+      font-size:0.9rem;
+    }
+    #brandAvailable.ok { color: #4caf50; }
+    #brandAvailable.taken { color: #ff5252; }
+    #brandAvailable.unknown { color: #999; }
   </style>
 </head>
 <body>
@@ -81,6 +168,7 @@
         <label for="brandName">Brand Name</label>
         <input type="text" id="brandName" placeholder="Your publishing brand" required>
         <small id="brandHint">Your unique brand (only you can use this)</small>
+        <span id="brandAvailable" class="unknown"></span>
       </div>
       <div class="form-group checkbox-group">
         <input type="checkbox" id="includeAds">
@@ -103,27 +191,106 @@
   <script type="module">
     import { auth, db } from './js/firebase.js';
     import {
-      doc, setDoc, getDoc, collection, addDoc, query, where, getDocs
+      doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     let currentUser;
 
+    // Enable/disable numAds based on includeAds
     document.getElementById('includeAds').addEventListener('change', e => {
       document.getElementById('numAds').disabled = !e.target.checked;
     });
 
+    // helper: sanitize brand -> doc id
+    function brandToId(brand) {
+      if (!brand) return '';
+      return brand.trim().toLowerCase()
+        .replace(/[^a-z0-9\-_\.]/g, '-')   // replace invalid chars with -
+        .replace(/-+/g, '-')                // collapse multiple dashes
+        .replace(/(^-|-$)/g, '');           // trim leading/trailing dash
+    }
+
+    // Show availability status (uses brands/{brandId} read — if rules allow)
+    async function checkBrandAvailabilityUI(brandName) {
+      const availEl = document.getElementById('brandAvailable');
+      availEl.className = 'unknown';
+      availEl.textContent = '';
+      const id = brandToId(brandName);
+      if (!id) {
+        availEl.textContent = '';
+        return;
+      }
+      try {
+        const bRef = doc(db, 'brands', id);
+        const snap = await getDoc(bRef);
+        if (snap.exists()) {
+          const owner = snap.data()?.ownerId || 'someone';
+          // if it's owned by current user, show ok
+          if (currentUser && snap.data().ownerId === currentUser.uid) {
+            availEl.className = 'ok';
+            availEl.textContent = '✅ You own this brand.';
+          } else {
+            availEl.className = 'taken';
+            availEl.textContent = '🚫 That brand is taken.';
+          }
+        } else {
+          availEl.className = 'ok';
+          availEl.textContent = '✅ Brand available';
+        }
+      } catch (err) {
+        // If read permission denied or other error, show neutral message
+        console.warn('brand availability check error', err);
+        availEl.className = 'unknown';
+        availEl.textContent = '';
+      }
+    }
+
+    // Auth guard + load existing brand
     onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "/";
       currentUser = user;
 
       const userRef = doc(db, 'users', user.uid);
-      const snap = await getDoc(userRef);
-      if (snap.exists() && snap.data().brandName) {
+      try {
+        const snap = await getDoc(userRef);
+        if (snap.exists() && snap.data().brandName) {
+          const brandInput = document.getElementById('brandName');
+          brandInput.value = snap.data().brandName;
+          brandInput.disabled = true;
+          document.getElementById('brandHint').textContent = 'Brand locked';
+          // show owned brand status
+          document.getElementById('brandAvailable').className = 'ok';
+          document.getElementById('brandAvailable').textContent = '✅ You own this brand.';
+        } else {
+          // if no brand yet, attach live availability check
+          const brandInput = document.getElementById('brandName');
+          brandInput.addEventListener('input', () => {
+            const v = brandInput.value.trim();
+            if (v.length === 0) {
+              document.getElementById('brandAvailable').textContent = '';
+              document.getElementById('brandAvailable').className = 'unknown';
+              return;
+            }
+            // debounce simple
+            if (brandInput._availTimeout) clearTimeout(brandInput._availTimeout);
+            brandInput._availTimeout = setTimeout(() => checkBrandAvailabilityUI(v), 350);
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load user doc:', err);
+        // still allow user to proceed — availability check may fail if rules block reads
         const brandInput = document.getElementById('brandName');
-        brandInput.value = snap.data().brandName;
-        brandInput.disabled = true;
-        document.getElementById('brandHint').textContent = 'Brand locked';
+        brandInput.addEventListener('input', () => {
+          const v = brandInput.value.trim();
+          if (v.length === 0) {
+            document.getElementById('brandAvailable').textContent = '';
+            document.getElementById('brandAvailable').className = 'unknown';
+            return;
+          }
+          if (brandInput._availTimeout) clearTimeout(brandInput._availTimeout);
+          brandInput._availTimeout = setTimeout(() => checkBrandAvailabilityUI(v), 350);
+        });
       }
     });
 
@@ -146,6 +313,7 @@
       const numAds = parseInt(document.getElementById('numAds').value);
       const getPaid = document.getElementById('getPaid').checked;
 
+      // Validation
       if (!title || !code || !brandName) {
         errorEl.textContent = 'Please fill in title, code, and brand.';
         submitBtn.disabled = false;
@@ -157,14 +325,32 @@
         return;
       }
 
-      // 🔍 Check for duplicate brand name if brand is still editable
+      // ===== NEW: Use brands collection to reserve/claim brand =====
+      // This avoids listing/reading the entire users collection (which rules block).
       if (!brandInput.disabled) {
-        const q = query(
-          collection(db, 'users'),
-          where('brandName', '==', brandName)
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) {
+        const brandId = brandToId(brandName);
+        if (!brandId) {
+          errorEl.textContent = 'Brand name contains no valid characters.';
+          submitBtn.disabled = false;
+          return;
+        }
+
+        const brandRef = doc(db, 'brands', brandId);
+
+        // Try to create (set) the brand doc with ownerId == currentUser.uid.
+        // Firestore rules should allow create only when the doc doesn't exist and ownerId == auth.uid.
+        // If the doc already exists (or a rules check fails) this will throw and we handle it.
+        try {
+          // use setDoc WITHOUT merge to ensure create attempt; if doc exists, rules should prevent update
+          await setDoc(brandRef, {
+            ownerId: currentUser.uid,
+            displayName: brandName,
+            createdAt: serverTimestamp()
+          });
+          // success => brand reserved
+        } catch (brandErr) {
+          console.error('Brand reservation failed', brandErr);
+          // Friendly message for collisions or permission issues
           errorEl.textContent = '🚫 Someone has already picked this brand name.';
           submitBtn.disabled = false;
           return;
@@ -172,22 +358,13 @@
       }
 
       try {
-        // Save brand to user profile if it's new
+        // Save brand if first time (allowed by your rules)
         if (!brandInput.disabled) {
           await setDoc(doc(db, 'users', currentUser.uid), { brandName }, { merge: true });
         }
 
-        const scriptData = {
-          title,
-          description,
-          code,
-          brandName,
-          includeAds,
-          numAds: includeAds ? numAds : 0,
-          getPaid,
-          submittedBy: currentUser.uid,
-          timestamp: Date.now()
-        };
+        // Prepare script data
+        const scriptData = { title, description, code, brandName, includeAds, numAds: includeAds ? numAds : 0, getPaid, submittedBy: currentUser.uid, timestamp: serverTimestamp() };
 
         await addDoc(collection(db, 'approved_scripts'), scriptData);
 
@@ -196,8 +373,12 @@
         document.getElementById('numAds').disabled = true;
         brandInput.disabled = true;
         document.getElementById('brandHint').textContent = 'Brand locked';
+        document.getElementById('brandAvailable').className = 'ok';
+        document.getElementById('brandAvailable').textContent = '✅ You own this brand.';
       } catch (err) {
         console.error(err);
+        // If brand was reserved above but script publish failed, DO NOT delete the brand here —
+        // ownership remains with user; if you want to rollback in some flows we can add that later.
         errorEl.textContent = '❌ Failed to publish script. Please try again.';
       } finally {
         submitBtn.disabled = false;
