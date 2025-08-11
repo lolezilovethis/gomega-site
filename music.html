@@ -12,18 +12,30 @@
       --muted:#9aa4b2;
       --accent:#1db954;
       --glass: rgba(255,255,255,0.03);
+      --text:#e6eef6;
       font-family: Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
     }
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#07101a);color:#e6eef6}
+    [data-theme="light"]{
+      --bg:#f6f8fa;
+      --card:#ffffff;
+      --muted:#556077;
+      --accent:#1db954;
+      --glass: rgba(0,0,0,0.03);
+      --text:#0b1220;
+    }
+
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#07101a);color:var(--text)}
+    [data-theme="light"] body{background:linear-gradient(180deg,var(--bg),#e9eef3)}
     .wrap{max-width:980px;margin:36px auto;padding:20px}
     header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
     .logo{
       width:56px;height:56px;border-radius:8px;background:linear-gradient(135deg,#22303a,#0e1418);
-      display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.5)
+      display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.12)
     }
+    [data-theme="light"] .logo{background:linear-gradient(135deg,#e1f7ea,#e6ffee); color:var(--accent)}
     h1{font-size:20px;margin:0}
     p.lead{margin:0;color:var(--muted);font-size:13px}
-    .card{background:var(--card);border-radius:12px;padding:18px;margin-top:16px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+    .card{background:var(--card);border-radius:12px;padding:18px;margin-top:16px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
     .controls{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;align-items:center}
     .input{
       display:flex;gap:8px;align-items:center;flex:1;
@@ -32,28 +44,52 @@
     input[type="text"]{flex:1;background:transparent;border:none;color:inherit;outline:none;font-size:14px;padding:6px}
     button, .btn {
       background:var(--accent);color:#061013;border:none;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer;
-      box-shadow:0 6px 12px rgba(29,185,84,0.12)
+      box-shadow:0 6px 12px rgba(29,185,84,0.08)
     }
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);box-shadow:none}
-    .iframe-wrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);min-height:260px}
+    button.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--muted);box-shadow:none}
+    .iframe-wrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid rgba(0,0,0,0.04);min-height:260px;background:linear-gradient(180deg, rgba(0,0,0,0.02), transparent)}
     .iframe-fixed{width:100%;height:352px;border:0;display:block}
     .meta-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:12px}
     .meta-left{display:flex;gap:12px;align-items:center}
     .muted{color:var(--muted);font-size:13px}
     .small{font-size:12px;color:var(--muted)}
-    .notice{margin-top:12px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);color:var(--muted);font-size:13px}
-    @media (max-width:560px){.controls{flex-direction:column;align-items:stretch}.meta-row{flex-direction:column;align-items:flex-start}}
+    .notice{margin-top:12px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.03);color:var(--muted);font-size:13px}
+    .banner{
+      display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(27, 38, 46, 0.9), rgba(15, 23, 32, 0.9));color:var(--text);
+      margin-bottom:14px;border:1px solid rgba(255,255,255,0.04)
+    }
+    .banner .left{display:flex;gap:12px;align-items:center;flex:1}
+    .banner .cta{display:flex;gap:8px}
+    pre.ua {background:rgba(0,0,0,0.05);padding:8px;border-radius:6px;color:var(--text);overflow:auto;margin:0}
+    .chip{font-size:12px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,0.06);color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    @media (max-width:560px){.controls{flex-direction:column;align-items:stretch}.meta-row{flex-direction:column;align-items:flex-start}.banner{flex-direction:column;align-items:stretch}}
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap" id="pageRoot" data-theme="">
     <header>
       <div class="logo">GM</div>
       <div>
         <h1>Music</h1>
-        <p class="lead">Embedded Spotify playlist — Gomega Watch. Paste a Spotify URL/ID to load a different playlist, album, or track.</p>
+        <p class="lead">Embedded Spotify playlist — Gomega Watch. You can paste a Spotify URL/ID or use the default playlist below.</p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button id="themeToggle" class="ghost" title="Toggle theme">Toggle theme</button>
       </div>
     </header>
+
+    <div id="recommendBanner" class="banner" role="region" aria-live="polite" style="display:none">
+      <div class="left">
+        <div style="font-weight:700">Recommended</div>
+        <div class="muted">For the best embedded experience we recommend using our browser.</div>
+        <div class="chip">Better playback & compatibility</div>
+      </div>
+      <div class="cta">
+        <a id="toBrowser" class="btn" href="https://gomega.watch/browser" role="button">Get our browser</a>
+        <button id="dismissBanner" class="ghost">Dismiss</button>
+      </div>
+    </div>
 
     <div class="card" role="region" aria-label="Spotify embed card">
       <div class="controls">
@@ -64,6 +100,17 @@
         </div>
 
         <button id="openSpotify" class="ghost" title="Open in Spotify web player">Open in Spotify</button>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <div style="flex:1">
+          <div class="muted small">Detected navigator.userAgent:</div>
+          <pre id="ua" class="ua">detecting…</pre>
+        </div>
+        <div style="min-width:180px;display:flex;gap:8px;align-items:center">
+          <button id="copyUa" class="ghost">Copy UA</button>
+          <button id="verifyUa" class="ghost">Verify</button>
+        </div>
       </div>
 
       <div id="iframeContainer" class="iframe-wrap" aria-live="polite">
@@ -81,75 +128,50 @@
       </div>
 
       <div class="notice" id="note">
-        Note: We hope you enjoy!
+        Tip: If Spotify refuses to play embedded content for a particular item, use "Open in Spotify" to open it in the Spotify web player or desktop app.
       </div>
     </div>
   </div>
 
 <script>
 (function(){
-  // Default embed: the playlist you provided
-  const defaultEmbed = "https://open.spotify.com/embed/playlist/1GuJrX0LabE2iHtlisOv9E?utm_source=generator&theme=0";
-  const defaultOpenUrl = "https://open.spotify.com/playlist/1GuJrX0LabE2iHtlisOv9E";
-
+  // CONFIG
+  const defaultEmbed = 'https://open.spotify.com/embed/playlist/1GuJrX0LabE2iHtlisOv9E?utm_source=generator&theme=0';
+  const defaultOpenUrl = 'https://open.spotify.com/playlist/1GuJrX0LabE2iHtlisOv9E';
+  const BANNER_KEY = 'gomega_browser_banner_dismissed';
+  const THEME_KEY = 'gomega_theme'; // 'dark' or 'light'
+  // helpers
   const qInput = document.getElementById('q');
   const loadBtn = document.getElementById('load');
   const iframeContainer = document.getElementById('iframeContainer');
   const embedInfo = document.getElementById('embedInfo');
   const openSpotify = document.getElementById('openSpotify');
   const rawOpen = document.getElementById('rawOpen');
+  const uaPre = document.getElementById('ua');
+  const copyUa = document.getElementById('copyUa');
+  const verifyUa = document.getElementById('verifyUa');
+  const banner = document.getElementById('recommendBanner');
+  const dismissBanner = document.getElementById('dismissBanner');
+  const toBrowser = document.getElementById('toBrowser');
+  const themeToggle = document.getElementById('themeToggle');
+  const pageRoot = document.getElementById('pageRoot');
 
-  function createIframe(embedUrl){
-    iframeContainer.innerHTML = '';
-    // Use the fixed-height spotify embed for best compatibility
-    const iframe = document.createElement('iframe');
-    iframe.className = 'iframe-fixed';
-    iframe.src = embedUrl;
-    iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
-    iframe.setAttribute('loading', 'lazy');
-    iframe.title = 'Spotify embed';
-    iframeContainer.appendChild(iframe);
-  }
-
-  function sanitize(val){
-    return String(val || '').trim();
-  }
-
+  function sanitize(val){ return String(val || '').trim(); }
   function toEmbed(input){
     if(!input) return defaultEmbed;
     input = sanitize(input);
-
-    // already an embed
-    if(input.includes('open.spotify.com/embed')) {
-      return input;
-    }
-
-    // if full open.spotify.com url
-    const openMatch = input.match(/open\.spotify\.com\/(playlist|album|track)\/([A-Za-z0-9]+)(?:[?\/]|$)/i);
-    if(openMatch){
-      return `https://open.spotify.com/embed/${openMatch[1]}/${openMatch[2]}`;
-    }
-
-    // spotify:... format
+    if(input.includes('open.spotify.com/embed')) return input;
+    const openMatch = input.match(/open\.spotify\.com\/(playlist|album|track)\/([A-Za-z0-9]+)/i);
+    if(openMatch) return `https://open.spotify.com/embed/${openMatch[1]}/${openMatch[2]}`;
     const colonMatch = input.match(/^spotify:(playlist|album|track):([A-Za-z0-9]+)$/i);
-    if(colonMatch){
-      return `https://open.spotify.com/embed/${colonMatch[1]}/${colonMatch[2]}`;
-    }
-
-    // maybe the user pasted a bare ID - assume playlist
-    if(/^[A-Za-z0-9]{8,}$/i.test(input)){
-      return `https://open.spotify.com/embed/playlist/${input}`;
-    }
-
-    // fallback to default
+    if(colonMatch) return `https://open.spotify.com/embed/${colonMatch[1]}/${colonMatch[2]}`;
+    if(/^[A-Za-z0-9]{8,}$/i.test(input)) return `https://open.spotify.com/embed/playlist/${input}`;
     return defaultEmbed;
   }
-
   function setLinksForEmbed(embedUrl){
     const match = embedUrl.match(/embed\/(playlist|album|track)\/([A-Za-z0-9]+)/i);
     if(match){
-      const type = match[1];
-      const id = match[2];
+      const type = match[1], id = match[2];
       const openUrl = `https://open.spotify.com/${type}/${id}`;
       openSpotify.onclick = ()=> window.open(openUrl,'_blank','noopener');
       rawOpen.href = openUrl;
@@ -160,39 +182,122 @@
       embedInfo.textContent = 'Spotify';
     }
   }
-
+  function createIframe(embedUrl){
+    iframeContainer.innerHTML = '';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'iframe-fixed';
+    iframe.src = embedUrl;
+    iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+    iframe.setAttribute('loading', 'lazy');
+    iframe.title = 'Spotify embed';
+    iframeContainer.appendChild(iframe);
+  }
   function loadFromQuery(){
     const urlParams = new URLSearchParams(window.location.search);
     const q = urlParams.get('q') || urlParams.get('playlist') || urlParams.get('id') || '';
     const embed = toEmbed(q);
-    createIframe(embed);
+    createIframe(embed); // ALWAYS load embed for any browser
     setLinksForEmbed(embed);
     qInput.value = q || '';
   }
 
+  // UA display + banner logic
+  function showUAandBanner(){
+    const currentUA = navigator.userAgent || '';
+    uaPre.textContent = currentUA;
+
+    const dismissed = localStorage.getItem(BANNER_KEY) === '1';
+    // Show banner unless dismissed. Banner is a recommendation only.
+    if(!dismissed){
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  // copy UA
+  copyUa.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(navigator.userAgent || '');
+      copyUa.textContent = 'Copied!';
+      setTimeout(()=> copyUa.textContent = 'Copy UA', 1400);
+    }catch(e){
+      copyUa.textContent = 'Copy failed';
+      setTimeout(()=> copyUa.textContent = 'Copy UA', 1400);
+    }
+  });
+
+  // verify UA (simple visual feedback)
+  verifyUa.addEventListener('click', ()=>{
+    alert('navigator.userAgent:\\n\\n' + (navigator.userAgent || 'unknown'));
+  });
+
+  // dismiss banner
+  dismissBanner.addEventListener('click', ()=>{
+    localStorage.setItem(BANNER_KEY, '1');
+    banner.style.display = 'none';
+  });
+
+  // theme toggle
+  function applyTheme(t){
+    if(t === 'light'){
+      pageRoot.setAttribute('data-theme','light');
+      localStorage.setItem(THEME_KEY,'light');
+    } else {
+      pageRoot.setAttribute('data-theme','dark');
+      localStorage.setItem(THEME_KEY,'dark');
+    }
+  }
+  themeToggle.addEventListener('click', ()=>{
+    const current = localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
+    applyTheme(current === 'light' ? 'dark' : 'light');
+  });
+  // init theme from storage or system
+  (function initTheme(){
+    const saved = localStorage.getItem(THEME_KEY);
+    if(saved) applyTheme(saved);
+    else {
+      // prefer dark by default
+      applyTheme('dark');
+    }
+  })();
+
+  // load button: update embed & URL
   loadBtn.addEventListener('click', ()=>{
     const val = qInput.value;
     const embed = toEmbed(val);
     createIframe(embed);
     setLinksForEmbed(embed);
-    // update URL without reloading
     const newUrl = new URL(window.location.href);
     if(val) newUrl.searchParams.set('q', val);
     else newUrl.searchParams.delete('q');
     history.replaceState({}, '', newUrl);
   });
 
-  // initial load: use ?q=... or default playlist
-  loadFromQuery();
-
-  // pressing Enter in input triggers load
+  // enter key submits
   qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ loadBtn.click(); } });
 
-  // If nothing provided in query, ensure Open link points to default playlist
-  if(!new URLSearchParams(window.location.search).get('q')){
-    rawOpen.href = defaultOpenUrl;
-    openSpotify.onclick = ()=> window.open(defaultOpenUrl,'_blank','noopener');
-  }
+  // initial load
+  loadFromQuery();
+  showUAandBanner();
+
+  // If you want: show a small pixel that indicates if UA contains "Chrome" / "Firefox" etc.
+  (function showBrowserHint(){
+    const ua = navigator.userAgent.toLowerCase();
+    let hint = '';
+    if(ua.includes('edg/')) hint = 'Edge detected';
+    else if(ua.includes('chrome') && !ua.includes('edg')) hint = 'Chrome-based browser detected';
+    else if(ua.includes('firefox')) hint = 'Firefox detected';
+    else if(ua.includes('safari') && !ua.includes('chrome')) hint = 'Safari detected';
+    if(hint){
+      const el = document.createElement('div');
+      el.className = 'muted small';
+      el.style.marginTop = '10px';
+      el.textContent = hint + ' — embedded player should work';
+      document.querySelector('.card').insertBefore(el, document.getElementById('iframeContainer'));
+    }
+  })();
+
 })();
 </script>
 </body>
