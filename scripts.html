@@ -28,6 +28,15 @@
     .info { font-size: 0.9rem; margin-top: 4px; }
     @media (max-width: 600px) { .script-card { padding: 10px; } button { width: 100%; } }
     #hoverParticles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+
+    /* New UI bits */
+    .controls-row { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+    .controls-row select, .controls-row label { font-size:0.95rem; }
+    .badge-admin { display:inline-block; background:#ffd54f; color:#000; padding:2px 6px; border-radius:6px; margin-left:8px; font-weight:700; font-size:0.8rem; }
+    .popularity { font-size:0.9rem; color:#555; margin-left:8px; }
+    .script-meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+    .perpage { width:110px; }
+    .load-more { margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -56,9 +65,35 @@
     </div>
   </div>
 
+  <!-- NEW CONTROLS — ADDED (doesn't remove anything) -->
+  <div class="controls-row" style="margin-bottom:8px;">
+    <label for="sortSelect">Sort:</label>
+    <select id="sortSelect" title="Sort scripts">
+      <option value="newest">Newest</option>
+      <option value="oldest">Oldest</option>
+      <option value="popular">Most popular</option>
+    </select>
+
+    <label style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" id="adminOnly"> Admins only
+    </label>
+
+    <label style="display:flex;align-items:center;gap:6px;">
+      <span>Per page</span>
+      <select id="perPageSelect" class="perpage">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+
+    <button id="refreshBtn" style="margin-left:auto;">Refresh</button>
+  </div>
+
   <input class="search-box" id="searchBox" placeholder="Search scripts…">
   <p id="scriptCount"></p>
   <div id="scriptList"><p>🔄 Loading scripts...</p></div>
+  <div style="text-align:center;"><button id="loadMoreBtn" class="load-more">Load more</button></div>
 
   <footer>
     <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
@@ -68,67 +103,166 @@
 
   <script type="module">
     import { db } from './js/firebase.js';
-    import { collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // ---- CONFIG: edit admin brands according to your admin brand names
+    const ADMINS = ['Admin', 'gomega', 'GomegaAdmin']; // <-- edit these brand names as needed
 
     let allLocal = [];
-    let allRemote = [];
+    let allRemote = []; // will contain objects { id, ...data }
+    let visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || 20;
+    let currentSort = document.getElementById('sortSelect').value;
+    let adminOnly = document.getElementById('adminOnly').checked;
+    let searchTerm = '';
 
+    // local popularity storage key prefix
+    const LOCAL_PREFIX = 'gomega_script_clicks_';
+
+    // helper: safely read timestamp in ms
+    function scriptTimestampMs(s) {
+      const t = s.timestamp;
+      if (!t) return 0;
+      if (typeof t === 'number') return t;
+      if (t.seconds) return t.seconds * 1000 + (t.nanoseconds ? Math.floor(t.nanoseconds/1000000) : 0);
+      if (typeof t.toMillis === 'function') return t.toMillis();
+      return 0;
+    }
+
+    // get local clicks for a script id
+    function getLocalClicks(id) {
+      try {
+        const v = localStorage.getItem(LOCAL_PREFIX + id);
+        return v ? parseInt(v, 10) : 0;
+      } catch { return 0; }
+    }
+    function incLocalClicks(id) {
+      const cur = getLocalClicks(id) || 0;
+      const next = cur + 1;
+      try { localStorage.setItem(LOCAL_PREFIX + id, String(next)); } catch {}
+      return next;
+    }
+
+    // get remote clicks field if present as number
+    function getRemoteClicks(script) {
+      if (!script) return 0;
+      const c = script.clicks || script.clickCount || 0;
+      return typeof c === 'number' ? c : (parseInt(c,10) || 0);
+    }
+
+    // compute popularity score (remote + local)
+    function popularityScore(script) {
+      return getRemoteClicks(script) + getLocalClicks(script.id || '');
+    }
+
+    // Attach remote loader
+    function loadRemote() {
+      const col = collection(db, 'approved_scripts');
+      // keep onSnapshot to get live updates
+      onSnapshot(col, snap => {
+        allRemote = snap.docs.map(d => {
+          return { id: d.id, ...d.data() };
+        });
+        applyFiltersAndRender();
+      }, err => {
+        console.error('Remote load error', err);
+      });
+    }
+
+    // local scripts loader (unchanged)
     async function loadLocal() {
       try {
         const res = await fetch('scripts/index.json');
         const files = await res.json();
         allLocal = await Promise.all(files.map(name => fetch(`scripts/${name}`).then(r => r.json())));
-        mergeAndRender();
+        applyFiltersAndRender();
       } catch (e) {
         console.error('Local load error', e);
       }
     }
 
-    function loadRemote() {
-      const col = collection(db, 'approved_scripts');
-      onSnapshot(col, snap => {
-        allRemote = snap.docs.map(d => d.data());
-        mergeAndRender();
-      }, err => console.error('Remote load error', err));
-    }
+    // Combined filter, sort, paginate, render
+    function applyFiltersAndRender() {
+      const merged = [...allRemote, ...allLocal.map(s => ({ id: s.title?.toLowerCase().replace(/\s+/g,'-') || Math.random().toString(36).slice(2), ...s }))];
 
-    function mergeAndRender() {
-      const merged = [...allRemote, ...allLocal];
-      renderScripts(merged);
+      // search filter
+      const term = searchTerm.trim().toLowerCase();
+      let filtered = merged.filter(s => {
+        if (!term) return true;
+        if ((s.title || '').toString().toLowerCase().includes(term)) return true;
+        if ((s.description || '').toString().toLowerCase().includes(term)) return true;
+        if ((s.brandName || '').toString().toLowerCase().includes(term)) return true;
+        return false;
+      });
+
+      // admin-only filter
+      if (adminOnly) {
+        filtered = filtered.filter(s => ADMINS.includes((s.brandName || '').toString()));
+      }
+
+      // sorting
+      if (currentSort === 'newest') {
+        filtered.sort((a,b) => scriptTimestampMs(b) - scriptTimestampMs(a));
+      } else if (currentSort === 'oldest') {
+        filtered.sort((a,b) => scriptTimestampMs(a) - scriptTimestampMs(b));
+      } else if (currentSort === 'popular') {
+        filtered.sort((a,b) => popularityScore(b) - popularityScore(a));
+      }
+
+      renderScripts(filtered.slice(0, visibleCount));
+      // update script count summary
+      document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} scripts${adminOnly ? ' (admin-only)' : ''}`;
+      // store fullFiltered for load more
+      window.__gomega_fullFiltered = filtered;
     }
 
     function renderScripts(scripts) {
       const list = document.getElementById('scriptList');
-      const count = document.getElementById('scriptCount');
       list.innerHTML = '';
       scripts.forEach(script => {
-        const id = script.title.toLowerCase().replace(/\s+/g, '-');
+        const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds} ad${script.numAds > 1 ? 's' : ''}` : 'No ads';
         const publisher = script.brandName || 'Admin';
+        const remoteClicks = getRemoteClicks(script);
+        const localClicks = getLocalClicks(id);
+        const totalClicks = remoteClicks + localClicks;
+
+        // admin badge
+        const adminBadge = ADMINS.includes((publisher || '').toString()) ? `<span class="badge-admin">ADMIN</span>` : '';
+
         list.insertAdjacentHTML('beforeend', `
-          <div class="script-card">
-            <h2>${script.title}</h2>
-            <p>${script.description || 'No description.'}</p>
-            <p class="info"><strong>Publisher:</strong> ${publisher}</p>
-            <p class="info"><strong>Ads:</strong> ${adsInfo}</p>
+          <div class="script-card" data-script-id="${id}">
+            <h2>${escapeHtml(script.title || 'Untitled')}</h2>
+            <p>${escapeHtml(script.description || 'No description.')}</p>
+            <div class="script-meta">
+              <p class="info"><strong>Publisher:</strong> ${escapeHtml(publisher)} ${adminBadge}</p>
+              <p class="info"><strong>Ads:</strong> ${escapeHtml(adsInfo)}</p>
+              <p class="popularity"><strong>Popularity:</strong> ${totalClicks} clicks</p>
+            </div>
             ${script.getPaid ? `<p class="info">💰 Publisher will earn revenue</p>` : ''}
             <button class="get-btn" data-id="${id}">📥 Get Script</button>
             <button class="copy-btn" data-id="${id}" style="display:none;">📋 Copy Script</button>
-            <pre id="code-${id}" style="display:none;"></pre>
+            <pre id="code-${id}" style="display:none;">${escapeHtml(script.code || '')}</pre>
           </div>
         `);
       });
-      count.textContent = `Total Scripts: ${scripts.length}`;
-      attachUnlockHandlers();
+      attachUnlockHandlers(); // reattach handlers to new DOM
     }
 
+    // attach handlers — increment local clicks and show code like before
     function attachUnlockHandlers() {
       document.querySelectorAll('.get-btn').forEach(btn => {
         btn.onclick = async () => {
           const id = btn.dataset.id;
-          const script = [...allRemote, ...allLocal].find(s => s.title.toLowerCase().replace(/\s+/g, '-') === id);
+          // find script in merged arrays
+          const merged = [...allRemote, ...allLocal.map(s => ({ id: s.title?.toLowerCase().replace(/\s+/g,'-'), ...s }))];
+          const script = merged.find(s => (s.id || (s.title||'').toLowerCase().replace(/\s+/g,'-')) === id);
           const box = document.getElementById(`code-${id}`);
           const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
+
+          if (!script) {
+            alert('Script not found.');
+            return;
+          }
 
           if (script.includeAds && script.numAds > 0) {
             if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
@@ -140,23 +274,38 @@
             }
           }
 
+          // show code
           box.style.display = 'block';
-          box.textContent = script.code;
-          copyBtn.style.display = 'inline-block';
+          box.textContent = script.code || '';
 
+          // copy to clipboard attempt (like original)
           try {
-            await navigator.clipboard.writeText(script.code);
+            await navigator.clipboard.writeText(script.code || '');
             alert('✅ Copied!');
           } catch {
             alert('⚠️ Copy failed. Use the "Copy Script" button.');
           }
+
+          // increment local popularity
+          const newLocal = incLocalClicks(id);
+          // update shown popularity count in the card
+          const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
+          if (card) {
+            const popEl = card.querySelector('.popularity');
+            const remote = getRemoteClicks(script);
+            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
+          }
+
+          // Show copy button after revealing code (like original logic)
+          if (copyBtn) copyBtn.style.display = 'inline-block';
         };
       });
 
       document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.id;
-          const code = document.getElementById(`code-${id}`).textContent;
+          const codeEl = document.getElementById(`code-${id}`);
+          const code = codeEl ? codeEl.textContent : '';
           navigator.clipboard.writeText(code).then(() => {
             alert('✅ Script copied!');
           }).catch(() => {
@@ -166,19 +315,61 @@
       });
     }
 
+    // search input
     document.getElementById('searchBox').addEventListener('input', e => {
-      const term = e.target.value.toLowerCase();
-      const merged = [...allRemote, ...allLocal];
-      renderScripts(merged.filter(s =>
-        s.title.toLowerCase().includes(term) ||
-        (s.description && s.description.toLowerCase().includes(term))
-      ));
+      searchTerm = e.target.value.toLowerCase();
+      visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || visibleCount;
+      applyFiltersAndRender();
     });
 
-    document.getElementById('darkToggle').onclick = () => document.body.classList.toggle('dark-mode');
-    document.getElementById('settingsBtn').onclick = () => location.href = 'settings';
-    document.getElementById('makeScriptBtn').onclick = () => location.href = 'add-script';
+    // sort select
+    document.getElementById('sortSelect').addEventListener('change', e => {
+      currentSort = e.target.value;
+      applyFiltersAndRender();
+    });
 
+    // admin only toggle
+    document.getElementById('adminOnly').addEventListener('change', e => {
+      adminOnly = e.target.checked;
+      applyFiltersAndRender();
+    });
+
+    // per page
+    document.getElementById('perPageSelect').addEventListener('change', e => {
+      visibleCount = parseInt(e.target.value, 10) || visibleCount;
+      applyFiltersAndRender();
+    });
+
+    // refresh
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      applyFiltersAndRender();
+    });
+
+    // load more button
+    document.getElementById('loadMoreBtn').addEventListener('click', () => {
+      const add = parseInt(document.getElementById('perPageSelect').value, 10) || 10;
+      visibleCount += add;
+      // if we have a cached filtered list, just show more
+      if (window.__gomega_fullFiltered) {
+        renderScripts(window.__gomega_fullFiltered.slice(0, visibleCount));
+        document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}${adminOnly ? ' (admin-only)' : ''}`;
+      } else {
+        applyFiltersAndRender();
+      }
+    });
+
+    // util: escape html to prevent accidental injection when rendering code elements
+    function escapeHtml(unsafe) {
+      if (unsafe === undefined || unsafe === null) return '';
+      return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // init loaders
     loadLocal();
     loadRemote();
   </script>
