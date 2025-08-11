@@ -38,10 +38,6 @@
     .perpage { width:110px; }
     .load-more { margin-top: 8px; }
 
-    /* pending UI */
-    #pendingIndicator { margin-left: 12px; font-size: 0.9rem; display:flex; gap:8px; align-items:center; }
-    #pendingIndicator button { background:#f59e0b; color:#000; padding:6px 8px; border-radius:6px; font-size:0.9rem; }
-
     /* dark toggle visual */
     #darkToggle { display:flex; gap:8px; align-items:center; }
   </style>
@@ -65,16 +61,10 @@
       <img src="assets/logo.png" alt="Gomega Watch Logo">
       <h1>Gomega Scripts</h1>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
+    <div style="display:flex; gap:10px;">
       <button id="darkToggle">🌓 Dark Mode</button>
       <button id="settingsBtn">⚙️ Settings</button>
       <button id="makeScriptBtn">✏️ Make a Script</button>
-
-      <!-- Pending indicator -->
-      <div id="pendingIndicator" title="Pending increments that couldn't write to Firestore">
-        <span id="pendingCount">Pending: 0</span>
-        <button id="syncPendingBtn">Sync pending</button>
-      </div>
     </div>
   </div>
 
@@ -111,18 +101,8 @@
   <canvas id="hoverParticles"></canvas>
 
   <script type="module">
-    // Core imports
-    import { db, auth } from './js/firebase.js';
-    import {
-      collection,
-      onSnapshot,
-      doc,
-      updateDoc,
-      setDoc,
-      increment
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { db } from './js/firebase.js';
+    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
@@ -135,52 +115,14 @@
     // local popularity storage key prefix
     const LOCAL_PREFIX = 'gomega_script_clicks_';
 
-    // QUEUE: pending firebase increments when permission denied
-    const PENDING_KEY = 'gomega_pending_clicks';
-    function readPending() {
-      try {
-        const raw = localStorage.getItem(PENDING_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch { return []; }
-    }
-    function writePending(arr) {
-      try { localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); } catch {}
-      updatePendingUI();
-    }
-    function enqueuePending(docId) {
-      const q = readPending();
-      q.push({ id: docId, ts: Date.now() });
-      writePending(q);
-    }
-    function popPending() {
-      const q = readPending();
-      q.shift();
-      writePending(q);
-    }
-    function updatePendingUI() {
-      const count = readPending().length;
-      const el = document.getElementById('pendingCount');
-      if (el) el.textContent = `Pending: ${count}`;
-    }
-
     // helper: safely read timestamp in ms
     function scriptTimestampMs(s) {
-      const t = s && s.timestamp;
+      const t = s.timestamp;
       if (!t) return 0;
       if (typeof t === 'number') return t;
       if (t.seconds) return t.seconds * 1000 + (t.nanoseconds ? Math.floor(t.nanoseconds/1000000) : 0);
       if (typeof t.toMillis === 'function') return t.toMillis();
       return 0;
-    }
-
-    // normalize id helper: ensures we compare the same id format everywhere
-    function normalizeId(item) {
-      if (!item) return '';
-      if (typeof item === 'string' && item.trim() !== '') return item;
-      if (typeof item.id === 'string' && item.id.trim() !== '') return item.id;
-      if (typeof item.id === 'number') return String(item.id);
-      if (item.title) return item.title.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
-      return '';
     }
 
     // get local clicks for a script id
@@ -206,7 +148,7 @@
 
     // compute popularity score (remote + local)
     function popularityScore(script) {
-      return getRemoteClicks(script) + getLocalClicks(normalizeId(script) || '');
+      return getRemoteClicks(script) + getLocalClicks(script.id || '');
     }
 
     // Attach remote loader
@@ -216,10 +158,7 @@
         // keep onSnapshot to get live updates
         onSnapshot(col, snap => {
           allRemote = snap.docs.map(d => {
-            // prefer Firestore doc id as canonical id
-            const data = d.data() || {};
-            const built = { id: d.id, ...data };
-            return built;
+            return { id: d.id, ...d.data() };
           });
           applyFiltersAndRender();
         }, err => {
@@ -302,7 +241,7 @@
       }
 
       scripts.forEach(script => {
-        const id = normalizeId(script) || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
+        const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
         const publisher = script.brandName || 'Admin';
         const remoteClicks = getRemoteClicks(script);
@@ -312,173 +251,91 @@
         // admin badge (kept for visual, does not affect filtering)
         const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
-        // Build HTML for each card safely
-        const cardHtml =
-          '<div class="script-card" data-script-id="' + id + '">' +
-            '<h2>' + escapeHtml(script.title || 'Untitled') + '</h2>' +
-            '<p>' + escapeHtml(script.description || 'No description.') + '</p>' +
-            '<div class="script-meta">' +
-              '<p class="info"><strong>Publisher:</strong> ' + escapeHtml(publisher) + ' ' + adminBadge + '</p>' +
-              '<p class="info"><strong>Ads:</strong> ' + escapeHtml(adsInfo) + '</p>' +
-              '<p class="popularity"><strong>Popularity:</strong> ' + totalClicks + ' clicks</p>' +
-            '</div>' +
-            (script.getPaid ? '<p class="info">💰 Publisher will earn revenue</p>' : '') +
-            '<button class="get-btn" data-id="' + id + '">📥 Get Script</button>' +
-            '<button class="copy-btn" data-id="' + id + '" style="display:none;">📋 Copy Script</button>' +
-            '<pre id="code-' + id + '" style="display:none;">' + escapeHtml(script.code || '') + '</pre>' +
-          '</div>';
-
-        list.insertAdjacentHTML('beforeend', cardHtml);
+        list.insertAdjacentHTML('beforeend', `
+          <div class="script-card" data-script-id="${id}">
+            <h2>${escapeHtml(script.title || 'Untitled')}</h2>
+            <p>${escapeHtml(script.description || 'No description.')}</p>
+            <div class="script-meta">
+              <p class="info"><strong>Publisher:</strong> ${escapeHtml(publisher)} ${adminBadge}</p>
+              <p class="info"><strong>Ads:</strong> ${escapeHtml(adsInfo)}</p>
+              <p class="popularity"><strong>Popularity:</strong> ${totalClicks} clicks</p>
+            </div>
+            ${script.getPaid ? `<p class="info">💰 Publisher will earn revenue</p>` : ''}
+            <button class="get-btn" data-id="${id}">📥 Get Script</button>
+            <button class="copy-btn" data-id="${id}" style="display:none;">📋 Copy Script</button>
+            <pre id="code-${id}" style="display:none;">${escapeHtml(script.code || '')}</pre>
+          </div>
+        `);
       });
       attachUnlockHandlers(); // reattach handlers to new DOM
-    }
-
-    // Utility: safe updateDoc wrapper that logs and throws
-    async function safeUpdateDocWithLog(docRef, payload) {
-      console.log('[DBG] Attempting updateDoc:', docRef && docRef.path ? docRef.path : docRef, payload);
-      try {
-        await updateDoc(docRef, payload);
-        console.log('[DBG] updateDoc succeeded for', docRef && docRef.path ? docRef.path : docRef);
-      } catch (err) {
-        console.warn('[DBG] updateDoc failed:', err && err.code, err && err.message);
-        throw err;
-      }
-    }
-
-    // Try flushing pending increments to Firestore
-    async function tryFlushPending() {
-      const q = readPending();
-      if (!q || q.length === 0) {
-        updatePendingUI();
-        return;
-      }
-      // attempt sequentially
-      for (let i = 0; i < q.length; i++) {
-        const item = q[0]; // always top of queue
-        try {
-          const fsId = item.id;
-          const scriptRef = doc(db, 'approved_scripts', fsId);
-          await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
-          // if success, remove first item and continue
-          popPending();
-          // continue to next item
-        } catch (err) {
-          if (err && err.code === 'permission-denied') {
-            console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
-            break;
-          } else {
-            console.warn('Flush attempt failed for', item.id, err);
-            break;
-          }
-        }
-      }
-      updatePendingUI();
     }
 
     // attach handlers — increment local clicks and show code like before
     function attachUnlockHandlers() {
       document.querySelectorAll('.get-btn').forEach(btn => {
-        // clear any previous handlers
-        btn.onclick = null;
-        btn.addEventListener('click', async () => {
-          try {
-            const id = btn.dataset.id;
-            // find script in merged arrays
-            const merged = [...allRemote, ...allLocal];
-            const script = merged.find(s => normalizeId(s) === id);
-            const box = document.getElementById('code-' + id);
-            const copyBtn = document.querySelector('.copy-btn[data-id="' + id + '"]');
+        btn.onclick = async () => {
+          const id = btn.dataset.id;
+          // find script in merged arrays
+          const merged = [...allRemote, ...allLocal];
+          const script = merged.find(s => (s.id || (s.title||'').toLowerCase().replace(/\s+/g,'-')) === id);
+          const box = document.getElementById(`code-${id}`);
+          const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
 
-            if (!script) {
-              alert('Script not found.');
-              return;
-            }
-
-            if (script.includeAds && script.numAds > 0) {
-              if (!confirm('You must view ' + script.numAds + ' ad' + (script.numAds > 1 ? 's' : '') + '.')) return;
-              let openedAds = 0;
-              while (openedAds < script.numAds) {
-                window.open('https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2', '_blank');
-                openedAds++;
-                await new Promise(r => setTimeout(r, 1500));
-              }
-            }
-
-            // show code
-            if (box) {
-              box.style.display = 'block';
-              box.textContent = script.code || '';
-            }
-
-            // copy to clipboard attempt (like original)
-            try {
-              await navigator.clipboard.writeText(script.code || '');
-              alert('✅ Copied to clipboard!');
-            } catch {
-              // don't interrupt flow if clipboard fails
-              console.warn('Clipboard write failed (possibly insecure context).');
-            }
-
-            // increment local popularity
-            const newLocal = incLocalClicks(id);
-
-            // Determine firestore id to use (prefer remote doc id)
-            const fsCandidate = (allRemote.find(r => normalizeId(r) === id) || {}).id || id;
-
-            if (fsCandidate) {
-              try {
-                const scriptRef = doc(db, 'approved_scripts', fsCandidate);
-                await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
-              } catch (uErr) {
-                // fallback: try setDoc merge
-                console.warn('updateDoc failed:', uErr);
-                try {
-                  await setDoc(doc(db, 'approved_scripts', fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
-                } catch (sErr) {
-                  console.error('setDoc fallback failed:', sErr);
-                  // permission-denied or other error -> queue for later
-                  enqueuePending(fsCandidate);
-                }
-              }
-            } else {
-              enqueuePending(id);
-            }
-
-            // update shown popularity count in the card immediately
-            const card = document.querySelector('.script-card[data-script-id="' + id + '"]');
-            if (card) {
-              const popEl = card.querySelector('.popularity');
-              const remote = getRemoteClicks(script);
-              if (popEl) popEl.innerHTML = '<strong>Popularity:</strong> ' + (remote + newLocal) + ' clicks';
-            }
-
-            // Show copy button after revealing code (like original logic)
-            if (copyBtn) copyBtn.style.display = 'inline-block';
-
-          } catch (err) {
-            console.error('Get button handler failed:', err);
-            alert('An error occurred. Check console for details.');
+          if (!script) {
+            alert('Script not found.');
+            return;
           }
-        });
+
+          if (script.includeAds && script.numAds > 0) {
+            if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
+            let openedAds = 0;
+            while (openedAds < script.numAds) {
+              window.open('https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2', '_blank');
+              openedAds++;
+              await new Promise(r => setTimeout(r, 1500));
+            }
+          }
+
+          // show code
+          if (box) {
+            box.style.display = 'block';
+            box.textContent = script.code || '';
+          }
+
+          // copy to clipboard attempt (like original)
+          try {
+            await navigator.clipboard.writeText(script.code || '');
+            alert('✅ Copied to clipboard!');
+          } catch {
+            alert('⚠️ Copy failed. Use the "Copy Script" button.');
+          }
+
+          // increment local popularity
+          const newLocal = incLocalClicks(id);
+          // update shown popularity count in the card
+          const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
+          if (card) {
+            const popEl = card.querySelector('.popularity');
+            const remote = getRemoteClicks(script);
+            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
+          }
+
+          // Show copy button after revealing code (like original logic)
+          if (copyBtn) copyBtn.style.display = 'inline-block';
+        };
       });
 
       document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.onclick = null;
-        btn.addEventListener('click', () => {
-          try {
-            const id = btn.dataset.id;
-            const codeEl = document.getElementById('code-' + id);
-            const code = codeEl ? codeEl.textContent : '';
-            navigator.clipboard.writeText(code).then(() => {
-              alert('✅ Script copied!');
-            }).catch(() => {
-              alert('⚠️ Could not copy script.');
-            });
-          } catch (err) {
-            console.error('Copy handler error:', err);
-            alert('Could not copy (check console).');
-          }
-        });
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const codeEl = document.getElementById(`code-${id}`);
+          const code = codeEl ? codeEl.textContent : '';
+          navigator.clipboard.writeText(code).then(() => {
+            alert('✅ Script copied!');
+          }).catch(() => {
+            alert('⚠️ Could not copy script.');
+          });
+        };
       });
     }
 
@@ -532,23 +389,9 @@
         .replace(/'/g, "&#039;");
     }
 
-    // init loaders & pending UI
-    updatePendingUI();
+    // init loaders
     loadLocal();
     loadRemote();
-
-    // Try flushing pending when auth state changes (if you have firebase auth exposed)
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        tryFlushPending();
-      }
-    });
-
-    // pending UI button
-    document.getElementById('syncPendingBtn').addEventListener('click', async () => {
-      await tryFlushPending();
-      alert('Sync attempt finished (check console for details).');
-    });
 
     // ------------------ Dark mode handling (fixed + persisted)
     const darkToggle = document.getElementById('darkToggle');
@@ -589,12 +432,12 @@
   </script>
 
   <script>
-    // particle background (unchanged visually, fixed color string)
+    // particle background (unchanged)
     const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
     function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
     window.addEventListener('resize', resize); resize();
     document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
-    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(0,217,255,' + (p.life/60) + ')'; ctx.fill(); }); requestAnimationFrame(draw); })();
+    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = `rgba(0,217,255,${p.life/60})`; ctx.fill(); }); requestAnimationFrame(draw); })();
   </script>
 
 </body>
