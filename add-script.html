@@ -15,7 +15,6 @@
       padding: 20px;
     }
 
-    /* Container */
     .container {
       max-width: 600px;
       margin: auto;
@@ -32,10 +31,7 @@
       color: #00d4ff;
     }
 
-    /* Form */
-    .form-group {
-      margin-bottom: 15px;
-    }
+    .form-group { margin-bottom: 15px; }
 
     label {
       display: block;
@@ -60,9 +56,7 @@
       outline: none;
     }
 
-    textarea {
-      resize: vertical;
-    }
+    textarea { resize: vertical; }
 
     .checkbox-group {
       display: flex;
@@ -71,15 +65,10 @@
       color: #ddd;
     }
 
-    .checkbox-group input {
-      width: auto;
-    }
+    .checkbox-group input { width: auto; }
 
-    #numAds {
-      max-width: 100px;
-    }
+    #numAds { max-width: 100px; }
 
-    /* Buttons */
     .btn {
       display: block;
       width: 100%;
@@ -104,7 +93,6 @@
       cursor: not-allowed;
     }
 
-    /* Messages */
     #successMsg {
       color: #4caf50;
       text-align: center;
@@ -119,9 +107,7 @@
       font-weight: bold;
     }
 
-    small {
-      color: #999;
-    }
+    small { color: #999; }
 
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
@@ -129,12 +115,8 @@
     }
 
     @media (max-width: 600px) {
-      body {
-        padding: 10px;
-      }
-      .container {
-        padding: 15px;
-      }
+      body { padding: 10px; }
+      .container { padding: 15px; }
     }
   </style>
 </head>
@@ -186,12 +168,12 @@
 
     let currentUser;
 
-    // Enable/disable numAds based on includeAds
+    // Enable/disable numAds
     document.getElementById('includeAds').addEventListener('change', e => {
       document.getElementById('numAds').disabled = !e.target.checked;
     });
 
-    // Auth guard + load existing brand
+    // Auth check and load user's brand
     onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "/";
       currentUser = user;
@@ -225,7 +207,7 @@
       const numAds = parseInt(document.getElementById('numAds').value);
       const getPaid = document.getElementById('getPaid').checked;
 
-      // Validation
+      // Basic validation
       if (!title || !code || !brandName) {
         errorEl.textContent = 'Please fill in title, code, and brand.';
         submitBtn.disabled = false;
@@ -237,27 +219,37 @@
         return;
       }
 
-      // Prevent duplicate brands
+      // Check duplicate brand
       if (!brandInput.disabled) {
         const q = query(collection(db, 'users'), where('brandName', '==', brandName));
         const snap = await getDocs(q);
         if (!snap.empty) {
-          errorEl.textContent = 'That brand name is already taken.';
+          errorEl.textContent = '🚫 That brand name is already taken by another user.';
           submitBtn.disabled = false;
           return;
         }
       }
 
       try {
-        // Save brand if first time
+        // Save brand to user's doc if it's new
         if (!brandInput.disabled) {
-          await setDoc(doc(db, 'users', currentUser.uid), { brandName });
+          await setDoc(doc(db, 'users', currentUser.uid), { brandName }, { merge: true });
         }
 
-        // Prepare script data
-        const scriptData = { title, description, code, brandName, includeAds, numAds: includeAds ? numAds : 0, getPaid, submittedBy: currentUser.uid, timestamp: Date.now() };
+        const scriptData = {
+          title,
+          description,
+          code,
+          brandName,
+          includeAds,
+          numAds: includeAds ? numAds : 0,
+          getPaid,
+          submittedBy: currentUser.uid,
+          timestamp: Date.now()
+        };
 
         await addDoc(collection(db, 'approved_scripts'), scriptData);
+
         successEl.textContent = '✅ Script published successfully!';
         document.getElementById('scriptForm').reset();
         document.getElementById('numAds').disabled = true;
