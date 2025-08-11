@@ -129,6 +129,9 @@
   const BANNER_KEY = 'gomega_browser_banner_dismissed';
   const THEME_KEY = 'gomega_theme'; // 'dark' or 'light'
 
+  // The exact custom UA you asked for
+  const CUSTOM_UA = 'mozilla/5.0 (X11; CrOS aarch64 13099.85.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.110 Safari/537.36 - Google Search';
+
   // elements
   const qInput = document.getElementById('q');
   const loadBtn = document.getElementById('load');
@@ -138,7 +141,6 @@
   const rawOpen = document.getElementById('rawOpen');
   const banner = document.getElementById('recommendBanner');
   const dismissBanner = document.getElementById('dismissBanner');
-  const toBrowser = document.getElementById('toBrowser');
   const themeToggle = document.getElementById('themeToggle');
   const pageRoot = document.getElementById('pageRoot');
 
@@ -242,19 +244,29 @@
   loadFromQuery();
   showBanner();
 
-  // small browser hint (non-intrusive)
+  // small browser hint (non-intrusive) — now checks for YOUR custom UA first
   (function showBrowserHint(){
-    const ua = navigator.userAgent.toLowerCase();
+    const ua = navigator.userAgent || '';
     let hint = '';
-    if(ua.includes('edg/')) hint = 'Edge detected';
-    else if(ua.includes('chrome') && !ua.includes('edg')) hint = 'Chrome-based browser detected';
-    else if(ua.includes('firefox')) hint = 'Firefox detected';
-    else if(ua.includes('safari') && !ua.includes('chrome')) hint = 'Safari detected';
+
+    // if the UA exactly matches (or contains) the custom UA string, show Gomega Browser detected
+    if(ua === CUSTOM_UA || ua.indexOf(CUSTOM_UA) !== -1){
+      hint = 'Gomega Browser detected — embedded player should work';
+    } else if(ua.toLowerCase().includes('edg/')) {
+      hint = 'Edge detected — embedded player should work';
+    } else if(ua.toLowerCase().includes('chrome') && !ua.toLowerCase().includes('edg')) {
+      hint = 'Chrome-based browser detected — embedded player should work';
+    } else if(ua.toLowerCase().includes('firefox')) {
+      hint = 'Firefox detected — embedded player should work';
+    } else if(ua.toLowerCase().includes('safari') && !ua.toLowerCase().includes('chrome')) {
+      hint = 'Safari detected — embedded player should work';
+    }
+
     if(hint){
       const el = document.createElement('div');
       el.className = 'muted small';
       el.style.marginTop = '10px';
-      el.textContent = hint + ' — embedded player should work';
+      el.textContent = hint;
       document.querySelector('.card').insertBefore(el, document.getElementById('iframeContainer'));
     }
   })();
