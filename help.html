@@ -1,102 +1,247 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Help – Gomega Watch</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Help & Support — Gomega Watch</title>
 
-  <!-- AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2566003301154558" crossorigin="anonymous"></script>
-
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
+  <link rel="stylesheet" href="/style.css">
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background: white; color: black; transition: background 0.3s, color 0.3s; }
-    .dark-mode { background: #121212; color: white; }
-    h1, h2 { margin-bottom: 10px; }
-    section { margin-bottom: 30px; }
-    .faq { border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f9f9f9; }
-    .dark-mode .faq { background: #1f1f1f; border-color: #333; }
-    button { background-color: #3b82f6; color: white; padding: 10px; border: none; border-radius: 8px; cursor: pointer; }
-    button:hover { opacity: 0.9; }
-    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-    .logo img { height: 40px; }
-    footer { margin-top: 40px; text-align: center; font-size: 14px; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-    @media (max-width: 600px) { button { width: 100%; } }
-    #hoverParticles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+    :root{--bg:#ffffff;--card:#f7f9fb;--muted:#6b7280;--accent:#00d4ff;--text:#0f1724}
+    .dark{--bg:#0b0e12;--card:#0f1720;--muted:#9aa4b2;--accent:#00d4ff;--text:#e6eef6}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:var(--bg);color:var(--text);padding:20px;display:flex;flex-direction:column;align-items:center}
+    .wrap{max-width:980px;width:100%}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand img{height:44px}
+    h1{margin:0;font-size:1.4rem}
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{background:var(--accent);color:#021124;padding:8px 12px;border-radius:8px;border:none;font-weight:600;cursor:pointer}
+    .link-btn{background:transparent;color:var(--accent);border:1px solid transparent;padding:6px 10px;border-radius:8px;cursor:pointer}
+
+    .hero{margin:18px 0;padding:18px;border-radius:12px;background:var(--card);display:flex;gap:18px;align-items:center}
+    .hero .left{flex:1}
+
+    .search-row{display:flex;gap:8px;margin:14px 0}
+    .search{flex:1;padding:10px;border-radius:10px;border:1px solid #e6e6e6}
+
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+    .card{background:var(--card);padding:14px;border-radius:10px}
+    .card h3{margin:0 0 8px 0}
+
+    .faq-list{margin-top:18px}
+    details{background:var(--card);padding:12px;border-radius:8px;margin-bottom:8px}
+    summary{cursor:pointer;font-weight:700}
+
+    .steps{display:flex;flex-direction:column;gap:10px}
+    .step{background:linear-gradient(180deg,#ffffff00, #00000000);padding:12px;border-radius:8px;border:1px dashed #e8eef2}
+
+    footer{margin-top:28px;color:var(--muted);text-align:center}
+
+    @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)} }
+    @media (max-width:600px){.grid{grid-template-columns:1fr}.hero{flex-direction:column}}
   </style>
 </head>
 <body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <img src="/assets/logo.png" alt="Gomega logo" onerror="this.style.display='none'">
+        <div>
+          <h1>Help & Support</h1>
+          <div style="font-size:0.9rem;color:var(--muted)">Guides, FAQs, and troubleshooting for Gomega Watch</div>
+        </div>
+      </div>
 
-  <!-- Auth Redirect -->
-  <script type="module">
-    import { auth } from './js/firebase.js';
-    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-    onAuthStateChanged(auth, user => { if (!user) location.href = '/'; });
-  </script>
+      <div class="controls">
+        <button id="darkToggle" class="link-btn" aria-pressed="false">🌓 Dark</button>
+        <button class="btn" onclick="window.location.href='/add-script'">✏️ Add Script</button>
+        <button class="link-btn" onclick="window.location.href='/scripts'">📜 Scripts</button>
+      </div>
+    </header>
 
-  <div class="top-bar">
-    <div class="logo">
-      <img src="assets/logo.png" alt="Gomega Watch Logo">
-      <h1>Help & FAQ</h1>
-    </div>
-    <div style="display:flex; gap:10px;">
-      <button id="darkToggle">🌓 Dark Mode</button>
-      <button onclick="location.href='settings'">⚙️ Settings</button>
-      <button onclick="history.back()">⬅️ Back</button>
-    </div>
+    <section class="hero">
+      <div class="left">
+        <h2 style="margin-top:0">Need help? Start here.</h2>
+        <p style="margin:6px 0 0;color:var(--muted)">Search the FAQs, follow step-by-step troubleshooting, or contact support if you can’t find an answer.</p>
+
+        <div class="search-row">
+          <input id="faqSearch" class="search" placeholder="Search help — try: 'brand', 'ads', 'publish', 'copy'">
+          <button id="openDiscord" class="btn">💬 Ask on Discord</button>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button onclick="location.href='/activate'" class="link-btn">🔑 Activate Browser</button>
+          <button onclick="location.href='/browser'" class="link-btn">⬇️ Download Browser</button>
+          <button onclick="location.href='/help#troubleshooting'" class="link-btn">🛠 Troubleshooting</button>
+        </div>
+      </div>
+
+      <div style="width:260px">
+        <div class="card">
+          <h3>Quick Links</h3>
+          <ul style="padding-left:18px;margin:8px 0 0 0;color:var(--muted)">
+            <li><a href="/add-script">Make a Script</a></li>
+            <li><a href="/scripts">Browse Scripts</a></li>
+            <li><a href="/admin-optout">Admin Opt-Out</a></li>
+            <li><a href="/activate">Activate Browser</a></li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <h3>Contact</h3>
+          <div style="font-size:0.95rem;color:var(--muted)">Support: <a href="mailto:support@gomega.watch">support@gomega.watch</a></div>
+          <div style="margin-top:8px;color:var(--muted)">Discord: <a href="https://discord.gg/kZtW4y2Q7u">Join our server</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h3>How to publish a script</h3>
+        <ol style="color:var(--muted);padding-left:18px;margin:8px 0 0 0">
+          <li>Sign in to your account.</li>
+          <li>Go to <strong>Make a Script</strong> and fill in the title, brand, and code.</li>
+          <li>If you enable ads, choose how many viewers must open them to view your code.</li>
+          <li>Click <strong>Publish Script</strong>. Your script is added to the review queue (or published immediately if your role allows).</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>Earnings & Ads</h3>
+        <p style="color:var(--muted)">If you opt into ads, viewers will be required to open the configured number of ad pages before seeing the script code. Earnings are handled by the publisher's connected account.</p>
+      </div>
+
+      <div class="card">
+        <h3>Brand names</h3>
+        <p style="color:var(--muted)">Brand names are unique and reserved per user. If you already have a brand your input will be locked. Use the brand availability indicator when choosing a name.</p>
+      </div>
+    </section>
+
+    <section id="troubleshooting" style="margin-top:18px">
+      <h2>Troubleshooting</h2>
+      <div class="steps">
+        <div class="step"><strong>Can't sign in?</strong>
+          <div style="color:var(--muted);margin-top:6px">Make sure cookies are enabled and you are using the correct email. If your school account is blocked, contact your IT admin or use a personal email to register.</div>
+        </div>
+
+        <div class="step"><strong>Scripts show 'No scripts found'</strong>
+          <div style="color:var(--muted);margin-top:6px">Try Refresh, check your network console for 404s (scripts/index.json), and ensure files are present under <code>/scripts/</code> on your host.</div>
+        </div>
+
+        <div class="step"><strong>Copy to clipboard fails</strong>
+          <div style="color:var(--muted);margin-top:6px">Some browsers disallow clipboard writes on insecure contexts or without user gesture — use the displayed 'Copy Script' button or highlight + Ctrl+C.</div>
+        </div>
+
+        <div class="step"><strong>Ads opening unexpectedly</strong>
+          <div style="color:var(--muted);margin-top:6px">Ad providers sometimes open new tabs to serve impressions. If an ad provider misbehaves, report it on Discord with a screenshot and URL.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-list">
+      <h2>Frequently Asked Questions</h2>
+
+      <details>
+        <summary>Why can't I choose my brand name?</summary>
+        <div style="color:var(--muted);margin-top:8px">Brands are unique. If a brand is taken it will show as unavailable. Owners can be changed only by contacting support.</div>
+      </details>
+
+      <details>
+        <summary>How do I delete a script?</summary>
+        <div style="color:var(--muted);margin-top:8px">Go to your script entry (you must be signed in with the publishing account). There will be a delete option for scripts you own. If missing, contact support.</div>
+      </details>
+
+      <details>
+        <summary>How long does publish review take?</summary>
+        <div style="color:var(--muted);margin-top:8px">Most publishes are instant. If your account is new or flagged, manual review may take longer — typically 24–72 hours depending on volume.</div>
+      </details>
+
+      <details>
+        <summary>I'm seeing 404s for /firebase-init.js or style.css — what do I do?</summary>
+        <div style="color:var(--muted);margin-top:8px">Confirm the files are uploaded to the same directory as the page and that your hosting configuration serves them. On GitHub Pages ensure correct file names and case-sensitivity.</div>
+      </details>
+
+      <details>
+        <summary>How do I request an opt-out for my school?</summary>
+        <div style="color:var(--muted);margin-top:8px">Use the <a href="/admin-optout">Admin Opt-Out</a> page. Only verified staff with a school email can submit requests.</div>
+      </details>
+    </section>
+
+    <section style="margin-top:18px">
+      <h2>Report a problem</h2>
+      <p style="color:var(--muted)">If you can't resolve the issue, please contact support — include a short description, your account email, and any console errors or screenshots.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <a class="btn" href="mailto:support@gomega.watch?subject=Gomega%20Support%20Request">📧 Email Support</a>
+        <button id="reportDiscord" class="link-btn">💬 Report on Discord</button>
+      </div>
+    </section>
+
+    <footer>
+      <div>Still stuck? Join our Discord or email <a href="mailto:support@gomega.watch">support@gomega.watch</a>.</div>
+      <div style="margin-top:6px;color:var(--muted)">© 2025 Gomega — Built with care.</div>
+    </footer>
   </div>
 
-  <section>
-    <h2>📜 About Gomega Scripts</h2>
-    <p>Gomega Watch lets you browse, download, and share scripts. Some scripts may contain ads to support their creators.</p>
-  </section>
-
-  <section>
-    <h2>✏️ Adding Your Script</h2>
-    <p>Go to <strong>Make a Script</strong> and fill in the form. You’ll choose a <strong>brand name</strong> (unique per user), description, and your script code. Ads are optional.</p>
-    <p><strong>Note:</strong> Brand names must be unique. If your chosen name is taken, you’ll be asked to pick another.</p>
-  </section>
-
-  <section>
-    <h2>💰 Ads & Earnings</h2>
-    <p>If you enable ads, viewers must open the set number of ads before accessing your script. Revenue is shared with the publisher.</p>
-  </section>
-
-  <section>
-    <h2>👤 Accounts</h2>
-    <p>Sign in with a verified email to create scripts or submit opt-out requests. School emails get special permissions for certain features.</p>
-  </section>
-
-  <section class="faq">
-    <h2>❓ FAQ</h2>
-    <p><strong>Q:</strong> Why can't I pick my brand name?<br>
-       <strong>A:</strong> Brand names are unique. If it’s taken, try adding a number or variation.</p>
-    <p><strong>Q:</strong> How do I earn from ads?<br>
-       <strong>A:</strong> Enable ads when submitting your script. Earnings go to the publisher set in the script.</p>
-    <p><strong>Q:</strong> How are popular scripts decided?<br>
-       <strong>A:</strong> Based on how many times users click “Get Script.”</p>
-    <p><strong>Q:</strong> Can I delete my script?<br>
-       <strong>A:</strong> Yes, as long as you’re signed in with the same account you used to create it.</p>
-  </section>
-
-  <footer>
-    <a href="https://discord.gg/kZtW4y2Q7u" target="_blank">💬 Join our Discord</a>
-  </footer>
-
-  <canvas id="hoverParticles"></canvas>
-
   <script>
-    document.getElementById('darkToggle').onclick = () => document.body.classList.toggle('dark-mode');
+    (async function () {
+      // Lightweight auth guard: load firebase modules dynamically so we don't use top-level import declarations inside blocks
+      try {
+        const firebaseMod = await import('./js/firebase.js'); // your local firebase init module that exports `auth`
+        // firebase-auth module from CDN (exports onAuthStateChanged)
+        const fbAuthModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        const auth = firebaseMod.auth;
+        const onAuthStateChanged = fbAuthModule.onAuthStateChanged;
+        if (auth && typeof onAuthStateChanged === 'function') {
+          onAuthStateChanged(auth, user => { if (!user) location.href = '/'; });
+        }
+      } catch (e) {
+        // If dynamic import fails (module not present on static hosting) we silently continue
+        // so the help page still loads without error.
+        console.warn('Firebase modules not loaded (auth guard skipped).', e);
+      }
 
-    const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
-    function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
-    window.addEventListener('resize', resize); resize();
-    document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
-    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = `rgba(0,217,255,${p.life/60})`; ctx.fill(); }); requestAnimationFrame(draw); })();
+      // simple dark-mode toggle persisted to localStorage
+      const btn = document.getElementById('darkToggle');
+      const saved = localStorage.getItem('gomega_dark');
+      function applyDark(val){
+        if(val){
+          document.documentElement.classList.add('dark');
+          btn.textContent='☀️ Light';
+          btn.setAttribute('aria-pressed','true');
+        } else {
+          document.documentElement.classList.remove('dark');
+          btn.textContent='🌓 Dark';
+          btn.setAttribute('aria-pressed','false');
+        }
+      }
+      applyDark(saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      btn.addEventListener('click', ()=>{
+        const on = !document.documentElement.classList.contains('dark');
+        applyDark(on);
+        localStorage.setItem('gomega_dark', on ? '1':'0');
+      });
+
+      // FAQ search: filter details elements
+      const faqSearch = document.getElementById('faqSearch');
+      if (faqSearch) {
+        faqSearch.addEventListener('input', ()=>{
+          const q = faqSearch.value.trim().toLowerCase();
+          document.querySelectorAll('.faq-list details').forEach(d=>{
+            const text = (d.textContent || '').toLowerCase();
+            d.style.display = text.includes(q) ? '' : 'none';
+          });
+        });
+      }
+
+      // Discord / contact handlers
+      const openDiscord = document.getElementById('openDiscord');
+      if (openDiscord) openDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
+
+      const reportDiscord = document.getElementById('reportDiscord');
+      if (reportDiscord) reportDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
+    })();
   </script>
-
 </body>
 </html>
