@@ -60,7 +60,6 @@
     }
     .banner .left{display:flex;gap:12px;align-items:center;flex:1}
     .banner .cta{display:flex;gap:8px}
-    pre.ua {background:rgba(0,0,0,0.05);padding:8px;border-radius:6px;color:var(--text);overflow:auto;margin:0}
     .chip{font-size:12px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,0.06);color:var(--muted)}
     .row{display:flex;gap:8px;align-items:center}
     @media (max-width:560px){.controls{flex-direction:column;align-items:stretch}.meta-row{flex-direction:column;align-items:flex-start}.banner{flex-direction:column;align-items:stretch}}
@@ -102,17 +101,6 @@
         <button id="openSpotify" class="ghost" title="Open in Spotify web player">Open in Spotify</button>
       </div>
 
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-        <div style="flex:1">
-          <div class="muted small">Detected navigator.userAgent:</div>
-          <pre id="ua" class="ua">detecting…</pre>
-        </div>
-        <div style="min-width:180px;display:flex;gap:8px;align-items:center">
-          <button id="copyUa" class="ghost">Copy UA</button>
-          <button id="verifyUa" class="ghost">Verify</button>
-        </div>
-      </div>
-
       <div id="iframeContainer" class="iframe-wrap" aria-live="polite">
         <!-- iframe will be injected here -->
       </div>
@@ -140,16 +128,14 @@
   const defaultOpenUrl = 'https://open.spotify.com/playlist/1GuJrX0LabE2iHtlisOv9E';
   const BANNER_KEY = 'gomega_browser_banner_dismissed';
   const THEME_KEY = 'gomega_theme'; // 'dark' or 'light'
-  // helpers
+
+  // elements
   const qInput = document.getElementById('q');
   const loadBtn = document.getElementById('load');
   const iframeContainer = document.getElementById('iframeContainer');
   const embedInfo = document.getElementById('embedInfo');
   const openSpotify = document.getElementById('openSpotify');
   const rawOpen = document.getElementById('rawOpen');
-  const uaPre = document.getElementById('ua');
-  const copyUa = document.getElementById('copyUa');
-  const verifyUa = document.getElementById('verifyUa');
   const banner = document.getElementById('recommendBanner');
   const dismissBanner = document.getElementById('dismissBanner');
   const toBrowser = document.getElementById('toBrowser');
@@ -201,36 +187,15 @@
     qInput.value = q || '';
   }
 
-  // UA display + banner logic
-  function showUAandBanner(){
-    const currentUA = navigator.userAgent || '';
-    uaPre.textContent = currentUA;
-
+  // banner logic (dismissible)
+  function showBanner(){
     const dismissed = localStorage.getItem(BANNER_KEY) === '1';
-    // Show banner unless dismissed. Banner is a recommendation only.
     if(!dismissed){
       banner.style.display = 'flex';
     } else {
       banner.style.display = 'none';
     }
   }
-
-  // copy UA
-  copyUa.addEventListener('click', async ()=>{
-    try{
-      await navigator.clipboard.writeText(navigator.userAgent || '');
-      copyUa.textContent = 'Copied!';
-      setTimeout(()=> copyUa.textContent = 'Copy UA', 1400);
-    }catch(e){
-      copyUa.textContent = 'Copy failed';
-      setTimeout(()=> copyUa.textContent = 'Copy UA', 1400);
-    }
-  });
-
-  // verify UA (simple visual feedback)
-  verifyUa.addEventListener('click', ()=>{
-    alert('navigator.userAgent:\\n\\n' + (navigator.userAgent || 'unknown'));
-  });
 
   // dismiss banner
   dismissBanner.addEventListener('click', ()=>{
@@ -252,14 +217,10 @@
     const current = localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
     applyTheme(current === 'light' ? 'dark' : 'light');
   });
-  // init theme from storage or system
   (function initTheme(){
     const saved = localStorage.getItem(THEME_KEY);
     if(saved) applyTheme(saved);
-    else {
-      // prefer dark by default
-      applyTheme('dark');
-    }
+    else applyTheme('dark');
   })();
 
   // load button: update embed & URL
@@ -279,9 +240,9 @@
 
   // initial load
   loadFromQuery();
-  showUAandBanner();
+  showBanner();
 
-  // If you want: show a small pixel that indicates if UA contains "Chrome" / "Firefox" etc.
+  // small browser hint (non-intrusive)
   (function showBrowserHint(){
     const ua = navigator.userAgent.toLowerCase();
     let hint = '';
