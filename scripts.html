@@ -102,7 +102,7 @@
 
   <script type="module">
     import { db } from './js/firebase.js';
-    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { collection, onSnapshot, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
@@ -243,7 +243,7 @@
       scripts.forEach(script => {
         const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
-        const publisher = script.brandName || 'Admin';
+        const publisher = script.brandName || 'Unknown';
         const remoteClicks = getRemoteClicks(script);
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
@@ -311,13 +311,33 @@
           }
 
           // increment local popularity
-          const newLocal = incLocalClicks(id);
-          // update shown popularity count in the card
+          // Attempt to persist the click to Firestore for global counts. If that fails, fall back to local storage.
+          let remoteUpdated = false;
+          try {
+            // only try remote update for scripts that came from Firestore (i.e. have a remote doc id)
+            const isRemoteDoc = allRemote.some(r => r.id === id);
+            if (isRemoteDoc) {
+              const docRef = doc(db, 'approved_scripts', id);
+              await updateDoc(docRef, { clicks: increment(1) });
+              remoteUpdated = true;
+            }
+          } catch (err) {
+            console.error('Failed to update remote clicks:', err);
+            remoteUpdated = false;
+          }
+
+          // If remote update failed (or script is local-only), increment local counter so user still sees feedback
+          if (!remoteUpdated) {
+            incLocalClicks(id);
+          }
+
+          // Update UI immediately to reflect change: use remote value + local value (+1 pre-emptively if remote updated)
           const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
           if (card) {
             const popEl = card.querySelector('.popularity');
-            const remote = getRemoteClicks(script);
-            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
+            const remoteVal = getRemoteClicks(script) + (remoteUpdated ? 1 : 0);
+            const localVal = getLocalClicks(id);
+            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remoteVal + localVal} clicks`;
           }
 
           // Show copy button after revealing code (like original logic)
@@ -418,15 +438,15 @@
     // settings & make script buttons
     document.getElementById('settingsBtn').addEventListener('click', () => {
       // simple placeholder: open settings page or modal
-      if (location.pathname.endsWith('/scripts')) {
+      if (location.pathname.endsWith('/scripts.html')) {
         // try to open "settings.html" if it exists, otherwise alert
-        window.location.href = '/settings';
+        window.location.href = '/settings.html';
       } else {
         alert('Open settings (not implemented)');
       }
     });
     document.getElementById('makeScriptBtn').addEventListener('click', () => {
-      window.location.href = '/add-script';
+      window.location.href = '/add-script.html';
     });
 
   </script>
