@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Global Dark Theme */
+    /* Same dark theme styles as before */
     body {
       font-family: Arial, sans-serif;
       background: #121212;
@@ -14,7 +14,6 @@
       margin: 0;
       padding: 20px;
     }
-
     .container {
       max-width: 600px;
       margin: auto;
@@ -22,55 +21,27 @@
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-      animation: fadeIn 0.4s ease-in-out;
     }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #00d4ff;
-    }
-
+    h1 { text-align: center; color: #00d4ff; }
     .form-group { margin-bottom: 15px; }
-
-    label {
-      display: block;
-      font-weight: bold;
-      margin-bottom: 5px;
-      color: #ccc;
-    }
-
-    input[type="text"], input[type="number"], textarea {
+    label { display: block; margin-bottom: 5px; color: #ccc; font-weight: bold; }
+    input, textarea {
       width: 100%;
       padding: 10px;
       border: 1px solid #333;
       border-radius: 6px;
       background: #2a2a2a;
       color: #f5f5f5;
-      transition: border-color 0.3s, box-shadow 0.3s;
     }
-
     input:focus, textarea:focus {
       border-color: #00d4ff;
-      box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
       outline: none;
+      box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
     }
-
     textarea { resize: vertical; }
-
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #ddd;
-    }
-
-    .checkbox-group input { width: auto; }
-
+    .checkbox-group { display: flex; align-items: center; gap: 8px; color: #ddd; }
     #numAds { max-width: 100px; }
-
     .btn {
-      display: block;
       width: 100%;
       background: linear-gradient(90deg, #00d4ff, #0066ff);
       color: white;
@@ -80,44 +51,14 @@
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
-      transition: background 0.3s, transform 0.2s;
     }
-
     .btn:hover:not(:disabled) {
       background: linear-gradient(90deg, #00f7ff, #3399ff);
-      transform: translateY(-2px);
     }
-
-    .btn:disabled {
-      background: #444;
-      cursor: not-allowed;
-    }
-
-    #successMsg {
-      color: #4caf50;
-      text-align: center;
-      margin-top: 15px;
-      font-weight: bold;
-    }
-
-    #errorMsg {
-      color: #ff5252;
-      text-align: center;
-      margin-top: 15px;
-      font-weight: bold;
-    }
-
+    .btn:disabled { background: #444; cursor: not-allowed; }
+    #successMsg { color: #4caf50; text-align: center; font-weight: bold; }
+    #errorMsg { color: #ff5252; text-align: center; font-weight: bold; }
     small { color: #999; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @media (max-width: 600px) {
-      body { padding: 10px; }
-      .container { padding: 15px; }
-    }
   </style>
 </head>
 <body>
@@ -168,12 +109,10 @@
 
     let currentUser;
 
-    // Enable/disable numAds
     document.getElementById('includeAds').addEventListener('change', e => {
       document.getElementById('numAds').disabled = !e.target.checked;
     });
 
-    // Auth check and load user's brand
     onAuthStateChanged(auth, async user => {
       if (!user) return location.href = "/";
       currentUser = user;
@@ -207,7 +146,6 @@
       const numAds = parseInt(document.getElementById('numAds').value);
       const getPaid = document.getElementById('getPaid').checked;
 
-      // Basic validation
       if (!title || !code || !brandName) {
         errorEl.textContent = 'Please fill in title, code, and brand.';
         submitBtn.disabled = false;
@@ -219,19 +157,22 @@
         return;
       }
 
-      // Check duplicate brand
+      // 🔍 Check for duplicate brand name if brand is still editable
       if (!brandInput.disabled) {
-        const q = query(collection(db, 'users'), where('brandName', '==', brandName));
+        const q = query(
+          collection(db, 'users'),
+          where('brandName', '==', brandName)
+        );
         const snap = await getDocs(q);
         if (!snap.empty) {
-          errorEl.textContent = '🚫 That brand name is already taken by another user.';
+          errorEl.textContent = '🚫 Someone has already picked this brand name.';
           submitBtn.disabled = false;
           return;
         }
       }
 
       try {
-        // Save brand to user's doc if it's new
+        // Save brand to user profile if it's new
         if (!brandInput.disabled) {
           await setDoc(doc(db, 'users', currentUser.uid), { brandName }, { merge: true });
         }
