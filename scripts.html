@@ -70,7 +70,7 @@
       <button id="settingsBtn">⚙️ Settings</button>
       <button id="makeScriptBtn">✏️ Make a Script</button>
 
-      <!-- ADDED: pending indicator -->
+      <!-- Pending indicator -->
       <div id="pendingIndicator" title="Pending increments that couldn't write to Firestore">
         <span id="pendingCount">Pending: 0</span>
         <button id="syncPendingBtn">Sync pending</button>
@@ -111,14 +111,8 @@
   <canvas id="hoverParticles"></canvas>
 
   <script type="module">
-    /* ===========================
-       MAIN MODULE SCRIPT (with debug helpers)
-       =========================== */
-
-    // core firebase imports
-    import { db } from './js/firebase.js';
-
-    // Firestore helpers
+    // Core imports
+    import { db, auth } from './js/firebase.js';
     import {
       collection,
       onSnapshot,
@@ -128,9 +122,7 @@
       increment
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // debug / auth helpers
-    import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, onAuthStateChanged, getIdTokenResult } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
@@ -170,51 +162,6 @@
       const el = document.getElementById('pendingCount');
       if (el) el.textContent = `Pending: ${count}`;
     }
-
-    // ========== DEBUG HELPERS (Option 1) ==========
-    const dbg = (...args) => console.log('[DBG]', ...args);
-
-    try {
-      const app = getApp();
-      dbg('Firebase app name:', app.name);
-      dbg('Firebase projectId:', app.options && app.options.projectId);
-    } catch (e) {
-      dbg('No firebase app found (getApp() failed):', e);
-    }
-
-    // Log auth state & token claims
-    try {
-      const ga = getAuth();
-      ga.onAuthStateChanged && ga.onAuthStateChanged(async user => {
-        dbg('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
-        if (user) {
-          try {
-            const token = await user.getIdTokenResult();
-            dbg('ID token claims:', token && token.claims);
-          } catch (err) {
-            dbg('Failed to getIdTokenResult:', err);
-          }
-        }
-      });
-    } catch (e) {
-      dbg('getAuth() failed:', e);
-    }
-
-    // Wrapper to log update attempts and results
-    async function safeUpdateDocWithLog(docRef, payload) {
-      try {
-        dbg('Attempting updateDoc:', docRef && (docRef.path || docRef), 'payload:', payload);
-      } catch (e) { console.log('dbg failed', e); }
-
-      try {
-        await updateDoc(docRef, payload);
-        dbg('updateDoc succeeded for', docRef && (docRef.path || docRef));
-      } catch (err) {
-        dbg('updateDoc failed:', err && err.code, err && err.message, err);
-        throw err;
-      }
-    }
-    // ========== end DEBUG HELPERS ==========
 
     // helper: safely read timestamp in ms
     function scriptTimestampMs(s) {
@@ -286,7 +233,7 @@
       }
     }
 
-    // local scripts loader
+    // local scripts loader (improved: attach stable ids based on filename or title)
     async function loadLocal() {
       try {
         const res = await fetch('scripts/index.json');
@@ -315,8 +262,10 @@
 
     // Combined filter, sort, paginate, render
     function applyFiltersAndRender() {
+      // merge with consistent ids: prefer remote id for remote items, local id for local
       const merged = [...(allRemote || []), ...(allLocal || [])];
 
+      // search filter
       const term = (searchTerm || '').trim().toLowerCase();
       let filtered = merged.filter(s => {
         if (!term) return true;
@@ -326,6 +275,7 @@
         return false;
       });
 
+      // sorting
       if (currentSort === 'newest') {
         filtered.sort((a,b) => scriptTimestampMs(b) - scriptTimestampMs(a));
       } else if (currentSort === 'oldest') {
@@ -334,10 +284,12 @@
         filtered.sort((a,b) => popularityScore(b) - popularityScore(a));
       }
 
+      // store fullFiltered for load more
       window.__gomega_fullFiltered = filtered;
 
       renderScripts(filtered.slice(0, visibleCount));
 
+      // update script count summary
       document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} scripts`;
     }
 
@@ -357,59 +309,67 @@
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
 
+        // admin badge (kept for visual, does not affect filtering)
         const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
-        list.insertAdjacentHTML('beforeend',
-          `<div class="script-card" data-script-id="${id}">
-            <h2>${escapeHtml(script.title || 'Untitled')}</h2>
-            <p>${escapeHtml(script.description || 'No description.')}</p>
-            <div class="script-meta">
-              <p class="info"><strong>Publisher:</strong> ${escapeHtml(publisher)} ${adminBadge}</p>
-              <p class="info"><strong>Ads:</strong> ${escapeHtml(adsInfo)}</p>
-              <p class="popularity"><strong>Popularity:</strong> ${totalClicks} clicks</p>
-            </div>
-            ${script.getPaid ? `<p class="info">💰 Publisher will earn revenue</p>` : ''}
-            <button class="get-btn" data-id="${id}">📥 Get Script</button>
-            <button class="copy-btn" data-id="${id}" style="display:none;">📋 Copy Script</button>
-            <pre id="code-${id}" style="display:none;">${escapeHtml(script.code || '')}</pre>
-          </div>`
-        );
+        // Build HTML for each card safely
+        const cardHtml =
+          '<div class="script-card" data-script-id="' + id + '">' +
+            '<h2>' + escapeHtml(script.title || 'Untitled') + '</h2>' +
+            '<p>' + escapeHtml(script.description || 'No description.') + '</p>' +
+            '<div class="script-meta">' +
+              '<p class="info"><strong>Publisher:</strong> ' + escapeHtml(publisher) + ' ' + adminBadge + '</p>' +
+              '<p class="info"><strong>Ads:</strong> ' + escapeHtml(adsInfo) + '</p>' +
+              '<p class="popularity"><strong>Popularity:</strong> ' + totalClicks + ' clicks</p>' +
+            '</div>' +
+            (script.getPaid ? '<p class="info">💰 Publisher will earn revenue</p>' : '') +
+            '<button class="get-btn" data-id="' + id + '">📥 Get Script</button>' +
+            '<button class="copy-btn" data-id="' + id + '" style="display:none;">📋 Copy Script</button>' +
+            '<pre id="code-' + id + '" style="display:none;">' + escapeHtml(script.code || '') + '</pre>' +
+          '</div>';
+
+        list.insertAdjacentHTML('beforeend', cardHtml);
       });
-      attachUnlockHandlers();
+      attachUnlockHandlers(); // reattach handlers to new DOM
     }
 
-    // Try flushing pending increments to Firestore (uses debug wrapper)
+    // Utility: safe updateDoc wrapper that logs and throws
+    async function safeUpdateDocWithLog(docRef, payload) {
+      console.log('[DBG] Attempting updateDoc:', docRef && docRef.path ? docRef.path : docRef, payload);
+      try {
+        await updateDoc(docRef, payload);
+        console.log('[DBG] updateDoc succeeded for', docRef && docRef.path ? docRef.path : docRef);
+      } catch (err) {
+        console.warn('[DBG] updateDoc failed:', err && err.code, err && err.message);
+        throw err;
+      }
+    }
+
+    // Try flushing pending increments to Firestore
     async function tryFlushPending() {
       const q = readPending();
       if (!q || q.length === 0) {
         updatePendingUI();
         return;
       }
-      // attempt sequentially (so we can stop on permission errors)
+      // attempt sequentially
       for (let i = 0; i < q.length; i++) {
-        const item = q[i];
+        const item = q[0]; // always top of queue
         try {
           const fsId = item.id;
           const scriptRef = doc(db, 'approved_scripts', fsId);
-          // replaced updateDoc with safe wrapper for logging
-          try {
-            await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
-            // if success, remove first item and continue
-            popPending();
-            i--; // adjust index because we popped front
-          } catch (err) {
-            // If permission denied, stop trying further: rules need change
-            if (err && err.code === 'permission-denied') {
-              console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
-              break;
-            } else {
-              console.warn('Flush attempt failed for', item.id, err);
-              break;
-            }
-          }
+          await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
+          // if success, remove first item and continue
+          popPending();
+          // continue to next item
         } catch (err) {
-          console.warn('tryFlushPending internal error', err);
-          break;
+          if (err && err.code === 'permission-denied') {
+            console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
+            break;
+          } else {
+            console.warn('Flush attempt failed for', item.id, err);
+            break;
+          }
         }
       }
       updatePendingUI();
@@ -418,14 +378,16 @@
     // attach handlers — increment local clicks and show code like before
     function attachUnlockHandlers() {
       document.querySelectorAll('.get-btn').forEach(btn => {
+        // clear any previous handlers
         btn.onclick = null;
-        btn.addEventListener('click', async (evt) => {
+        btn.addEventListener('click', async () => {
           try {
             const id = btn.dataset.id;
+            // find script in merged arrays
             const merged = [...allRemote, ...allLocal];
             const script = merged.find(s => normalizeId(s) === id);
-            const box = document.getElementById(`code-${id}`);
-            const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
+            const box = document.getElementById('code-' + id);
+            const copyBtn = document.querySelector('.copy-btn[data-id="' + id + '"]');
 
             if (!script) {
               alert('Script not found.');
@@ -433,7 +395,7 @@
             }
 
             if (script.includeAds && script.numAds > 0) {
-              if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
+              if (!confirm('You must view ' + script.numAds + ' ad' + (script.numAds > 1 ? 's' : '') + '.')) return;
               let openedAds = 0;
               while (openedAds < script.numAds) {
                 window.open('https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2', '_blank');
@@ -442,14 +404,18 @@
               }
             }
 
+            // show code
             if (box) {
               box.style.display = 'block';
               box.textContent = script.code || '';
             }
 
+            // copy to clipboard attempt (like original)
             try {
               await navigator.clipboard.writeText(script.code || '');
+              alert('✅ Copied to clipboard!');
             } catch {
+              // don't interrupt flow if clipboard fails
               console.warn('Clipboard write failed (possibly insecure context).');
             }
 
@@ -462,38 +428,31 @@
             if (fsCandidate) {
               try {
                 const scriptRef = doc(db, 'approved_scripts', fsCandidate);
-                // replaced updateDoc with safe wrapper for logging
+                await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
+              } catch (uErr) {
+                // fallback: try setDoc merge
+                console.warn('updateDoc failed:', uErr);
                 try {
-                  await safeUpdateDocWithLog(scriptRef, { clicks: increment(1) });
-                } catch (uErr) {
-                  console.warn('updateDoc failed:', uErr);
-                  if (uErr && uErr.code === 'permission-denied') {
-                    enqueuePending(fsCandidate);
-                  } else {
-                    try {
-                      await setDoc(doc(db,'approved_scripts',fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
-                    } catch (sErr) {
-                      console.warn('setDoc fallback failed:', sErr);
-                      enqueuePending(fsCandidate);
-                    }
-                  }
+                  await setDoc(doc(db, 'approved_scripts', fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
+                } catch (sErr) {
+                  console.error('setDoc fallback failed:', sErr);
+                  // permission-denied or other error -> queue for later
+                  enqueuePending(fsCandidate);
                 }
-              } catch (err) {
-                console.error('Failed to attempt firestore update:', err);
-                enqueuePending(fsCandidate);
               }
             } else {
               enqueuePending(id);
             }
 
             // update shown popularity count in the card immediately
-            const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
+            const card = document.querySelector('.script-card[data-script-id="' + id + '"]');
             if (card) {
               const popEl = card.querySelector('.popularity');
               const remote = getRemoteClicks(script);
-              if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
+              if (popEl) popEl.innerHTML = '<strong>Popularity:</strong> ' + (remote + newLocal) + ' clicks';
             }
 
+            // Show copy button after revealing code (like original logic)
             if (copyBtn) copyBtn.style.display = 'inline-block';
 
           } catch (err) {
@@ -503,4 +462,140 @@
         });
       });
 
-      document.querySelectorAll('.copy
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.onclick = null;
+        btn.addEventListener('click', () => {
+          try {
+            const id = btn.dataset.id;
+            const codeEl = document.getElementById('code-' + id);
+            const code = codeEl ? codeEl.textContent : '';
+            navigator.clipboard.writeText(code).then(() => {
+              alert('✅ Script copied!');
+            }).catch(() => {
+              alert('⚠️ Could not copy script.');
+            });
+          } catch (err) {
+            console.error('Copy handler error:', err);
+            alert('Could not copy (check console).');
+          }
+        });
+      });
+    }
+
+    // search input
+    document.getElementById('searchBox').addEventListener('input', e => {
+      searchTerm = e.target.value;
+      visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || visibleCount;
+      applyFiltersAndRender();
+    });
+
+    // sort select
+    document.getElementById('sortSelect').addEventListener('change', e => {
+      currentSort = e.target.value;
+      applyFiltersAndRender();
+    });
+
+    // per page
+    document.getElementById('perPageSelect').addEventListener('change', e => {
+      visibleCount = parseInt(e.target.value, 10) || visibleCount;
+      applyFiltersAndRender();
+    });
+
+    // refresh
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      // re-run loaders
+      loadLocal();
+      loadRemote();
+    });
+
+    // load more button
+    document.getElementById('loadMoreBtn').addEventListener('click', () => {
+      const add = parseInt(document.getElementById('perPageSelect').value, 10) || 10;
+      visibleCount += add;
+      // if we have a cached filtered list, just show more
+      if (window.__gomega_fullFiltered) {
+        renderScripts(window.__gomega_fullFiltered.slice(0, visibleCount));
+        document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}`;
+      } else {
+        applyFiltersAndRender();
+      }
+    });
+
+    // util: escape html to prevent accidental injection when rendering code elements
+    function escapeHtml(unsafe) {
+      if (unsafe === undefined || unsafe === null) return '';
+      return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // init loaders & pending UI
+    updatePendingUI();
+    loadLocal();
+    loadRemote();
+
+    // Try flushing pending when auth state changes (if you have firebase auth exposed)
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        tryFlushPending();
+      }
+    });
+
+    // pending UI button
+    document.getElementById('syncPendingBtn').addEventListener('click', async () => {
+      await tryFlushPending();
+      alert('Sync attempt finished (check console for details).');
+    });
+
+    // ------------------ Dark mode handling (fixed + persisted)
+    const darkToggle = document.getElementById('darkToggle');
+    function applyDarkModeState(on) {
+      if (on) {
+        document.body.classList.add('dark-mode');
+        darkToggle.textContent = '🌙 Dark';
+      } else {
+        document.body.classList.remove('dark-mode');
+        darkToggle.textContent = '☀️ Light';
+      }
+    }
+    // initialize from localStorage
+    const saved = localStorage.getItem('gomega_dark');
+    const initialDark = saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyDarkModeState(initialDark);
+
+    darkToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('gomega_dark', isDark ? '1' : '0');
+      applyDarkModeState(isDark);
+    });
+
+    // settings & make script buttons
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+      // simple placeholder: open settings page or modal
+      if (location.pathname.endsWith('/scripts')) {
+        // try to open "settings.html" if it exists, otherwise alert
+        window.location.href = '/settings';
+      } else {
+        alert('Open settings (not implemented)');
+      }
+    });
+    document.getElementById('makeScriptBtn').addEventListener('click', () => {
+      window.location.href = '/add-script';
+    });
+
+  </script>
+
+  <script>
+    // particle background (unchanged visually, fixed color string)
+    const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
+    function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+    window.addEventListener('resize', resize); resize();
+    document.addEventListener('mousemove', e => { for (let i = 0; i < 3; i++) particles.push({ x: e.clientX, y: e.clientY, r: Math.random() * 2 + 1, vx: Math.random() * 2 - 1, vy: Math.random() * 2 - 1, life: 60 }); });
+    (function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = particles.filter(p => p.life > 0); particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(0,217,255,' + (p.life/60) + ')'; ctx.fill(); }); requestAnimationFrame(draw); })();
+  </script>
+
+</body>
+</html>
