@@ -243,7 +243,7 @@
       scripts.forEach(script => {
         const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
-        const publisher = script.brandName || 'Unknown';
+        const publisher = script.brandName || 'Admin';
         const remoteClicks = getRemoteClicks(script);
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
