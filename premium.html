@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gomega Premium — Plans & Pricing</title>
+  <meta name="description" content="Upgrade to Gomega Premium: Basic, Advanced, or Black Express — early betas, Browser++, Music Premium, paid script uploads and more.">
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa5b1; --accent:#6ee7b7; --accent-2:#60a5fa; --glass: rgba(255,255,255,0.04);
+      --radius:14px; --gap:18px; --maxw:1100px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:#e6eef6;background:linear-gradient(180deg,#071026 0%, #071427 60%);-webkit-font-smoothing:antialiased}
+    .wrap{max-width:var(--maxw);margin:40px auto;padding:28px}
+    header{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:22px}
+    .brand{display:flex;gap:14px;align-items:center}
+    .logo{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;font-weight:700;color:#012;box-shadow:0 6px 30px rgba(6,12,24,0.6)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .toggle{display:inline-flex;gap:8px;align-items:center;background:var(--glass);padding:6px;border-radius:999px}
+    .switch{position:relative;width:62px;height:30px;background:rgba(255,255,255,0.06);border-radius:999px;padding:3px;cursor:pointer}
+    .knob{position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:white;transition:all .22s}
+    .switch.yearly .knob{left:35px}
+
+    main{display:grid;grid-template-columns:1fr 340px;gap:22px}
+
+    .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    .card .title{display:flex;align-items:center;justify-content:space-between}
+    .plan-name{font-weight:700}
+    .price{font-size:28px;font-weight:800;margin:16px 0}
+    .per{color:var(--muted);font-size:13px}
+    ul.features{list-style:none;padding:0;margin:10px 0 18px 0}
+    ul.features li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;color:var(--muted);font-size:13px}
+    .cta{display:inline-block;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#022; font-weight:700;text-decoration:none}
+
+    .badge{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.04);font-size:12px;color:var(--muted)}
+
+    aside{position:relative}
+    .summary{position:sticky;top:24px;padding:18px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+    .summary h3{margin:0 0 8px 0}
+    .perks{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .perk{display:flex;gap:10px;align-items:flex-start}
+    .perk svg{flex-shrink:0}
+
+    .compare{margin-top:18px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+    table{width:100%;border-collapse:collapse;background:rgba(255,255,255,0.01)}
+    th,td{padding:10px;font-size:13px;color:var(--muted);text-align:left}
+    th{background:rgba(255,255,255,0.02);color:#cfeaf2;font-weight:700}
+    td{border-top:1px solid rgba(255,255,255,0.02)}
+
+    footer{margin-top:30px;color:var(--muted);font-size:13px}
+
+    @media (max-width:980px){main{grid-template-columns:1fr} .plans{grid-template-columns:repeat(1,1fr)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">G</div>
+        <div>
+          <h1>Gomega Premium</h1>
+          <p class="lead">Choose a plan for early access, creator payouts, premium Browser features and more.</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="badge">Secure checkout</div>
+        <div class="toggle" aria-hidden="true">
+          <div style="font-size:13px;color:var(--muted)">BILL</div>
+          <div id="billingSwitch" class="switch" role="button" aria-pressed="false" tabindex="0" title="Toggle monthly/yearly">
+            <div class="knob"></div>
+          </div>
+          <div style="font-size:13px;color:var(--muted)">/MO</div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <div class="plans" id="plansContainer">
+          <!-- JS will inject plan cards here -->
+        </div>
+
+        <footer>
+          <strong>14-day money-back guarantee</strong> • Cancel anytime. Prices shown in USD. Want annual billing or team seats? <a href="/contact" style="color:var(--accent-2);">Contact us</a>.
+        </footer>
+      </section>
+
+      <aside>
+        <div class="summary">
+          <h3>Why go Premium?</h3>
+          <p class="lead">Unlock the best of Gomega: beat features, priority support, payouts for creators and more.</p>
+
+          <div class="perks">
+            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12l5 5L20 7" stroke="#6EE7B7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Paid creator uploads</strong><div style="color:var(--muted);font-size:13px">Earn revenue when your scripts are downloaded or used.</div></div></div>
+            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2v20" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h20" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Early access & betas</strong><div style="color:var(--muted);font-size:13px">Try new pages, Browser++ features and music releases before anyone else.</div></div></div>
+            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#FBBF24" stroke-width="2"/><path d="M12 7v5l3 3" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Priority support</strong><div style="color:var(--muted);font-size:13px">Faster help from our team and access to private support channel.</div></div></div>
+          </div>
+
+          <div class="compare">
+            <table aria-label="Plan comparison">
+              <thead><tr><th>Feature</th><th>Basic</th><th>Advanced</th><th>Black Express</th></tr></thead>
+              <tbody id="compareBody">
+                <!-- injected -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // Plan data — you can edit prices here
+    const plans = [
+      {
+        id: 'basic',
+        name: 'Basic',
+        monthly: 4.99,
+        yearly: 49.99, // save ~2 months
+        desc: 'Great for individual testers and casual creators',
+        features: [
+          'Early access to all BETA features',
+          'Early access to Gomega Browser++ (core features)',
+          'Gomega Music Premium (limited)',
+          'Get paid from uploading scripts (revenue share, payouts monthly)',
+          'Early access to new pages',
+          '5 script uploads / mo',
+          'Standard support'
+        ]
+      },
+      {
+        id: 'advanced',
+        name: 'Advanced',
+        monthly: 9.99,
+        yearly: 99.99,
+        desc: 'For power users, creators and small teams',
+        featured: true,
+        features: [
+          'Everything in Basic',
+          'Full Gomega Browser++ access (advanced toggles)',
+          'Gomega Music Premium (full)',
+          'Higher revenue share & faster payouts',
+          'Priority support + private Discord channel',
+          '25 script uploads / mo',
+          'Advanced analytics for your uploads'
+        ]
+      },
+      {
+        id: 'black',
+        name: 'Black Express',
+        monthly: 24.99,
+        yearly: 249.99,
+        desc: 'For creators, teams and power contributors — fastest access',
+        premium: true,
+        features: [
+          'Everything in Advanced',
+          'Immediate access to all betas (including Server/Dev features)',
+          'Highest revenue share + instant payouts option',
+          'White-glove onboarding & dedicated rep',
+          'Unlimited script uploads',
+          'Private roadmap calls and feature requests',
+          'Custom themes & branding for your profile/pages'
+        ]
+      }
+    ];
+
+    const billing = {period: 'monthly'}; // monthly | yearly
+
+    function formatPrice(n){
+      return n.toLocaleString('en-US', {style:'currency',currency:'USD',maximumFractionDigits:2});
+    }
+
+    function renderPlans(){
+      const container = document.getElementById('plansContainer');
+      container.innerHTML = '';
+      plans.forEach(p => {
+        const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
+        const off = billing.period === 'yearly' ? Math.round((1 - (p.yearly/12)/p.monthly)*100) : 0;
+        const el = document.createElement('article');
+        el.className = 'card';
+        el.innerHTML = `
+          <div class="title"><div><div class="plan-name">${p.name}</div><div style="font-size:13px;color:var(--muted)">${p.desc}</div></div>${p.featured?'<div class="badge">Popular</div>':''}</div>
+          <div class="price">${formatPrice(price)} <span class="per">/mo</span></div>
+          <ul class="features">
+            ${p.features.map(f=>`<li>\n<svg width=16 height=16 viewBox='0 0 24 24' fill='none' style='flex-shrink:0;margin-top:2px'><path d='M5 12l5 5L20 7' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' /></svg> <div style='line-height:1.1'>${f}</div></li>`).join('')}
+          </ul>
+          <div style='display:flex;gap:10px;align-items:center'>
+            <a class='cta' href='/checkout?plan=${encodeURIComponent(p.id)}&billing=${billing.period}' data-plan='${p.id}'>Choose ${p.name}</a>
+            ${off>0?`<div style='color:var(--accent);font-weight:700'>Save ${off}%</div>`:''}
+          </div>
+        `;
+        container.appendChild(el);
+      })
+    }
+
+    function renderCompare(){
+      const features = [
+        'Early access to BETA features',
+        'Early access to Gomega Browser++',
+        'Gomega Music Premium',
+        'Earn from uploading scripts',
+        'Early access to all pages',
+        'Script uploads per month',
+        'Priority / Dedicated support',
+        'Custom themes & branding',
+        'Private roadmap calls'
+      ];
+      const tbody = document.getElementById('compareBody');
+      tbody.innerHTML = features.map(f => {
+        const cells = plans.map(p => {
+          let val = '';
+          if (f === 'Script uploads per month') val = p.id === 'basic' ? '5' : p.id === 'advanced' ? '25' : 'Unlimited';
+          else if (f === 'Earn from uploading scripts') val = 'Yes';
+          else if (p.features.some(fe=>fe.toLowerCase().includes(f.split(' ')[0].toLowerCase()))) val = 'Yes';
+          else val = p.features.join(' ').toLowerCase().includes(f.split(' ')[0].toLowerCase()) ? 'Yes' : (p.id==='basic' && f==='Custom themes & branding' ? 'No' : (p.id==='black' && f==='Private roadmap calls' ? 'Yes' : (p.features.join(' ').toLowerCase().includes(f.split(' ')[0].toLowerCase()) ? 'Yes' : '—')));
+          return `<td>${val}</td>`;
+        }).join('');
+        return `<tr><td><strong>${f}</strong></td>${cells}</tr>`;
+      }).join('');
+    }
+
+    // Billing switch logic
+    const switchEl = document.getElementById('billingSwitch');
+    function toggleBilling(){
+      billing.period = billing.period === 'monthly' ? 'yearly' : 'monthly';
+      switchEl.classList.toggle('yearly', billing.period==='yearly');
+      switchEl.setAttribute('aria-pressed', billing.period==='yearly');
+      renderPlans();
+      renderCompare();
+    }
+    switchEl.addEventListener('click', toggleBilling);
+    switchEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') toggleBilling(); });
+
+    // initial render
+    renderPlans();
+    renderCompare();
+
+    // Quick enhancement: intercept checkout links to show a modal (placeholder)
+    document.addEventListener('click', (e)=>{
+      const a = e.target.closest('a[data-plan]');
+      if(!a) return;
+      e.preventDefault();
+      const plan = a.dataset.plan;
+      // Open a real checkout in production (Stripe, Paddle, etc.)
+      window.location.href = a.href; // placeholder — replace with your checkout flow
+    });
+  </script>
+</body>
+</html>
