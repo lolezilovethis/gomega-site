@@ -125,12 +125,21 @@
 
     // helper: safely read timestamp in ms
     function scriptTimestampMs(s) {
-      const t = s.timestamp;
+      const t = s && s.timestamp;
       if (!t) return 0;
       if (typeof t === 'number') return t;
       if (t.seconds) return t.seconds * 1000 + (t.nanoseconds ? Math.floor(t.nanoseconds/1000000) : 0);
       if (typeof t.toMillis === 'function') return t.toMillis();
       return 0;
+    }
+
+    // normalize id helper: ensures we compare the same id format everywhere
+    function normalizeId(item) {
+      if (!item) return '';
+      if (typeof item.id === 'string' && item.id.trim() !== '') return item.id;
+      if (typeof item.id === 'number') return String(item.id);
+      if (item.title) return item.title.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+      return '';
     }
 
     // get local clicks for a script id
@@ -156,7 +165,7 @@
 
     // compute popularity score (remote + local)
     function popularityScore(script) {
-      return getRemoteClicks(script) + getLocalClicks(script.id || '');
+      return getRemoteClicks(script) + getLocalClicks(normalizeId(script) || '');
     }
 
     // Attach remote loader
@@ -166,7 +175,10 @@
         // keep onSnapshot to get live updates
         onSnapshot(col, snap => {
           allRemote = snap.docs.map(d => {
-            return { id: d.id, ...d.data() };
+            // prefer Firestore doc id as canonical id
+            const data = d.data() || {};
+            const built = { id: d.id, ...data };
+            return built;
           });
           applyFiltersAndRender();
         }, err => {
@@ -249,7 +261,7 @@
       }
 
       scripts.forEach(script => {
-        const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
+        const id = normalizeId(script) || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
         const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
         const publisher = script.brandName || 'Admin';
         const remoteClicks = getRemoteClicks(script);
@@ -259,7 +271,7 @@
         // admin badge (kept for visual, does not affect filtering)
         const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
-        list.insertAdjacentHTML('beforeend', 
+        list.insertAdjacentHTML('beforeend',
           `<div class="script-card" data-script-id="${id}">
             <h2>${escapeHtml(script.title || 'Untitled')}</h2>
             <p>${escapeHtml(script.description || 'No description.')}</p>
@@ -280,91 +292,108 @@
 
     // attach handlers — increment local clicks and show code like before
     function attachUnlockHandlers() {
+      // Use fresh NodeList from DOM (renderScripts clears list so handlers won't duplicate)
       document.querySelectorAll('.get-btn').forEach(btn => {
-        btn.onclick = async () => {
-          const id = btn.dataset.id;
-          // find script in merged arrays
-          const merged = [...allRemote, ...allLocal];
-          const script = merged.find(s => (s.id || (s.title||'').toLowerCase().replace(/\s+/g,'-')) === id);
-          const box = document.getElementById(`code-${id}`);
-          const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
-
-          if (!script) {
-            alert('Script not found.');
-            return;
-          }
-
-          if (script.includeAds && script.numAds > 0) {
-            if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
-            let openedAds = 0;
-            while (openedAds < script.numAds) {
-              window.open('https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2', '_blank');
-              openedAds++;
-              await new Promise(r => setTimeout(r, 1500));
-            }
-          }
-
-          // show code
-          if (box) {
-            box.style.display = 'block';
-            box.textContent = script.code || '';
-          }
-
-          // copy to clipboard attempt (like original)
+        // defensive: remove any existing onclick to avoid weird duplication in rare cases
+        btn.onclick = null;
+        btn.addEventListener('click', async (evt) => {
           try {
-            await navigator.clipboard.writeText(script.code || '');
-            alert('✅ Copied to clipboard!');
-          } catch {
-            alert('⚠️ Copy failed. Use the "Copy Script" button.');
-          }
+            const id = btn.dataset.id;
+            // find script in merged arrays; compare normalized ids
+            const merged = [...allRemote, ...allLocal];
+            const script = merged.find(s => normalizeId(s) === id);
+            const box = document.getElementById(`code-${id}`);
+            const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
 
-          // increment local popularity
-          const newLocal = incLocalClicks(id);
-
-          // ADD: increment in Firebase so all users see the new count (atomic increment)
-          if (script.id) {
-            try {
-              const scriptRef = doc(db, 'approved_scripts', script.id);
-              // Try updating (works if doc exists); if it doesn't, create/merge with clicks:1
-              try {
-                await updateDoc(scriptRef, { clicks: increment(1) });
-              } catch (uErr) {
-                // fallback: create/merge the document with clicks = 1
-                try {
-                  await setDoc(scriptRef, { clicks: 1 }, { merge: true });
-                } catch (sErr) {
-                  console.error('Failed to write clicks to Firestore (setDoc fallback):', sErr);
-                }
-              }
-            } catch (err) {
-              console.error('Failed to update clicks in Firestore:', err);
+            if (!script) {
+              alert('Script not found.');
+              return;
             }
-          }
 
-          // update shown popularity count in the card immediately
-          const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
-          if (card) {
-            const popEl = card.querySelector('.popularity');
-            const remote = getRemoteClicks(script);
-            if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
-          }
+            if (script.includeAds && script.numAds > 0) {
+              if (!confirm(`You must view ${script.numAds} ad${script.numAds > 1 ? 's' : ''}.`)) return;
+              let openedAds = 0;
+              while (openedAds < script.numAds) {
+                window.open('https://www.profitableratecpm.com/en9fnp1f?key=38ae975ca6aee7f0655f6d6a736017f2', '_blank');
+                openedAds++;
+                await new Promise(r => setTimeout(r, 1500));
+              }
+            }
 
-          // Show copy button after revealing code (like original logic)
-          if (copyBtn) copyBtn.style.display = 'inline-block';
-        };
+            // show code
+            if (box) {
+              box.style.display = 'block';
+              box.textContent = script.code || '';
+            }
+
+            // copy to clipboard attempt (like original)
+            try {
+              await navigator.clipboard.writeText(script.code || '');
+              alert('✅ Copied to clipboard!');
+            } catch {
+              // don't block the rest if clipboard fails
+              console.warn('Clipboard write failed (possibly insecure context).');
+            }
+
+            // increment local popularity
+            const newLocal = incLocalClicks(id);
+
+            // ADD: increment in Firebase so all users see the new count (atomic increment)
+            // Use the Firestore doc id where possible: prefer remote doc id; fallback to normalized id
+            const fsId = (allRemote.find(r => normalizeId(r) === id) || {}).id || id;
+            if (fsId) {
+              try {
+                const scriptRef = doc(db, 'approved_scripts', fsId);
+                try {
+                  await updateDoc(scriptRef, { clicks: increment(1) });
+                } catch (uErr) {
+                  // fallback: create/merge the document with clicks = 1
+                  try {
+                    await setDoc(scriptRef, { clicks: 1, title: script.title || null }, { merge: true });
+                  } catch (sErr) {
+                    console.error('Failed to write clicks to Firestore (setDoc fallback):', sErr);
+                  }
+                }
+              } catch (err) {
+                console.error('Failed to update clicks in Firestore:', err);
+              }
+            }
+
+            // update shown popularity count in the card immediately
+            const card = document.querySelector(`.script-card[data-script-id="${id}"]`);
+            if (card) {
+              const popEl = card.querySelector('.popularity');
+              const remote = getRemoteClicks(script);
+              if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
+            }
+
+            // Show copy button after revealing code (like original logic)
+            if (copyBtn) copyBtn.style.display = 'inline-block';
+          } catch (err) {
+            console.error('Get button handler failed:', err);
+            alert('An error occurred. Check console for details.');
+          }
+        }); // end addEventListener
       });
 
+      // copy buttons
       document.querySelectorAll('.copy-btn').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.dataset.id;
-          const codeEl = document.getElementById(`code-${id}`);
-          const code = codeEl ? codeEl.textContent : '';
-          navigator.clipboard.writeText(code).then(() => {
-            alert('✅ Script copied!');
-          }).catch(() => {
-            alert('⚠️ Could not copy script.');
-          });
-        };
+        btn.onclick = null;
+        btn.addEventListener('click', () => {
+          try {
+            const id = btn.dataset.id;
+            const codeEl = document.getElementById(`code-${id}`);
+            const code = codeEl ? codeEl.textContent : '';
+            navigator.clipboard.writeText(code).then(() => {
+              alert('✅ Script copied!');
+            }).catch(() => {
+              alert('⚠️ Could not copy script.');
+            });
+          } catch (err) {
+            console.error('Copy handler error:', err);
+            alert('Could not copy (check console).');
+          }
+        });
       });
     }
 
