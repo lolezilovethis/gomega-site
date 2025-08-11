@@ -270,12 +270,12 @@
       if (reportDiscord) reportDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
 
       /* ===============================
-         SMARTER SEARCH (enhanced)
-         - minChars before searching (2)
-         - debounced input (250ms)
+         SMARTER SEARCH (improved)
+         - OR semantics (any token matches)
+         - counts occurrences and ranks
+         - minChars = 2
+         - debounce input
          - results panel with clickable snippets
-         - ranking: title > content
-         - highlights only matched words
          =============================== */
 
       const faqSearch = document.getElementById('faqSearch');
@@ -287,16 +287,13 @@
       const DEBOUNCE = 250;
       let timer = null;
 
-      // helper to escape regex special chars
       function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }
 
-      // Build a simple search index of items we want to show in results
-      // each entry: {id, el, title, text, type}
+      // Build index
       function buildIndex() {
         const items = [];
-        // FAQs (details)
         document.querySelectorAll('.faq-list details').forEach((d, i) => {
           const summary = d.querySelector('summary');
           const title = summary ? summary.textContent.trim() : ('FAQ ' + (i+1));
@@ -304,7 +301,6 @@
           items.push({ id: 'faq-'+i, el: d, title, text, type: 'FAQ' });
         });
 
-        // Grid cards (cards with h3)
         document.querySelectorAll('.grid .card').forEach((c, i) => {
           const h = c.querySelector('h3');
           const title = h ? h.textContent.trim() : 'Card ' + (i+1);
@@ -312,7 +308,6 @@
           items.push({ id: 'card-'+i, el: c, title, text, type: 'Guide' });
         });
 
-        // Steps / troubleshooting entries
         document.querySelectorAll('.steps .step').forEach((s, i) => {
           const titleNode = s.querySelector('strong');
           const title = titleNode ? titleNode.textContent.trim() : 'Step ' + (i+1);
@@ -320,7 +315,6 @@
           items.push({ id: 'step-'+i, el: s, title, text, type: 'Troubleshooting' });
         });
 
-        // troubleshooting section main text
         const troubleshooting = document.getElementById('troubleshooting');
         if (troubleshooting) {
           const h = troubleshooting.querySelector('h2');
@@ -329,7 +323,6 @@
           items.push({ id: 'tr-main', el: troubleshooting, title, text, type: 'Troubleshooting' });
         }
 
-        // hero left (quick help text)
         const heroLeft = document.querySelector('.hero .left');
         if (heroLeft) {
           const h = heroLeft.querySelector('h2');
@@ -338,7 +331,7 @@
           items.push({ id: 'hero-left', el: heroLeft, title, text, type: 'Intro' });
         }
 
-        // dedupe same element if added twice
+        // dedupe by element
         const seen = new Set();
         return items.filter(it => {
           if (seen.has(it.el)) return false;
@@ -348,34 +341,44 @@
       }
 
       const INDEX = buildIndex();
-
-      // restore original HTML for any indexed element
-      INDEX.forEach(it => {
-        if (!it.el.dataset.origHtml) it.el.dataset.origHtml = it.el.innerHTML;
-      });
+      INDEX.forEach(it => { if (!it.el.dataset.origHtml) it.el.dataset.origHtml = it.el.innerHTML; });
 
       function clearResults() {
         resultsPanel.style.display = 'none';
         resultsPanel.innerHTML = '';
         searchCountEl.textContent = '0';
-        // restore highlights if needed
-        INDEX.forEach(it => { if (it.el.dataset.origHtml) it.el.innerHTML = it.el.dataset.origHtml; if (it.el.tagName.toLowerCase()==='details') it.el.open = false; });
+        INDEX.forEach(it => {
+          if (it.el.dataset.origHtml) it.el.innerHTML = it.el.dataset.origHtml;
+          it.el.style.display = '';
+          if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+        });
         clearBtn.style.display = 'none';
       }
 
-      function highlightText(html, tokens) {
-        // highlight each token with word-boundary or substring (case-insens)
-        // operate on the HTML string - safe for these short content blocks
+      function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, function (c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      function highlightHtml(html, tokens) {
+        // highlight tokens (use word boundary when reasonable, otherwise substring)
         tokens.forEach(t => {
           if (!t) return;
-          const re = new RegExp('\\b(' + escapeRegExp(t) + ')\\b', 'ig');
-          html = html.replace(re, '<mark class="gomega-match">$1</mark>');
+          // word boundary regex first
+          const safe = escapeRegExp(t);
+          const reWord = new RegExp('\\b(' + safe + ')\\b', 'ig');
+          if (reWord.test(html)) {
+            html = html.replace(reWord, '<mark class="gomega-match">$1</mark>');
+          } else {
+            const reSub = new RegExp('(' + safe + ')', 'ig');
+            html = html.replace(reSub, '<mark class="gomega-match">$1</mark>');
+          }
         });
         return html;
       }
 
       function makeSnippet(text, tokens, maxLen = 140) {
-        // find best position: earliest token match
         const lower = text.toLowerCase();
         let pos = -1;
         for (const t of tokens) {
@@ -384,7 +387,6 @@
           if (p !== -1 && (pos === -1 || p < pos)) pos = p;
         }
         if (pos === -1) {
-          // fallback: start
           return text.slice(0, maxLen) + (text.length > maxLen ? '…' : '');
         }
         const start = Math.max(0, pos - 40);
@@ -392,67 +394,76 @@
         return (start > 0 ? '…' : '') + snip + (start + maxLen < text.length ? '…' : '');
       }
 
-      function scoreItem(it, tokens) {
-        // simple scoring: title matches * 3 + content matches
-        let score = 0;
-        const titleLower = (it.title || '').toLowerCase();
-        const textLower = (it.text || '').toLowerCase();
-        for (const t of tokens) {
-          if (!t) continue;
-          if (titleLower.includes(t.toLowerCase())) score += 3;
-          // count occurrences in text
-          const idx = textLower.split(t.toLowerCase()).length - 1;
-          score += idx;
+      function countOccurrences(hay, needle) {
+        if (!needle) return 0;
+        let count = 0;
+        let idx = 0;
+        const n = needle.length;
+        const lowerHay = hay.toLowerCase();
+        const lowerNeedle = needle.toLowerCase();
+        let pos = lowerHay.indexOf(lowerNeedle, idx);
+        while (pos !== -1) {
+          count++;
+          idx = pos + n;
+          pos = lowerHay.indexOf(lowerNeedle, idx);
         }
+        return count;
+      }
+
+      function scoreItem(it, tokens) {
+        let score = 0;
+        const title = it.title || '';
+        const text = it.text || '';
+        tokens.forEach(t => {
+          if (!t) return;
+          if (title.toLowerCase().includes(t.toLowerCase())) score += 5;
+          score += countOccurrences(text, t);
+        });
         return score;
       }
 
-      function doSearch(query) {
-        const q = query.trim();
-        if (q.length < MIN_CHARS) {
-          clearResults();
+      function doSearch(q) {
+        const query = q.trim();
+        if (query.length < MIN_CHARS) {
+          resultsPanel.style.display = 'block';
+          resultsPanel.innerHTML = '<div class="no-results">Type ' + MIN_CHARS + ' or more characters to search</div>';
+          searchCountEl.textContent = '0';
+          clearBtn.style.display = 'inline';
           return;
         }
 
-        const tokens = q.split(/\s+/).filter(Boolean);
+        const tokens = query.split(/\s+/).filter(Boolean);
         const matches = [];
 
         INDEX.forEach(it => {
-          const combined = (it.title + ' ' + it.text).toLowerCase();
-          // require that all tokens appear somewhere (AND) — reduces noisy single-letter matches
-          const allPresent = tokens.every(t => combined.includes(t.toLowerCase()));
-          if (allPresent) {
+          // OR semantics: match if any token occurs
+          let totalCount = 0;
+          tokens.forEach(t => totalCount += countOccurrences((it.title + ' ' + it.text), t));
+          if (totalCount > 0) {
             const score = scoreItem(it, tokens);
-            matches.push({ it, score });
+            matches.push({ it, score, totalCount });
           }
         });
 
-        // sort by score desc
-        matches.sort((a,b) => b.score - a.score);
+        matches.sort((a, b) => b.score - a.score);
 
-        // update UI
         resultsPanel.innerHTML = '';
         if (matches.length === 0) {
-          resultsPanel.innerHTML = '<div class="no-results">No results found. Try different words (e.g. "publish", "ads")</div>';
+          resultsPanel.innerHTML = '<div class="no-results">No results found. Try different words or check spelling.</div>';
           resultsPanel.style.display = 'block';
           searchCountEl.textContent = '0';
           clearBtn.style.display = 'inline';
-          // hide non-matching items
-          INDEX.forEach(it => { it.el.style.display = 'none'; if (it.el.tagName.toLowerCase()==='details') it.el.open = false; });
+          // hide all items
+          INDEX.forEach(it => { it.el.style.display = 'none'; if (it.el.tagName.toLowerCase() === 'details') it.el.open = false; });
           return;
         }
 
-        // show top 10 matches
         const top = matches.slice(0, 20);
-        let totalMatches = 0;
-        top.forEach(m => { totalMatches += m.score; });
-
         top.forEach(m => {
           const it = m.it;
-          const snippet = makeSnippet(it.text || it.title || '', tokens, 140);
-          // make HTML snippet with highlights
-          const snippetHtml = highlightText(escapeHtml(snippet), tokens);
-          const titleHtml = highlightText(escapeHtml(it.title), tokens);
+          const snippetRaw = makeSnippet(it.text || it.title || '', tokens, 140);
+          const snippetHtml = highlightHtml(escapeHtml(snippetRaw), tokens);
+          const titleHtml = highlightHtml(escapeHtml(it.title), tokens);
 
           const div = document.createElement('div');
           div.className = 'result-item';
@@ -461,13 +472,12 @@
                           ' <span class="result-meta">[' + it.type + ']</span></div>' +
                           '<div class="result-snippet">' + snippetHtml + '</div>';
           div.addEventListener('click', ()=> {
-            // scroll to element and open details if needed
             resultsPanel.style.display = 'none';
             try {
-              // restore original HTML then apply highlights to target only
+              // restore all originals
               INDEX.forEach(ii => { if (ii.el.dataset.origHtml) ii.el.innerHTML = ii.el.dataset.origHtml; });
-              // highlight in the target element
-              it.el.innerHTML = highlightText(it.el.dataset.origHtml || it.el.innerHTML, tokens);
+              // highlight target
+              it.el.innerHTML = highlightHtml(it.el.dataset.origHtml || it.el.innerHTML, tokens);
               if (it.el.tagName.toLowerCase() === 'details') it.el.open = true;
               it.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             } catch (e) { console.warn('scroll error', e); }
@@ -477,14 +487,13 @@
         });
 
         resultsPanel.style.display = 'block';
-        searchCountEl.textContent = String(top.length);
+        searchCountEl.textContent = String(matches.length);
         clearBtn.style.display = 'inline';
-        // hide non-matching items, show matching items (but don't re-highlight all of them)
+
         const matchedEls = new Set(matches.map(m => m.it.el));
         INDEX.forEach(it => {
           if (matchedEls.has(it.el)) {
             it.el.style.display = '';
-            // don't open details automatically to reduce visual jump — only when user clicks result
             if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
           } else {
             it.el.style.display = 'none';
@@ -493,29 +502,17 @@
         });
       }
 
-      // small helper to escape HTML for snippet injection
-      function escapeHtml(s) {
-        return (s || '').replace(/[&<>"']/g, function (c) {
-          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-        });
-      }
-
-      // debounce wrapper
       function scheduleSearch(v) {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(()=> {
-          doSearch(v);
-        }, DEBOUNCE);
+        timer = setTimeout(()=> doSearch(v), DEBOUNCE);
       }
 
       if (faqSearch) {
         faqSearch.addEventListener('input', (ev) => {
           const v = ev.target.value || '';
           if (v.trim().length < MIN_CHARS) {
-            // if cleared or too short -> restore
             if (v.trim() === '') clearResults();
             else {
-              // show hint but don't run search
               resultsPanel.style.display = 'block';
               resultsPanel.innerHTML = '<div class="no-results">Type ' + MIN_CHARS + ' or more characters to search</div>';
               searchCountEl.textContent = '0';
@@ -532,31 +529,25 @@
             clearResults();
             faqSearch.blur();
           } else if (ev.key === 'Enter') {
-            // focus first result if present
             const first = resultsPanel.querySelector('.result-item');
-            if (first) {
-              first.click();
-            }
+            if (first) first.click();
           }
         });
 
-        // clear button
         clearBtn.addEventListener('click', ()=> {
           faqSearch.value = '';
           faqSearch.focus();
           clearResults();
         });
 
-        // close results on outside click
         document.addEventListener('click', (e) => {
           if (!resultsPanel.contains(e.target) && !faqSearch.contains(e.target)) {
             resultsPanel.style.display = 'none';
           }
         });
-
       }
 
-      // optional: prefill search from ?q=... query string
+      // if ?q= was provided
       const params = new URLSearchParams(location.search);
       if (params.get('q')) {
         const q = params.get('q');
@@ -566,7 +557,7 @@
         }
       }
 
-      // ensure initial state is restored
+      // initial reset
       clearResults();
 
     })();
