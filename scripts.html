@@ -418,15 +418,15 @@
     // settings & make script buttons
     document.getElementById('settingsBtn').addEventListener('click', () => {
       // simple placeholder: open settings page or modal
-      if (location.pathname.endsWith('/scripts.html')) {
+      if (location.pathname.endsWith('/scripts')) {
         // try to open "settings.html" if it exists, otherwise alert
-        window.location.href = '/settings.html';
+        window.location.href = '/settings';
       } else {
         alert('Open settings (not implemented)');
       }
     });
     document.getElementById('makeScriptBtn').addEventListener('click', () => {
-      window.location.href = '/add-script.html';
+      window.location.href = '/add-script';
     });
 
   </script>
