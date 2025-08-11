@@ -38,6 +38,10 @@
     .perpage { width:110px; }
     .load-more { margin-top: 8px; }
 
+    /* pending UI */
+    #pendingIndicator { margin-left: 12px; font-size: 0.9rem; display:flex; gap:8px; align-items:center; }
+    #pendingIndicator button { background:#f59e0b; color:#000; padding:6px 8px; border-radius:6px; font-size:0.9rem; }
+
     /* dark toggle visual */
     #darkToggle { display:flex; gap:8px; align-items:center; }
   </style>
@@ -61,10 +65,16 @@
       <img src="assets/logo.png" alt="Gomega Watch Logo">
       <h1>Gomega Scripts</h1>
     </div>
-    <div style="display:flex; gap:10px;">
+    <div style="display:flex; gap:10px; align-items:center;">
       <button id="darkToggle">🌓 Dark Mode</button>
       <button id="settingsBtn">⚙️ Settings</button>
       <button id="makeScriptBtn">✏️ Make a Script</button>
+
+      <!-- ADDED: pending indicator -->
+      <div id="pendingIndicator" title="Pending increments that couldn't write to Firestore">
+        <span id="pendingCount">Pending: 0</span>
+        <button id="syncPendingBtn">Sync pending</button>
+      </div>
     </div>
   </div>
 
@@ -102,7 +112,6 @@
 
   <script type="module">
     import { db } from './js/firebase.js';
-    // ADDED: import Firestore helpers needed to atomically increment and update docs
     import {
       collection,
       onSnapshot,
@@ -123,6 +132,34 @@
     // local popularity storage key prefix
     const LOCAL_PREFIX = 'gomega_script_clicks_';
 
+    // QUEUE: pending firebase increments when permission denied
+    const PENDING_KEY = 'gomega_pending_clicks';
+    function readPending() {
+      try {
+        const raw = localStorage.getItem(PENDING_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    }
+    function writePending(arr) {
+      try { localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); } catch {}
+      updatePendingUI();
+    }
+    function enqueuePending(docId) {
+      const q = readPending();
+      q.push({ id: docId, ts: Date.now() });
+      writePending(q);
+    }
+    function popPending() {
+      const q = readPending();
+      q.shift();
+      writePending(q);
+    }
+    function updatePendingUI() {
+      const count = readPending().length;
+      const el = document.getElementById('pendingCount');
+      if (el) el.textContent = `Pending: ${count}`;
+    }
+
     // helper: safely read timestamp in ms
     function scriptTimestampMs(s) {
       const t = s && s.timestamp;
@@ -136,6 +173,7 @@
     // normalize id helper: ensures we compare the same id format everywhere
     function normalizeId(item) {
       if (!item) return '';
+      if (typeof item === 'string' && item.trim() !== '') return item;
       if (typeof item.id === 'string' && item.id.trim() !== '') return item.id;
       if (typeof item.id === 'number') return String(item.id);
       if (item.title) return item.title.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
@@ -192,7 +230,7 @@
       }
     }
 
-    // local scripts loader (improved: attach stable ids based on filename or title)
+    // local scripts loader
     async function loadLocal() {
       try {
         const res = await fetch('scripts/index.json');
@@ -221,10 +259,8 @@
 
     // Combined filter, sort, paginate, render
     function applyFiltersAndRender() {
-      // merge with consistent ids: prefer remote id for remote items, local id for local
       const merged = [...(allRemote || []), ...(allLocal || [])];
 
-      // search filter
       const term = (searchTerm || '').trim().toLowerCase();
       let filtered = merged.filter(s => {
         if (!term) return true;
@@ -234,7 +270,6 @@
         return false;
       });
 
-      // sorting
       if (currentSort === 'newest') {
         filtered.sort((a,b) => scriptTimestampMs(b) - scriptTimestampMs(a));
       } else if (currentSort === 'oldest') {
@@ -243,12 +278,10 @@
         filtered.sort((a,b) => popularityScore(b) - popularityScore(a));
       }
 
-      // store fullFiltered for load more
       window.__gomega_fullFiltered = filtered;
 
       renderScripts(filtered.slice(0, visibleCount));
 
-      // update script count summary
       document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} scripts`;
     }
 
@@ -268,7 +301,6 @@
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
 
-        // admin badge (kept for visual, does not affect filtering)
         const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
         list.insertAdjacentHTML('beforeend',
@@ -287,19 +319,49 @@
           </div>`
         );
       });
-      attachUnlockHandlers(); // reattach handlers to new DOM
+      attachUnlockHandlers();
+    }
+
+    // Try flushing pending increments to Firestore
+    async function tryFlushPending() {
+      const q = readPending();
+      if (!q || q.length === 0) {
+        updatePendingUI();
+        return;
+      }
+      // attempt sequentially (so we can stop on permission errors)
+      for (let i = 0; i < q.length; i++) {
+        const item = q[i];
+        try {
+          const fsId = item.id;
+          const scriptRef = doc(db, 'approved_scripts', fsId);
+          await updateDoc(scriptRef, { clicks: increment(1) });
+          // if success, remove first item and continue
+          popPending();
+          i--; // adjust index because we popped front
+        } catch (err) {
+          // If permission denied, stop trying further: rules need change
+          if (err && err.code === 'permission-denied') {
+            console.warn('Unable to flush pending clicks: permission-denied. Update Firestore rules or use server-side function.');
+            break;
+          } else {
+            console.warn('Flush attempt failed for', item.id, err);
+            // leave item in queue and continue to next (or break)
+            // We'll try again later
+            break;
+          }
+        }
+      }
+      updatePendingUI();
     }
 
     // attach handlers — increment local clicks and show code like before
     function attachUnlockHandlers() {
-      // Use fresh NodeList from DOM (renderScripts clears list so handlers won't duplicate)
       document.querySelectorAll('.get-btn').forEach(btn => {
-        // defensive: remove any existing onclick to avoid weird duplication in rare cases
         btn.onclick = null;
         btn.addEventListener('click', async (evt) => {
           try {
             const id = btn.dataset.id;
-            // find script in merged arrays; compare normalized ids
             const merged = [...allRemote, ...allLocal];
             const script = merged.find(s => normalizeId(s) === id);
             const box = document.getElementById(`code-${id}`);
@@ -320,43 +382,50 @@
               }
             }
 
-            // show code
             if (box) {
               box.style.display = 'block';
               box.textContent = script.code || '';
             }
 
-            // copy to clipboard attempt (like original)
             try {
               await navigator.clipboard.writeText(script.code || '');
-              alert('✅ Copied to clipboard!');
             } catch {
-              // don't block the rest if clipboard fails
               console.warn('Clipboard write failed (possibly insecure context).');
             }
 
             // increment local popularity
             const newLocal = incLocalClicks(id);
 
-            // ADD: increment in Firebase so all users see the new count (atomic increment)
-            // Use the Firestore doc id where possible: prefer remote doc id; fallback to normalized id
-            const fsId = (allRemote.find(r => normalizeId(r) === id) || {}).id || id;
-            if (fsId) {
+            // Determine firestore id to use (prefer remote doc id)
+            const fsCandidate = (allRemote.find(r => normalizeId(r) === id) || {}).id || id;
+
+            if (fsCandidate) {
               try {
-                const scriptRef = doc(db, 'approved_scripts', fsId);
-                try {
-                  await updateDoc(scriptRef, { clicks: increment(1) });
-                } catch (uErr) {
-                  // fallback: create/merge the document with clicks = 1
+                const scriptRef = doc(db, 'approved_scripts', fsCandidate);
+                await updateDoc(scriptRef, { clicks: increment(1) });
+              } catch (uErr) {
+                // permission denied -> queue for later
+                console.warn('updateDoc failed:', uErr);
+                if (uErr && uErr.code === 'permission-denied') {
+                  enqueuePending(fsCandidate);
+                } else {
+                  // attempt setDoc (fallback) and queue if permissions prevent it
                   try {
-                    await setDoc(scriptRef, { clicks: 1, title: script.title || null }, { merge: true });
+                    await setDoc(doc(db,'approved_scripts',fsCandidate), { clicks: 1, title: script.title || null }, { merge: true });
                   } catch (sErr) {
-                    console.error('Failed to write clicks to Firestore (setDoc fallback):', sErr);
+                    console.warn('setDoc fallback failed:', sErr);
+                    if (sErr && sErr.code === 'permission-denied') {
+                      enqueuePending(fsCandidate);
+                    } else {
+                      // other error: queue to be safe
+                      enqueuePending(fsCandidate);
+                    }
                   }
                 }
-              } catch (err) {
-                console.error('Failed to update clicks in Firestore:', err);
               }
+            } else {
+              // no firestore id candidate -> queue the normalized id so admin/server can map later
+              enqueuePending(id);
             }
 
             // update shown popularity count in the card immediately
@@ -367,16 +436,15 @@
               if (popEl) popEl.innerHTML = `<strong>Popularity:</strong> ${remote + newLocal} clicks`;
             }
 
-            // Show copy button after revealing code (like original logic)
             if (copyBtn) copyBtn.style.display = 'inline-block';
+
           } catch (err) {
             console.error('Get button handler failed:', err);
             alert('An error occurred. Check console for details.');
           }
-        }); // end addEventListener
+        });
       });
 
-      // copy buttons
       document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.onclick = null;
         btn.addEventListener('click', () => {
@@ -418,7 +486,6 @@
 
     // refresh
     document.getElementById('refreshBtn').addEventListener('click', () => {
-      // re-run loaders
       loadLocal();
       loadRemote();
     });
@@ -427,7 +494,6 @@
     document.getElementById('loadMoreBtn').addEventListener('click', () => {
       const add = parseInt(document.getElementById('perPageSelect').value, 10) || 10;
       visibleCount += add;
-      // if we have a cached filtered list, just show more
       if (window.__gomega_fullFiltered) {
         renderScripts(window.__gomega_fullFiltered.slice(0, visibleCount));
         document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}`;
@@ -436,7 +502,7 @@
       }
     });
 
-    // util: escape html to prevent accidental injection when rendering code elements
+    // util: escape html
     function escapeHtml(unsafe) {
       if (unsafe === undefined || unsafe === null) return '';
       return String(unsafe)
@@ -447,11 +513,28 @@
         .replace(/'/g, "&#039;");
     }
 
-    // init loaders
+    // init
+    updatePendingUI();
     loadLocal();
     loadRemote();
 
-    // ------------------ Dark mode handling (fixed + persisted)
+    // Try flushing pending when auth state changes (if you have firebase auth exposed)
+    import { auth } from './js/firebase.js';
+    import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        // attempt flush when user signs in
+        tryFlushPending();
+      }
+    });
+
+    // pending UI button
+    document.getElementById('syncPendingBtn').addEventListener('click', async () => {
+      await tryFlushPending();
+      alert('Sync attempt finished (check console for details).');
+    });
+
+    // ------------------ Dark mode handling
     const darkToggle = document.getElementById('darkToggle');
     function applyDarkModeState(on) {
       if (on) {
@@ -462,7 +545,6 @@
         darkToggle.textContent = '☀️ Light';
       }
     }
-    // initialize from localStorage
     const saved = localStorage.getItem('gomega_dark');
     const initialDark = saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     applyDarkModeState(initialDark);
@@ -473,11 +555,9 @@
       applyDarkModeState(isDark);
     });
 
-    // settings & make script buttons
+    // settings & make script
     document.getElementById('settingsBtn').addEventListener('click', () => {
-      // simple placeholder: open settings page or modal
       if (location.pathname.endsWith('/scripts')) {
-        // try to open "settings.html" if it exists, otherwise alert
         window.location.href = '/settings';
       } else {
         alert('Open settings (not implemented)');
@@ -490,7 +570,7 @@
   </script>
 
   <script>
-    // particle background (unchanged visually, fixed color string)
+    // particle background
     const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
     function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
     window.addEventListener('resize', resize); resize();
