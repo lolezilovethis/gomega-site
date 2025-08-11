@@ -111,6 +111,46 @@
   <canvas id="hoverParticles"></canvas>
 
   <script type="module">
+    // ========= DEBUGGING HELPERS (ADD THESE near the top of your module script) =========
+import { auth } from './js/firebase.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+
+const dbg = (...args) => console.log('[DBG]', ...args);
+
+// Log Firebase app/project used by this page
+try {
+  const app = getApp();
+  dbg('Firebase app name:', app.name);
+  dbg('Firebase projectId:', app.options && app.options.projectId);
+} catch (e) {
+  dbg('No firebase app found (getApp() failed):', e);
+}
+
+// Log auth state and token claims
+getAuth().onAuthStateChanged(async user => {
+  dbg('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
+  if (user) {
+    try {
+      const token = await user.getIdTokenResult();
+      dbg('ID token claims:', token && token.claims);
+    } catch (err) {
+      dbg('Failed to getIdTokenResult:', err);
+    }
+  }
+});
+
+// Patch update flow to log payload (where you call updateDoc)
+async function safeUpdateDocWithLog(docRef, payload) {
+  dbg('Attempting updateDoc:', docRef?.path || docRef, 'payload:', payload);
+  try {
+    await updateDoc(docRef, payload);
+    dbg('updateDoc succeeded for', docRef?.path || docRef);
+  } catch (err) {
+    dbg('updateDoc failed:', err && err.code, err && err.message, err);
+    throw err;
+  }
+}
     import { db } from './js/firebase.js';
     import {
       collection,
