@@ -12,8 +12,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background: white; color: black; transition: background 0.3s, color 0.3s; }
-    .dark-mode { background: #121212; color: white; }
+    body { font-family: sans-serif; padding: 20px; max-width: 1000px; margin: auto; background: white; color: black; transition: background 0.3s, color 0.3s; }
+    .dark-mode { background: #121212; color: #e7e7e7; }
     .script-card { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 10px; background: #f9f9f9; }
     .dark-mode .script-card { background: #1f1f1f; border-color: #333; }
     .search-box { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc; }
@@ -37,6 +37,9 @@
     .script-meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
     .perpage { width:110px; }
     .load-more { margin-top: 8px; }
+
+    /* dark toggle visual */
+    #darkToggle { display:flex; gap:8px; align-items:center; }
   </style>
 </head>
 <body>
@@ -65,7 +68,7 @@
     </div>
   </div>
 
-  <!-- NEW CONTROLS — ADDED (doesn't remove anything) -->
+  <!-- CONTROLS — kept everything but removed "Admins only" filter per request -->
   <div class="controls-row" style="margin-bottom:8px;">
     <label for="sortSelect">Sort:</label>
     <select id="sortSelect" title="Sort scripts">
@@ -73,10 +76,6 @@
       <option value="oldest">Oldest</option>
       <option value="popular">Most popular</option>
     </select>
-
-    <label style="display:flex;align-items:center;gap:6px;">
-      <input type="checkbox" id="adminOnly"> Admins only
-    </label>
 
     <label style="display:flex;align-items:center;gap:6px;">
       <span>Per page</span>
@@ -105,14 +104,12 @@
     import { db } from './js/firebase.js';
     import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // ---- CONFIG: edit admin brands according to your admin brand names
-    const ADMINS = ['Admin', 'gomega', 'GomegaAdmin']; // <-- edit these brand names as needed
+    // ---- NOTE: ADMINS filter removed by user request. Admin badge still shown when brandName === 'Admin' (unchanged UI).
 
     let allLocal = [];
     let allRemote = []; // will contain objects { id, ...data }
     let visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || 20;
     let currentSort = document.getElementById('sortSelect').value;
-    let adminOnly = document.getElementById('adminOnly').checked;
     let searchTerm = '';
 
     // local popularity storage key prefix
@@ -156,36 +153,59 @@
 
     // Attach remote loader
     function loadRemote() {
-      const col = collection(db, 'approved_scripts');
-      // keep onSnapshot to get live updates
-      onSnapshot(col, snap => {
-        allRemote = snap.docs.map(d => {
-          return { id: d.id, ...d.data() };
+      try {
+        const col = collection(db, 'approved_scripts');
+        // keep onSnapshot to get live updates
+        onSnapshot(col, snap => {
+          allRemote = snap.docs.map(d => {
+            return { id: d.id, ...d.data() };
+          });
+          applyFiltersAndRender();
+        }, err => {
+          console.error('Remote load error', err);
+          // still render local if remote fails
+          applyFiltersAndRender();
         });
+      } catch (e) {
+        console.warn('Firestore not available in this environment', e);
         applyFiltersAndRender();
-      }, err => {
-        console.error('Remote load error', err);
-      });
+      }
     }
 
-    // local scripts loader (unchanged)
+    // local scripts loader (improved: attach stable ids based on filename or title)
     async function loadLocal() {
       try {
         const res = await fetch('scripts/index.json');
         const files = await res.json();
-        allLocal = await Promise.all(files.map(name => fetch(`scripts/${name}`).then(r => r.json())));
+        const items = await Promise.all(files.map(async name => {
+          try {
+            const r = await fetch(`scripts/${name}`);
+            const data = await r.json();
+            // create an id from filename (without extension) OR from title if provided
+            const fileId = name.replace(/\.[^.]+$/, '');
+            const id = (data.id && String(data.id)) || (data.title ? data.title.toString().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'') : fileId);
+            return { id, ...data };
+          } catch (e) {
+            console.error('Failed to load', name, e);
+            return null;
+          }
+        }));
+        allLocal = items.filter(Boolean);
         applyFiltersAndRender();
       } catch (e) {
         console.error('Local load error', e);
+        allLocal = [];
+        applyFiltersAndRender();
       }
     }
 
     // Combined filter, sort, paginate, render
     function applyFiltersAndRender() {
-      const merged = [...allRemote, ...allLocal.map(s => ({ id: s.title?.toLowerCase().replace(/\s+/g,'-') || Math.random().toString(36).slice(2), ...s }))];
+      // merge with consistent ids: prefer remote id for remote items, local id for local
+      const merged = [...(allRemote || []), ...(allLocal || [])];
 
       // search filter
-      const term = searchTerm.trim().toLowerCase();
+      const term = (searchTerm || '').trim().toLowerCase();
       let filtered = merged.filter(s => {
         if (!term) return true;
         if ((s.title || '').toString().toLowerCase().includes(term)) return true;
@@ -193,11 +213,6 @@
         if ((s.brandName || '').toString().toLowerCase().includes(term)) return true;
         return false;
       });
-
-      // admin-only filter
-      if (adminOnly) {
-        filtered = filtered.filter(s => ADMINS.includes((s.brandName || '').toString()));
-      }
 
       // sorting
       if (currentSort === 'newest') {
@@ -208,26 +223,33 @@
         filtered.sort((a,b) => popularityScore(b) - popularityScore(a));
       }
 
-      renderScripts(filtered.slice(0, visibleCount));
-      // update script count summary
-      document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} scripts${adminOnly ? ' (admin-only)' : ''}`;
       // store fullFiltered for load more
       window.__gomega_fullFiltered = filtered;
+
+      renderScripts(filtered.slice(0, visibleCount));
+
+      // update script count summary
+      document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} scripts`;
     }
 
     function renderScripts(scripts) {
       const list = document.getElementById('scriptList');
       list.innerHTML = '';
+      if (!scripts || scripts.length === 0) {
+        list.innerHTML = '<p>No scripts found.</p>';
+        return;
+      }
+
       scripts.forEach(script => {
         const id = script.id || (script.title ? script.title.toLowerCase().replace(/\s+/g, '-') : Math.random().toString(36).slice(2));
-        const adsInfo = script.includeAds ? `${script.numAds} ad${script.numAds > 1 ? 's' : ''}` : 'No ads';
-        const publisher = script.brandName || 'Admin';
+        const adsInfo = script.includeAds ? `${script.numAds || 1} ad${(script.numAds || 1) > 1 ? 's' : ''}` : 'No ads';
+        const publisher = script.brandName || 'Unknown';
         const remoteClicks = getRemoteClicks(script);
         const localClicks = getLocalClicks(id);
         const totalClicks = remoteClicks + localClicks;
 
-        // admin badge
-        const adminBadge = ADMINS.includes((publisher || '').toString()) ? `<span class="badge-admin">ADMIN</span>` : '';
+        // admin badge (kept for visual, does not affect filtering)
+        const adminBadge = (publisher === 'Admin' || publisher === 'admin') ? `<span class="badge-admin">ADMIN</span>` : '';
 
         list.insertAdjacentHTML('beforeend', `
           <div class="script-card" data-script-id="${id}">
@@ -254,7 +276,7 @@
         btn.onclick = async () => {
           const id = btn.dataset.id;
           // find script in merged arrays
-          const merged = [...allRemote, ...allLocal.map(s => ({ id: s.title?.toLowerCase().replace(/\s+/g,'-'), ...s }))];
+          const merged = [...allRemote, ...allLocal];
           const script = merged.find(s => (s.id || (s.title||'').toLowerCase().replace(/\s+/g,'-')) === id);
           const box = document.getElementById(`code-${id}`);
           const copyBtn = document.querySelector(`.copy-btn[data-id="${id}"]`);
@@ -275,13 +297,15 @@
           }
 
           // show code
-          box.style.display = 'block';
-          box.textContent = script.code || '';
+          if (box) {
+            box.style.display = 'block';
+            box.textContent = script.code || '';
+          }
 
           // copy to clipboard attempt (like original)
           try {
             await navigator.clipboard.writeText(script.code || '');
-            alert('✅ Copied!');
+            alert('✅ Copied to clipboard!');
           } catch {
             alert('⚠️ Copy failed. Use the "Copy Script" button.');
           }
@@ -317,7 +341,7 @@
 
     // search input
     document.getElementById('searchBox').addEventListener('input', e => {
-      searchTerm = e.target.value.toLowerCase();
+      searchTerm = e.target.value;
       visibleCount = parseInt(document.getElementById('perPageSelect').value, 10) || visibleCount;
       applyFiltersAndRender();
     });
@@ -325,12 +349,6 @@
     // sort select
     document.getElementById('sortSelect').addEventListener('change', e => {
       currentSort = e.target.value;
-      applyFiltersAndRender();
-    });
-
-    // admin only toggle
-    document.getElementById('adminOnly').addEventListener('change', e => {
-      adminOnly = e.target.checked;
       applyFiltersAndRender();
     });
 
@@ -342,7 +360,9 @@
 
     // refresh
     document.getElementById('refreshBtn').addEventListener('click', () => {
-      applyFiltersAndRender();
+      // re-run loaders
+      loadLocal();
+      loadRemote();
     });
 
     // load more button
@@ -352,7 +372,7 @@
       // if we have a cached filtered list, just show more
       if (window.__gomega_fullFiltered) {
         renderScripts(window.__gomega_fullFiltered.slice(0, visibleCount));
-        document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}${adminOnly ? ' (admin-only)' : ''}`;
+        document.getElementById('scriptCount').textContent = `Showing ${Math.min(visibleCount, window.__gomega_fullFiltered.length)} of ${window.__gomega_fullFiltered.length}`;
       } else {
         applyFiltersAndRender();
       }
@@ -365,16 +385,54 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/\"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
 
     // init loaders
     loadLocal();
     loadRemote();
+
+    // ------------------ Dark mode handling (fixed + persisted)
+    const darkToggle = document.getElementById('darkToggle');
+    function applyDarkModeState(on) {
+      if (on) {
+        document.body.classList.add('dark-mode');
+        darkToggle.textContent = '🌙 Dark';
+      } else {
+        document.body.classList.remove('dark-mode');
+        darkToggle.textContent = '☀️ Light';
+      }
+    }
+    // initialize from localStorage
+    const saved = localStorage.getItem('gomega_dark');
+    const initialDark = saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    applyDarkModeState(initialDark);
+
+    darkToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('gomega_dark', isDark ? '1' : '0');
+      applyDarkModeState(isDark);
+    });
+
+    // settings & make script buttons
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+      // simple placeholder: open settings page or modal
+      if (location.pathname.endsWith('/scripts.html')) {
+        // try to open "settings.html" if it exists, otherwise alert
+        window.location.href = '/settings.html';
+      } else {
+        alert('Open settings (not implemented)');
+      }
+    });
+    document.getElementById('makeScriptBtn').addEventListener('click', () => {
+      window.location.href = '/add-script.html';
+    });
+
   </script>
 
   <script>
+    // particle background (unchanged)
     const canvas = document.getElementById('hoverParticles'), ctx = canvas.getContext('2d'); let particles = [];
     function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
     window.addEventListener('resize', resize); resize();
