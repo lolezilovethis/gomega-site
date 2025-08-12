@@ -9,7 +9,7 @@
     .card{background:rgba(255,255,255,0.02);padding:18px;border-radius:12px;max-width:760px;margin:24px auto;border:1px solid rgba(255,255,255,0.03)}
     .muted{color:#9aa5b1;font-size:13px}
     .cta{display:inline-block;padding:8px 12px;border-radius:8px;background:linear-gradient(90deg,#6ee7b7,#60a5fa);color:#022;font-weight:700;text-decoration:none}
-    pre{background:rgba(0,0,0,0.2);padding:8px;border-radius:6px}
+    pre{background:rgba(0,0,0,0.2);padding:8px;border-radius:6px;overflow:auto}
   </style>
 </head>
 <body>
@@ -23,51 +23,67 @@
   </div>
 
   <script>
-    (async function () {
-      // parse invoice id from URL /invoice/:id
-      const path = window.location.pathname.split('/');
-      const invoiceId = path[path.length-1] || '';
-      const root = document.getElementById('root');
+    (function(){
+      const pathParts = window.location.pathname.split('/');
+      const invoiceId = pathParts[pathParts.length-1] || '';
       const info = document.getElementById('info');
       const content = document.getElementById('content');
       const adminMark = document.getElementById('adminMark');
 
-      if(!invoiceId){
-        info.textContent = 'Invoice ID not found in the URL.';
-        return;
-      }
+      if(!invoiceId){ info.textContent = 'Invoice ID not found in URL.'; return; }
 
-      async function load() {
+      async function load(){
         info.textContent = 'Loading invoice ' + invoiceId + '…';
         try {
-          const r = await fetch('/api/invoice/' + invoiceId);
-          if(!r.ok) {
-            const json = await r.json();
-            info.textContent = 'Error: ' + (json?.message || r.status);
+          const res = await fetch('/api/invoice/' + invoiceId);
+          if(!res.ok){
+            // try to load mock invoice from localStorage
+            if(res.status === 404){
+              const mockRaw = localStorage.getItem(`mock-invoice-${invoiceId}`);
+              if(mockRaw){
+                const inv = JSON.parse(mockRaw);
+                renderInvoice(inv, true);
+                return;
+              }
+            }
+            // read raw text for debugging
+            const text = await res.text();
+            info.textContent = `Error fetching invoice: ${res.status}`;
+            content.innerHTML = `<pre>${text}</pre>`;
             return;
           }
-          const inv = await r.json();
-          info.textContent = `Invoice ${inv.id} — status: ${inv.status}`;
-          content.innerHTML = `
-            <div><strong>Plan:</strong> ${inv.plan} (${inv.billing})</div>
-            <div><strong>Amount:</strong> $${Number(inv.amount).toFixed(2)}</div>
-            <div><strong>Email:</strong> ${inv.email}</div>
-            <div style="margin-top:8px"><strong>Created:</strong> ${new Date(inv.createdAt).toLocaleString()}</div>
-            <div style="margin-top:12px"><strong>Method:</strong> ${inv.method}</div>
-            <div style="margin-top:12px"><strong>Raw invoice data:</strong><pre>${JSON.stringify(inv, null, 2)}</pre></div>
-          `;
-          // show admin mark button (for convenience). This endpoint may be protected on the server.
-          adminMark.style.display = 'inline-block';
-        } catch (err) {
-          info.textContent = 'Error loading invoice: ' + err.message;
+          const inv = await res.json();
+          renderInvoice(inv, false);
+        } catch (err){
+          // network error -> fallback to localStorage
+          const mockRaw = localStorage.getItem(`mock-invoice-${invoiceId}`);
+          if(mockRaw){
+            const inv = JSON.parse(mockRaw);
+            renderInvoice(inv, true);
+            return;
+          }
+          info.textContent = 'Network error loading invoice: ' + err.message;
         }
       }
 
-      adminMark.addEventListener('click', async (e) => {
+      function renderInvoice(inv, isMock){
+        info.textContent = `Invoice ${inv.id} — status: ${inv.status} ${isMock? '(local mock)':''}`;
+        content.innerHTML = `
+          <div><strong>Plan:</strong> ${inv.plan} (${inv.billing || 'n/a'})</div>
+          <div><strong>Amount:</strong> ${typeof inv.amount === 'number' ? ('$' + inv.amount.toFixed(2)) : inv.amount}</div>
+          <div><strong>Email:</strong> ${inv.email || '—'}</div>
+          <div style="margin-top:8px"><strong>Created:</strong> ${inv.createdAt ? new Date(inv.createdAt).toLocaleString() : '—'}</div>
+          <div style="margin-top:12px"><strong>Method:</strong> ${inv.method || '—'}</div>
+          <div style="margin-top:12px"><strong>Raw invoice data:</strong><pre>${JSON.stringify(inv, null, 2)}</pre></div>
+        `;
+        // show admin mark button always for convenience (server will reject if not allowed)
+        adminMark.style.display = 'inline-block';
+      }
+
+      adminMark.addEventListener('click', async (e)=>{
         e.preventDefault();
         if(!confirm('Mark this invoice as PAID? (admin only)')) return;
-        // optionally: prompt for admin token if server expects one
-        const token = prompt('If you have an admin token, enter it here (otherwise leave empty).');
+        const token = prompt('If you have an admin token, enter it (optional):');
         try {
           const r = await fetch('/api/admin/mark-paid', {
             method: 'POST',
@@ -75,11 +91,33 @@
             body: JSON.stringify({ invoiceId })
           });
           const json = await r.json();
-          if(!r.ok) return alert('Error: ' + json?.message || r.status);
-          alert('Invoice marked paid.');
+          if(!r.ok){
+            // server failed — update local mock if present and notify
+            alert('Server failed to mark paid: ' + (json?.message || r.status) + '\nAttempting local fallback...');
+            const mockRaw = localStorage.getItem(`mock-invoice-${invoiceId}`);
+            if(mockRaw){
+              const inv = JSON.parse(mockRaw);
+              inv.status = 'paid';
+              inv.paidAt = new Date().toISOString();
+              localStorage.setItem(`mock-invoice-${invoiceId}`, JSON.stringify(inv));
+              alert('Local mock invoice marked paid.');
+              load(); // reload to reflect status
+            }
+            return;
+          }
+          alert('Invoice marked paid on server.');
           load();
-        } catch(e){
-          alert('Error: ' + e.message);
+        } catch (err){
+          alert('Network or fetch error: ' + err.message + '\nAttempting local fallback.');
+          const mockRaw = localStorage.getItem(`mock-invoice-${invoiceId}`);
+          if(mockRaw){
+            const inv = JSON.parse(mockRaw);
+            inv.status = 'paid';
+            inv.paidAt = new Date().toISOString();
+            localStorage.setItem(`mock-invoice-${invoiceId}`, JSON.stringify(inv));
+            alert('Local mock invoice marked paid.');
+            load();
+          }
         }
       });
 
