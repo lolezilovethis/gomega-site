@@ -1,78 +1,86 @@
+// server.js
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
+
+const DATA_DIR = path.join(__dirname, 'data');
+const INVOICES_FILE = path.join(DATA_DIR, 'invoices.json');
+if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+if(!fs.existsSync(INVOICES_FILE)) fs.writeFileSync(INVOICES_FILE, JSON.stringify({}));
+
+function readInvoices(){ try { return JSON.parse(fs.readFileSync(INVOICES_FILE,'utf8')||'{}'); } catch(e){ return {}; } }
+function writeInvoices(obj){ fs.writeFileSync(INVOICES_FILE, JSON.stringify(obj, null, 2)); }
+
 const app = express();
-const PORT = 3000;
-
 app.use(express.json());
-app.use(express.static('public')); // Optional: serve frontend
-app.use('/scripts', express.static(path.join(__dirname, 'scripts'))); // Serve scripts JSON folder
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Update view count for a specific script
-app.post('/update-view-count', (req, res) => {
-  const { title } = req.body;
-
-  if (!title) {
-    return res.status(400).json({ error: 'Title is required' });
-  }
-
-  const filename = `${title.toLowerCase().replace(/\s+/g, '-')}.json`;
-  const filePath = path.join(__dirname, 'scripts', filename);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Script not found' });
-  }
-
-  try {
-    const script = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    script.views = (script.views || 0) + 1;
-    fs.writeFileSync(filePath, JSON.stringify(script, null, 2));
-    return res.json({ success: true, views: script.views });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to update views.' });
-  }
+// respond to OPTIONS (CORS preflight friendly)
+app.options('*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token');
+  res.sendStatus(204);
 });
 
-// Save new script file
-app.post('/scripts/:filename', (req, res) => {
-  const filename = req.params.filename.replace(/[^a-z0-9\\-\\.]/gi, '');
-  const filePath = path.join(__dirname, 'scripts', filename);
-
-  fs.writeFile(filePath, JSON.stringify(req.body, null, 2), err => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to save script file.' });
-    }
-    return res.json({ success: true, file: filename });
-  });
+// Serve invoice page for /invoice/:id
+app.get('/invoice/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'invoice.html'));
 });
 
-// Update scripts/index.json with new entry
-app.post('/update-index', (req, res) => {
-  const { filename } = req.body;
-  const indexPath = path.join(__dirname, 'scripts', 'index.json');
+// Create invoice
+app.post('/api/create-invoice', (req, res) => {
+  const { plan, billing, email, amount, method } = req.body;
+  if(!plan || !email || !amount) return res.status(400).json({ message: 'Missing fields (plan, email, amount required)' });
 
-  if (!filename) {
-    return res.status(400).json({ error: 'Filename is required.' });
+  const invoices = readInvoices();
+  const invoiceId = (randomUUID().replace(/-/g, '').slice(0,12)).toUpperCase();
+  invoices[invoiceId] = {
+    id: invoiceId,
+    plan,
+    billing,
+    email,
+    method,
+    amount: Number(amount),
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  writeInvoices(invoices);
+
+  // in prod: send invoice email here
+  res.json({ invoiceId });
+});
+
+// Get invoice
+app.get('/api/invoice/:id', (req, res) => {
+  const invoices = readInvoices();
+  const inv = invoices[req.params.id];
+  if(!inv) return res.status(404).json({ message: 'Invoice not found' });
+  res.json(inv);
+});
+
+// Admin: mark paid (protect with ADMIN_TOKEN env var)
+app.post('/api/admin/mark-paid', (req, res) => {
+  const ADMIN_TOKEN = process.env.ADMIN_TOKEN || null;
+  if(ADMIN_TOKEN){
+    const token = req.header('x-admin-token');
+    if(!token || token !== ADMIN_TOKEN) return res.status(403).json({ message: 'Forbidden: invalid admin token' });
   }
+  const { invoiceId } = req.body;
+  if(!invoiceId) return res.status(400).json({ message: 'Missing invoiceId' });
 
-  try {
-    let indexData = [];
-    if (fs.existsSync(indexPath)) {
-      indexData = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-    }
+  const invoices = readInvoices();
+  const inv = invoices[invoiceId];
+  if(!inv) return res.status(404).json({ message: 'Invoice not found' });
 
-    if (!indexData.includes(filename)) {
-      indexData.push(filename);
-      fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2));
-    }
+  inv.status = 'paid';
+  inv.paidAt = new Date().toISOString();
+  writeInvoices(invoices);
 
-    return res.json({ success: true, index: indexData });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to update index.' });
-  }
+  // TODO: provision premium to user here
+  res.json({ ok: true, invoice: inv });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`✅ Gomega backend running at: http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=> console.log(`Server running on http://localhost:${PORT}`));
