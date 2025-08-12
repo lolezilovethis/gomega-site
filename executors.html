@@ -262,7 +262,7 @@
 
 <header>
   <h1>Premium <span>Executors</span></h1>
-  <p class="lead">Curated list of popular executors. Hover for details and click the button to open the official download page. (Add official URLs to each executor's <code>link</code> field or inside <code>officialLinks</code>.)</p>
+  <p class="lead">Curated list of popular executors. Hover for details and click the button to open the official download page. (Add official URLs to each executor's <code>link</code> field, the <code>linksMap</code> below, or <code>officialLinks</code>.)</p>
 </header>
 
 <div class="controls" role="region" aria-label="Search and filters">
@@ -278,25 +278,43 @@
 </main>
 
 <script>
-/*  Behavior:
-    - Uses obj.link first (if you add links directly into each executor object).
-    - If obj.link is empty, it checks officialLinks[name].
-    - If neither exist, both CTA buttons are disabled (no fallback search).
-    - You asked to add many more tags/features — each executor now has expanded tags.
+/* ============================
+   Link fields for you to edit
+   ============================
+   - Paste official links into `linksMap` (preferred single place).
+   - Or set `link` directly inside a specific executor object in the `executors` array.
+   - Or fill `officialLinks` if you prefer that map.
+   Priority: obj.link -> linksMap[name] -> officialLinks[name]
 */
 
-/* Add official direct URLs here if you prefer to centralize them.
-   Keys must exactly match the executor name used in the data array.
-   Example:
-     officialLinks["Synapse X"] = "https://x.synapse.to"
+/* Example: paste links here in this simple, editable object.
+   Keys must match executor names exactly (case-sensitive).
+   e.g. linksMap["Synapse X"] = "https://x.synapse.to"
 */
-const officialLinks = {
-  // e.g. "Synapse X": "https://x.synapse.to"
+const linksMap = {
+  // "Synapse X": "https://x.synapse.to",
+  // "KRNL": "https://krnl.place",
+  // "Fluxus": "https://fluxus.example",
 };
 
-/* Executor dataset - paste your real links into each `link` field as you like.
-   I expanded tags/features for every executor (more descriptive tags).
-*/
+/* (Optional) officialLinks kept for backward compatibility if you used it earlier. */
+const officialLinks = {
+  // "Synapse X": "https://x.synapse.to"
+};
+
+/* Helper to pick the best available link for a named executor */
+function getExecutorLink(executorObj){
+  // 1) explicit link on object
+  if(executorObj.link && executorObj.link.toString().trim() !== '') return executorObj.link;
+  // 2) linksMap (the new fav place to paste)
+  if(linksMap[executorObj.name] && linksMap[executorObj.name].toString().trim() !== '') return linksMap[executorObj.name];
+  // 3) officialLinks fallback
+  if(officialLinks[executorObj.name] && officialLinks[executorObj.name].toString().trim() !== '') return officialLinks[executorObj.name];
+  // none found
+  return null;
+}
+
+/* Executor dataset (you can also paste links directly into each object's `link` property) */
 const executors = [
   { name:"Synapse X", short:"Industry-standard executor with frequent updates and wide script compatibility. Trusted by advanced users.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection","Frequent Updates","Large Community","Script Hub Integration","Lifetime Support","Windows Only","Key System","Auto-Update"], rating:4.9, recommended:true, link: "" , color:"gold"},
   { name:"KRNL", short:"Free Windows executor with a wide script library and active community support. Good starting point for many users.", price:"FREE", tags:["Decompiler","Key System","Community","Stable Builds","Script Library","Support Forum","Auto-Update","Windows","Large Repo","No Subscription"], rating:4.7, recommended:true, link: "", color:"green"},
@@ -447,11 +465,10 @@ function createCard(obj){
   const btn = document.createElement('a'); btn.className='btn';
 
   // Determine final external URL:
-  // prefer obj.link (you said you'll fill them), else officialLinks, else disable the button (no search fallback)
-  const linkValue = (obj.link && obj.link.toString().trim() !== '') ? obj.link : (officialLinks[obj.name] && officialLinks[obj.name].toString().trim() !== '' ? officialLinks[obj.name] : null);
+  const finalLink = getExecutorLink(obj);
 
-  if(linkValue){
-    btn.href = linkValue;
+  if(finalLink){
+    btn.href = finalLink;
     btn.target = '_blank';
     btn.rel = 'noopener noreferrer';
     btn.setAttribute('aria-disabled','false');
@@ -459,19 +476,19 @@ function createCard(obj){
     btn.href = '#';
     btn.classList.add('disabled');
     btn.setAttribute('aria-disabled','true');
-    btn.title = 'No official link set — add a link to the executor object or officialLinks map.';
+    btn.title = 'No official link set — add a link to the linksMap or the executor object.';
   }
 
   btn.textContent = obj.price && obj.price.toLowerCase().includes('free') ? 'Download Free' : (obj.recommended ? 'Get Premium' : 'Get');
   btn.classList.add(obj.price && obj.price.toLowerCase().includes('free') ? 'free' : 'primary');
-  if(obj.recommended && !btn.classList.contains('disabled')) btn.classList.add('pulse');
+  if(obj.recommended && finalLink) btn.classList.add('pulse');
 
   cta.appendChild(btn);
 
   // optional secondary ghost for details (opens link as well if available)
   const more = document.createElement('a'); more.className = 'btn ghost small';
-  if(linkValue){
-    more.href = linkValue;
+  if(finalLink){
+    more.href = finalLink;
     more.target = '_blank';
     more.rel = 'noopener noreferrer';
     more.setAttribute('aria-disabled','false');
@@ -479,7 +496,7 @@ function createCard(obj){
     more.href = '#';
     more.classList.add('disabled');
     more.setAttribute('aria-disabled','true');
-    more.title = 'No official link set — add a link to the executor object or officialLinks map.';
+    more.title = 'No official link set — add a link to the linksMap or the executor object.';
   }
   more.textContent = 'Visit';
   cta.appendChild(more);
