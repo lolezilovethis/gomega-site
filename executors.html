@@ -184,6 +184,16 @@
   }
   .btn.ghost{ background: rgba(255,255,255,0.02); color:var(--muted); border:1px solid rgba(255,255,255,0.03); }
 
+  /* disabled button look when no link is set */
+  .btn.disabled{
+    opacity:0.45;
+    pointer-events:none;
+    cursor:not-allowed;
+    transform:none !important;
+    box-shadow:none !important;
+  }
+  .btn.disabled:hover{ transform:none }
+
   .ribbon{ position:absolute; right:14px; top:14px; z-index:2; font-weight:900; padding:6px 10px; border-radius:8px; background:linear-gradient(90deg,#ffb86b,#ff8c5a); color:#1b1200; font-size:12px; box-shadow: 0 8px 22px rgba(255,138,66,0.12); }
 
   /* Not recommended top badge */
@@ -208,7 +218,7 @@
     position:absolute;
     right:14px;
     top:64px;
-    width:220px;
+    width:260px;
     padding:10px;
     border-radius:10px;
     background: linear-gradient(180deg, rgba(8,12,22,0.9), rgba(6,8,16,0.85));
@@ -252,7 +262,7 @@
 
 <header>
   <h1>Premium <span>Executors</span></h1>
-  <p class="lead">Curated list of popular executors. Hover for details and click the button to open the official download/search page. (Add official URLs to each executor's <code>link</code> field and they'll be used.)</p>
+  <p class="lead">Curated list of popular executors. Hover for details and click the button to open the official download page. (Add official URLs to each executor's <code>link</code> field or inside <code>officialLinks</code>.)</p>
 </header>
 
 <div class="controls" role="region" aria-label="Search and filters">
@@ -268,90 +278,91 @@
 </main>
 
 <script>
-/*  QUICK NOTE:
-    - Script prefers obj.link first. If you paste official URLs into each executor's `link` property, those will be used.
-    - If obj.link isn't set, officialLinks[name] is checked next (left empty by default).
-    - If neither exists, a Google search fallback is used so buttons still go somewhere relevant.
+/*  Behavior:
+    - Uses obj.link first (if you add links directly into each executor object).
+    - If obj.link is empty, it checks officialLinks[name].
+    - If neither exist, both CTA buttons are disabled (no fallback search).
+    - You asked to add many more tags/features — each executor now has expanded tags.
 */
 
-/* Put exact official download URLs here if you have them. Keys must match executor name exactly. */
+/* Add official direct URLs here if you prefer to centralize them.
+   Keys must exactly match the executor name used in the data array.
+   Example:
+     officialLinks["Synapse X"] = "https://x.synapse.to"
+*/
 const officialLinks = {
-  // "Synapse X": "https://x.synapse.to"
+  // e.g. "Synapse X": "https://x.synapse.to"
 };
 
-/* create a google search fallback */
-function externalSearchLink(name){
-  const q = encodeURIComponent(name + " official download executor");
-  return `https://www.google.com/search?q=${q}`;
-}
-
-/* Executor data with expanded tags/features (you can paste links directly into each entry's link field) */
+/* Executor dataset - paste your real links into each `link` field as you like.
+   I expanded tags/features for every executor (more descriptive tags).
+*/
 const executors = [
-  { name:"Synapse X", short:"Industry-standard executor with frequent updates and wide script compatibility. Trusted by advanced users.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection","Frequent Updates","Large Community","Script Hub Integration"], rating:4.9, recommended:true, link: "" , color:"gold"},
-  { name:"KRNL", short:"Free Windows executor with a wide script library and active community support. Good starting point for many users.", price:"FREE", tags:["Decompiler","Key System","Community","Stable Builds","Script Library","Support Forum"], rating:4.7, recommended:true, link: "", color:"green"},
-  { name:"Fluxus", short:"Lightweight, stable, and fast — ideal for performance with many concurrent scripts.", price:"$4.99 / 30d", tags:["Stable","Key System","Low Memory","Fast Injection","Low Latency","Auto-Update"], rating:4.6, recommended:true, link: "", color:"gold"},
-  { name:"Script-Ware", short:"Premium executor with a polished UI, built-in protections, and developer support.", price:"Paid", tags:["Premium","Undetected","Support","Polished UI","Frequent Patches","Advanced Protections"], rating:4.8, recommended:true, link: "", color:"gold"},
-  { name:"ProtoSmasher", short:"Feature-packed executor used by experienced scripters — performance-first build.", price:"Paid", tags:["High Performance","Undetected","Advanced","Low Overhead","Developer Tools","Profiler"], rating:4.5, recommended:true, link: "", color:"gold"},
+  { name:"Synapse X", short:"Industry-standard executor with frequent updates and wide script compatibility. Trusted by advanced users.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection","Frequent Updates","Large Community","Script Hub Integration","Lifetime Support","Windows Only","Key System","Auto-Update"], rating:4.9, recommended:true, link: "" , color:"gold"},
+  { name:"KRNL", short:"Free Windows executor with a wide script library and active community support. Good starting point for many users.", price:"FREE", tags:["Decompiler","Key System","Community","Stable Builds","Script Library","Support Forum","Auto-Update","Windows","Large Repo","No Subscription"], rating:4.7, recommended:true, link: "", color:"green"},
+  { name:"Fluxus", short:"Lightweight, stable, and fast — ideal for performance with many concurrent scripts.", price:"$4.99 / 30d", tags:["Stable","Key System","Low Memory","Fast Injection","Low Latency","Auto-Update","Profiler","Windows","Minimal UI","Undetected Modes"], rating:4.6, recommended:true, link: "", color:"gold"},
+  { name:"Script-Ware", short:"Premium executor with a polished UI, built-in protections, and developer support.", price:"Paid", tags:["Premium","Undetected","Support","Polished UI","Frequent Patches","Advanced Protections","Docs","Subscription","Windows","Plugin API"], rating:4.8, recommended:true, link: "", color:"gold"},
+  { name:"ProtoSmasher", short:"Feature-packed executor used by experienced scripters — performance-first build.", price:"Paid", tags:["High Performance","Undetected","Advanced","Low Overhead","Developer Tools","Profiler","Debugger","Windows","Custom Hooks"], rating:4.5, recommended:true, link: "", color:"gold"},
 
-  { name:"JJSploit", short:"Legacy, beginner-focused tool. Many features are outdated; use community resources and caution.", price:"FREE", tags:["Beginner Friendly","Legacy","Outdated","Community Guides"], rating:2.9, recommended:false, link: "" },
-  { name:"Arceus X", short:"Mobile-friendly executor and script hub; good for on-the-go testing.", price:"Paid/Free", tags:["Mobile","User-friendly","Cloud Sync","Auto-Update"], rating:4.1, recommended:false, link: "" },
-  { name:"WeAreDevs", short:"Community hub that hosts tools and script listings; central resource for several projects.", price:"Free/Paid", tags:["Script Hub","Community","APIs","Resource Index"], rating:3.9, recommended:false, link: "" },
-  { name:"Solara", short:"Beginner-friendly and lightweight; minimal UI for quick script runs.", price:"FREE", tags:["Lightweight","Beginner Friendly","Quick Launch","Small Footprint"], rating:2.5, recommended:false, link: "" },
-  { name:"OwlHub", short:"Script hub with many ready-to-run scripts (not an injector itself). Great for testing scripts quickly.", price:"Free", tags:["Script Hub","Easy","One-click Scripts","Prebuilt Scripts"], rating:3.8, recommended:false, link: "" },
-  { name:"Potassium", short:"Focused on reliability and maintained builds; community-driven.", price:"$20 / lifetime", tags:["Windows","Support","Lifetime License","Stable Releases"], rating:4.2, recommended:false, link: "" },
-  { name:"AWP", short:"Premium executor emphasizing dependable injection and consistent updates.", price:"$6.99 / wk", tags:["Fast Injection","Undetected","Subscription","Regular Updates"], rating:4.4, recommended:false, link: "" },
-  { name:"Zenith", short:"Premium product with active support and modern UI; good for users wanting easy maintenance.", price:"$6.49 / wk", tags:["Premium Support","Level 8","Modern UI","Auto-Update"], rating:4.8, recommended:false, link: "" },
-  { name:"KRNL Mobile", short:"Community ports for mobile-style usage; often community-built and experimental.", price:"Free", tags:["Mobile","Community","Experimental Builds","Ports"], rating:3.6, recommended:false, link: "" },
-  { name:"NebulaX", short:"Small-footprint executor focusing on speed and low resource use.", price:"Free/Paid", tags:["Performance","Lightweight","Low Memory","Fast Startup"], rating:3.7, recommended:false, link: "" },
-  { name:"Frosted", short:"Experimental executor with unique features; recommended for testers.", price:"Free", tags:["Experimental","Community","Feature Flags","Beta"], rating:3.2, recommended:false, link: "" },
-  { name:"Nightfall", short:"Modern UI aimed at new users with presets and quick-start scripts.", price:"Paid", tags:["UI Focus","Beginner Friendly","Presets","Onboarding"], rating:3.9, recommended:false, link: "" },
-  { name:"Aurora", short:"Community-driven executor with plugin architecture for extensibility.", price:"Free", tags:["Plugins","Community","Extensible","Plugin Marketplace"], rating:3.5, recommended:false, link: "" },
-  { name:"ShadowRun", short:"Low memory and high-speed injector for long sessions.", price:"Paid", tags:["Low Memory","Fast","Long Sessions","Stability"], rating:3.9, recommended:false, link: "" },
-  { name:"TitanX", short:"Balanced executor for advanced scripts with stable releases.", price:"Paid", tags:["Advanced","Stable","Balanced","Release Notes"], rating:4.0, recommended:false, link: "" },
-  { name:"Eclipse", short:"Designed for maximum compatibility with many public scripts and hubs.", price:"Free/Paid", tags:["Compatibility","Script Support","Large Database","Hub Friendly"], rating:3.8, recommended:false, link: "" },
-  { name:"Vortex", short:"Experimental cross-platform goals; community ports available.", price:"Free", tags:["Cross-platform","Experimental","Ports","Community Builds"], rating:3.1, recommended:false, link: "" },
-  { name:"Nimbus", short:"Curated store-style approach with recommended scripts and a modern aesthetic.", price:"Paid", tags:["Store","Curated","Modern UI","Recommended Scripts"], rating:3.7, recommended:false, link: "" },
-  { name:"Catalyst", short:"Built for stability during extended gameplay—minimal frame impact.", price:"Paid", tags:["Stability","Low Lag","Long Sessions","Integrity Checks"], rating:3.8, recommended:false, link: "" },
-  { name:"Helix", short:"No-frills executor for quick tests and debugging scripts.", price:"FREE", tags:["No-frills","Quick","Debugging Tools","Console"], rating:3.4, recommended:false, link: "" },
-  { name:"Quasar", short:"Community testbed for new features and integrations.", price:"Free", tags:["Experimental","Community","Integrations","Testbed"], rating:3.2, recommended:false, link: "" },
-  { name:"Nebulous", short:"Small community tool prioritizing privacy and minimal telemetry.", price:"Paid/Free", tags:["Privacy","Small Community","Minimal Telemetry","Opt-in Stats"], rating:3.3, recommended:false, link: "" },
+  { name:"JJSploit", short:"Legacy, beginner-focused tool. Many features are outdated; use community resources and caution.", price:"FREE", tags:["Beginner Friendly","Legacy","Outdated","Community Guides","No Longer Maintained","Windows"], rating:2.9, recommended:false, link: "" },
+  { name:"Arceus X", short:"Mobile-friendly executor and script hub; good for on-the-go testing.", price:"Paid/Free", tags:["Mobile","User-friendly","Cloud Sync","Auto-Update","Templates","Cross-Platform","Community"], rating:4.1, recommended:false, link: "" },
+  { name:"WeAreDevs", short:"Community hub that hosts tools and script listings; central resource for several projects.", price:"Free/Paid", tags:["Script Hub","Community","APIs","Resource Index","Guides","Downloads"], rating:3.9, recommended:false, link: "" },
+  { name:"Solara", short:"Beginner-friendly and lightweight; minimal UI for quick script runs.", price:"FREE", tags:["Lightweight","Beginner Friendly","Quick Launch","Small Footprint","Simple UI","Low Memory"], rating:2.5, recommended:false, link: "" },
+  { name:"OwlHub", short:"Script hub with many ready-to-run scripts (not an injector itself). Great for testing scripts quickly.", price:"Free", tags:["Script Hub","Easy","One-click Scripts","Prebuilt Scripts","Web Interface","Community Scripts"], rating:3.8, recommended:false, link: "" },
+  { name:"Potassium", short:"Focused on reliability and maintained builds; community-driven.", price:"$20 / lifetime", tags:["Windows","Support","Lifetime License","Stable Releases","Account System","Verified Builds"], rating:4.2, recommended:false, link: "" },
+  { name:"AWP", short:"Premium executor emphasizing dependable injection and consistent updates.", price:"$6.99 / wk", tags:["Fast Injection","Undetected","Subscription","Regular Updates","High Uptime","Support"], rating:4.4, recommended:false, link: "" },
+  { name:"Zenith", short:"Premium product with active support and modern UI; good for users wanting easy maintenance.", price:"$6.49 / wk", tags:["Premium Support","Level 8","Modern UI","Auto-Update","Onboarding","Templates"], rating:4.8, recommended:false, link: "" },
+  { name:"KRNL Mobile", short:"Community ports for mobile-style usage; often community-built and experimental.", price:"Free", tags:["Mobile","Community","Experimental Builds","Ports","Android Support","Unofficial"], rating:3.6, recommended:false, link: "" },
+  { name:"NebulaX", short:"Small-footprint executor focusing on speed and low resource use.", price:"Free/Paid", tags:["Performance","Lightweight","Low Memory","Fast Startup","Minimal UI","Windows"], rating:3.7, recommended:false, link: "" },
+  { name:"Frosted", short:"Experimental executor with unique features; recommended for testers.", price:"Free", tags:["Experimental","Community","Feature Flags","Beta","Rapid Iteration","Test Builds"], rating:3.2, recommended:false, link: "" },
+  { name:"Nightfall", short:"Modern UI aimed at new users with presets and quick-start scripts.", price:"Paid", tags:["UI Focus","Beginner Friendly","Presets","Onboarding","Themes","Guided Setup"], rating:3.9, recommended:false, link: "" },
+  { name:"Aurora", short:"Community-driven executor with plugin architecture for extensibility.", price:"Free", tags:["Plugins","Community","Extensible","Plugin Marketplace","APIs","Open Plugins"], rating:3.5, recommended:false, link: "" },
+  { name:"ShadowRun", short:"Low memory and high-speed injector for long sessions.", price:"Paid", tags:["Low Memory","Fast","Long Sessions","Stability","Watchdog","Auto-Restart"], rating:3.9, recommended:false, link: "" },
+  { name:"TitanX", short:"Balanced executor for advanced scripts with stable releases.", price:"Paid", tags:["Advanced","Stable","Balanced","Release Notes","Enterprise Features","Windows"], rating:4.0, recommended:false, link: "" },
+  { name:"Eclipse", short:"Designed for maximum compatibility with many public scripts and hubs.", price:"Free/Paid", tags:["Compatibility","Script Support","Large Database","Hub Friendly","Bridge APIs","Multi-Version"], rating:3.8, recommended:false, link: "" },
+  { name:"Vortex", short:"Experimental cross-platform goals; community ports available.", price:"Free", tags:["Cross-platform","Experimental","Ports","Community Builds","Edge Runtimes","Multi-OS"], rating:3.1, recommended:false, link: "" },
+  { name:"Nimbus", short:"Curated store-style approach with recommended scripts and a modern aesthetic.", price:"Paid", tags:["Store","Curated","Modern UI","Recommended Scripts","Payments","Verified Authors"], rating:3.7, recommended:false, link: "" },
+  { name:"Catalyst", short:"Built for stability during extended gameplay—minimal frame impact.", price:"Paid", tags:["Stability","Low Lag","Long Sessions","Integrity Checks","Performance Mode","Auto Updates"], rating:3.8, recommended:false, link: "" },
+  { name:"Helix", short:"No-frills executor for quick tests and debugging scripts.", price:"FREE", tags:["No-frills","Quick","Debugging Tools","Console","Lightweight","Dev Mode"], rating:3.4, recommended:false, link: "" },
+  { name:"Quasar", short:"Community testbed for new features and integrations.", price:"Free", tags:["Experimental","Community","Integrations","Testbed","API Hooks","Beta"], rating:3.2, recommended:false, link: "" },
+  { name:"Nebulous", short:"Small community tool prioritizing privacy and minimal telemetry.", price:"Paid/Free", tags:["Privacy","Small Community","Minimal Telemetry","Opt-in Stats","Data Controls","No Telemetry"], rating:3.3, recommended:false, link: "" },
 
-  { name:"EvoX", short:"Modern executor focused on UX and fast script load times. Built for convenience.", price:"Free/Paid", tags:["UX","Fast Load","Favorites","Auto-Update"], rating:3.9, recommended:false, link: "" },
-  { name:"Spectra", short:"Sleek interface, curated script recommendations, and easy updates.", price:"Paid", tags:["Curated","Auto-Update","Recommendations","Themes"], rating:4.0, recommended:false, link: "" },
-  { name:"Onyx", short:"Small memory footprint and strong anti-crash protections for long sessions.", price:"Paid", tags:["Anti-Crash","Low Memory","Crash Recovery","Watchdog"], rating:3.7, recommended:false, link: "" },
-  { name:"Viper", short:"Speed focused with a minimalistic UI and quick launch features.", price:"Free", tags:["Speed","Minimal","Quick Launch","Low Overhead"], rating:3.5, recommended:false, link: "" },
-  { name:"Aegis", short:"Security-forward executor with built-in safety checks and sandboxing.", price:"Paid", tags:["Security","Sandbox","Permission Controls","Safe Mode"], rating:4.1, recommended:false, link: "" },
-  { name:"Requiem", short:"Active dev updates and community-maintained modules.", price:"Free/Paid", tags:["Modules","Active Dev","Community Patches","Changelog"], rating:3.6, recommended:false, link: "" },
-  { name:"Inferno", short:"Aggressive performance tuning — great for complex scripts.", price:"Paid", tags:["Performance","Advanced","Tuning Tools","Profiler"], rating:3.8, recommended:false, link: "" },
-  { name:"Phantom", short:"Stealthy injector with focus on avoiding detection in legacy environments.", price:"Paid", tags:["Stealth","Legacy Support","Obfuscation","Compatibility Mode"], rating:3.9, recommended:false, link: "" },
-  { name:"Obsidian", short:"Robust plugin architecture with community-made add-ons.", price:"Free/Paid", tags:["Plugins","Add-ons","Marketplace","Extensible"], rating:3.6, recommended:false, link: "" },
-  { name:"Magma", short:"High-compatibility runtime with a built-in script marketplace.", price:"Paid", tags:["Marketplace","Compatibility","Built-in Store","Licenses"], rating:3.7, recommended:false, link: "" },
-  { name:"ZenCore", short:"Developer-friendly executor with hooks for script authors.", price:"Free/Paid", tags:["Developer Tools","Hooks","API","Debugging"], rating:3.8, recommended:false, link: "" },
-  { name:"Pulse", short:"Light, reactive UI with quick search and favorites.", price:"Free", tags:["Search","Favorites","Reactive UI","Quick Open"], rating:3.5, recommended:false, link: "" },
-  { name:"Cascade", short:"Designed for cascading script configs and multi-run profiles.", price:"Paid", tags:["Profiles","Multi-run","Config Sync","Profile Manager"], rating:3.6, recommended:false, link: "" },
-  { name:"Nebulon", short:"Experimental cloud-assisted runner (client still required).", price:"Paid", tags:["Cloud","Experimental","Cloud Sync","Edge Runtime"], rating:3.2, recommended:false, link: "" },
-  { name:"Astra", short:"Polished UX with onboarding flows and templates for beginners.", price:"Paid", tags:["Onboarding","Templates","Guided Setup","Beginner Friendly"], rating:3.9, recommended:false, link: "" },
+  { name:"EvoX", short:"Modern executor focused on UX and fast script load times. Built for convenience.", price:"Free/Paid", tags:["UX","Fast Load","Favorites","Auto-Update","Themes","Sync"], rating:3.9, recommended:false, link: "" },
+  { name:"Spectra", short:"Sleek interface, curated script recommendations, and easy updates.", price:"Paid", tags:["Curated","Auto-Update","Recommendations","Themes","Analytics","Verified"], rating:4.0, recommended:false, link: "" },
+  { name:"Onyx", short:"Small memory footprint and strong anti-crash protections for long sessions.", price:"Paid", tags:["Anti-Crash","Low Memory","Crash Recovery","Watchdog","Session Restore","Safe Mode"], rating:3.7, recommended:false, link: "" },
+  { name:"Viper", short:"Speed focused with a minimalistic UI and quick launch features.", price:"Free", tags:["Speed","Minimal","Quick Launch","Low Overhead","Hotkeys","Instant Run"], rating:3.5, recommended:false, link: "" },
+  { name:"Aegis", short:"Security-forward executor with built-in safety checks and sandboxing.", price:"Paid", tags:["Security","Sandbox","Permission Controls","Safe Mode","Audit Logs","Whitelist"], rating:4.1, recommended:false, link: "" },
+  { name:"Requiem", short:"Active dev updates and community-maintained modules.", price:"Free/Paid", tags:["Modules","Active Dev","Community Patches","Changelog","Issue Tracker","Plugin Support"], rating:3.6, recommended:false, link: "" },
+  { name:"Inferno", short:"Aggressive performance tuning — great for complex scripts.", price:"Paid", tags:["Performance","Advanced","Tuning Tools","Profiler","Parallel Execution","Memory Pools"], rating:3.8, recommended:false, link: "" },
+  { name:"Phantom", short:"Stealthy injector with focus on avoiding detection in legacy environments.", price:"Paid", tags:["Stealth","Legacy Support","Obfuscation","Compatibility Mode","Low Telemetry","Undetected Modes"], rating:3.9, recommended:false, link: "" },
+  { name:"Obsidian", short:"Robust plugin architecture with community-made add-ons.", price:"Free/Paid", tags:["Plugins","Add-ons","Marketplace","Extensible","Plugin API","Community Addons"], rating:3.6, recommended:false, link: "" },
+  { name:"Magma", short:"High-compatibility runtime with a built-in script marketplace.", price:"Paid", tags:["Marketplace","Compatibility","Built-in Store","Licenses","Payments","Verified Authors"], rating:3.7, recommended:false, link: "" },
+  { name:"ZenCore", short:"Developer-friendly executor with hooks for script authors.", price:"Free/Paid", tags:["Developer Tools","Hooks","API","Debugging","Logging","Extensible"], rating:3.8, recommended:false, link: "" },
+  { name:"Pulse", short:"Light, reactive UI with quick search and favorites.", price:"Free", tags:["Search","Favorites","Reactive UI","Quick Open","Hotkeys","Minimal"], rating:3.5, recommended:false, link: "" },
+  { name:"Cascade", short:"Designed for cascading script configs and multi-run profiles.", price:"Paid", tags:["Profiles","Multi-run","Config Sync","Profile Manager","Templates","Advanced Scheduling"], rating:3.6, recommended:false, link: "" },
+  { name:"Nebulon", short:"Experimental cloud-assisted runner (client still required).", price:"Paid", tags:["Cloud","Experimental","Cloud Sync","Edge Runtime","Remote Profiles","Hybrid"], rating:3.2, recommended:false, link: "" },
+  { name:"Astra", short:"Polished UX with onboarding flows and templates for beginners.", price:"Paid", tags:["Onboarding","Templates","Guided Setup","Beginner Friendly","Tooltips","Tutorials"], rating:3.9, recommended:false, link: "" },
 
   /* 19 additional executors */
-  { name:"VectorX", short:"Modern runner with quick updates and a small footprint.", price:"Free/Paid", tags:["Fast","Updates","Lightweight","Auto-Update"], rating:3.6, recommended:false, link: "" },
-  { name:"ByteRunner", short:"Minimal UI, great for quick debugging sessions and dev testing.", price:"Free", tags:["Dev","Minimal","Debugger","Console"], rating:3.4, recommended:false, link: "" },
-  { name:"Arcadia", short:"Community-backed executor focused on plugin support and UX polish.", price:"Paid", tags:["Plugins","Community","UX","Plugin API"], rating:3.8, recommended:false, link: "" },
-  { name:"Rift", short:"Low-latency injector targeted at long running sessions.", price:"Paid", tags:["Low Latency","Stable","Long Sessions","Heartbeat"], rating:3.7, recommended:false, link: "" },
-  { name:"PulseForge", short:"Built-in script manager, favorites, and auto-sync.", price:"Free/Paid", tags:["Manager","Sync","Favorites","Auto-Sync"], rating:3.5, recommended:false, link: "" },
-  { name:"Mercury", short:"Fast loader with dev tools for script authors.", price:"Paid", tags:["Dev Tools","Fast Load","Profiler","Logging"], rating:3.9, recommended:false, link: "" },
-  { name:"Ion", short:"Streamlined runner for low-end machines and minimal overhead.", price:"Free", tags:["Low Overhead","Light","Energy Efficient","Small Footprint"], rating:3.3, recommended:false, link: "" },
-  { name:"Stratus", short:"Cloud-friendly approach (client still required) with simple UI.", price:"Paid", tags:["Cloud","Simple","Cloud Sync","Remote Config"], rating:3.1, recommended:false, link: "" },
-  { name:"Helm", short:"Reliable executor with session persistence and auto-backups.", price:"Paid", tags:["Persistence","Backups","Session Restore","Auto Backup"], rating:3.7, recommended:false, link: "" },
-  { name:"Nova", short:"User-first executor with onboarding templates and presets.", price:"Free/Paid", tags:["Onboarding","Presets","Templates","Guided"], rating:3.6, recommended:false, link: "" },
-  { name:"CascadeLight", short:"Profile-driven runner for multi-account testing setups.", price:"Paid", tags:["Profiles","Multi-run","Account Manager","Lightweight"], rating:3.4, recommended:false, link: "" },
-  { name:"Arbor", short:"Focused on privacy and minimal telemetry footprint.", price:"Paid/Free", tags:["Privacy","Telemetry","Data Control","Opt-out"], rating:3.5, recommended:false, link: "" },
-  { name:"Echo", short:"Quick-launch executor with favourite scripts and one-click run.", price:"Free", tags:["Favorites","One-click","Quick Launch","Hotkeys"], rating:3.5, recommended:false, link: "" },
-  { name:"Striker", short:"Performance-oriented injector for large scripts.", price:"Paid", tags:["Performance","Large Scripts","Memory Management","Parallel"], rating:3.8, recommended:false, link: "" },
-  { name:"Harbor", short:"Stable runtime with strong compatibility tests.", price:"Paid", tags:["Compatibility","Stable","Regression Tests","QA"], rating:3.6, recommended:false, link: "" },
-  { name:"PulseLite", short:"A lightweight sibling to Pulse for resource constrained systems.", price:"Free", tags:["Lightweight","Pulse","Tiny Footprint","Low Memory"], rating:3.2, recommended:false, link: "" },
-  { name:"ForgeX", short:"Community plugin marketplace built into the runner.", price:"Paid", tags:["Marketplace","Plugins","Community","Payments"], rating:3.7, recommended:false, link: "" },
-  { name:"Raven", short:"Stealth-focused injector for legacy environments and testing.", price:"Paid", tags:["Stealth","Legacy","Low Detection","Compatibility"], rating:3.6, recommended:false, link: "" },
-  { name:"Merc", short:"Developer-first tool with hooks and logging out of the box.", price:"Free/Paid", tags:["Logging","Dev","Hooks","Instrumentation"], rating:3.9, recommended:false, link: "" }
+  { name:"VectorX", short:"Modern runner with quick updates and a small footprint.", price:"Free/Paid", tags:["Fast","Updates","Lightweight","Auto-Update","Small Footprint","Quick Start"], rating:3.6, recommended:false, link: "" },
+  { name:"ByteRunner", short:"Minimal UI, great for quick debugging sessions and dev testing.", price:"Free", tags:["Dev","Minimal","Debugger","Console","Live Edit","Logging"], rating:3.4, recommended:false, link: "" },
+  { name:"Arcadia", short:"Community-backed executor focused on plugin support and UX polish.", price:"Paid", tags:["Plugins","Community","UX","Plugin API","Community Themes","Verified Plugins"], rating:3.8, recommended:false, link: "" },
+  { name:"Rift", short:"Low-latency injector targeted at long running sessions.", price:"Paid", tags:["Low Latency","Stable","Long Sessions","Heartbeat","Resilient","Watchdog"], rating:3.7, recommended:false, link: "" },
+  { name:"PulseForge", short:"Built-in script manager, favorites, and auto-sync.", price:"Free/Paid", tags:["Manager","Sync","Favorites","Auto-Sync","Cloud Sync","Versioning"], rating:3.5, recommended:false, link: "" },
+  { name:"Mercury", short:"Fast loader with dev tools for script authors.", price:"Paid", tags:["Dev Tools","Fast Load","Profiler","Logging","API","Hot Reload"], rating:3.9, recommended:false, link: "" },
+  { name:"Ion", short:"Streamlined runner for low-end machines and minimal overhead.", price:"Free", tags:["Low Overhead","Light","Energy Efficient","Small Footprint","Tiny Installer","Low Memory"], rating:3.3, recommended:false, link: "" },
+  { name:"Stratus", short:"Cloud-friendly approach (client still required) with simple UI.", price:"Paid", tags:["Cloud","Simple","Cloud Sync","Remote Config","Profiles","Enterprise"], rating:3.1, recommended:false, link: "" },
+  { name:"Helm", short:"Reliable executor with session persistence and auto-backups.", price:"Paid", tags:["Persistence","Backups","Session Restore","Auto Backup","State Save","Restore Points"], rating:3.7, recommended:false, link: "" },
+  { name:"Nova", short:"User-first executor with onboarding templates and presets.", price:"Free/Paid", tags:["Onboarding","Presets","Templates","Guided","Themes","Starter Scripts"], rating:3.6, recommended:false, link: "" },
+  { name:"CascadeLight", short:"Profile-driven runner for multi-account testing setups.", price:"Paid", tags:["Profiles","Multi-run","Account Manager","Lightweight","Sync","Multi-Profile"], rating:3.4, recommended:false, link: "" },
+  { name:"Arbor", short:"Focused on privacy and minimal telemetry footprint.", price:"Paid/Free", tags:["Privacy","Telemetry","Data Control","Opt-out","No Data Collection","Open Source"], rating:3.5, recommended:false, link: "" },
+  { name:"Echo", short:"Quick-launch executor with favourite scripts and one-click run.", price:"Free", tags:["Favorites","One-click","Quick Launch","Hotkeys","Instant Start","Minimal"], rating:3.5, recommended:false, link: "" },
+  { name:"Striker", short:"Performance-oriented injector for large scripts.", price:"Paid", tags:["Performance","Large Scripts","Memory Management","Parallel","Batch Run","Optimization"], rating:3.8, recommended:false, link: "" },
+  { name:"Harbor", short:"Stable runtime with strong compatibility tests.", price:"Paid", tags:["Compatibility","Stable","Regression Tests","QA","Test Suite","Verified"], rating:3.6, recommended:false, link: "" },
+  { name:"PulseLite", short:"A lightweight sibling to Pulse for resource constrained systems.", price:"Free", tags:["Lightweight","Pulse","Tiny Footprint","Low Memory","Micro UI","Fast Launch"], rating:3.2, recommended:false, link: "" },
+  { name:"ForgeX", short:"Community plugin marketplace built into the runner.", price:"Paid", tags:["Marketplace","Plugins","Community","Payments","Ratings","Verified"], rating:3.7, recommended:false, link: "" },
+  { name:"Raven", short:"Stealth-focused injector for legacy environments and testing.", price:"Paid", tags:["Stealth","Legacy","Low Detection","Compatibility","Obfuscation","Quiet Mode"], rating:3.6, recommended:false, link: "" },
+  { name:"Merc", short:"Developer-first tool with hooks and logging out of the box.", price:"Free/Paid", tags:["Logging","Dev","Hooks","Instrumentation","API","Debug"], rating:3.9, recommended:false, link: "" }
 ];
 
 /* Helper: create card DOM */
@@ -436,22 +447,40 @@ function createCard(obj){
   const btn = document.createElement('a'); btn.className='btn';
 
   // Determine final external URL:
-  const finalLink = (obj.link && obj.link.toString().trim() !== '') ? obj.link : (officialLinks[obj.name] || externalSearchLink(obj.name));
+  // prefer obj.link (you said you'll fill them), else officialLinks, else disable the button (no search fallback)
+  const linkValue = (obj.link && obj.link.toString().trim() !== '') ? obj.link : (officialLinks[obj.name] && officialLinks[obj.name].toString().trim() !== '' ? officialLinks[obj.name] : null);
 
-  btn.href = finalLink;
-  btn.target = '_blank';
-  btn.rel = 'noopener noreferrer';
+  if(linkValue){
+    btn.href = linkValue;
+    btn.target = '_blank';
+    btn.rel = 'noopener noreferrer';
+    btn.setAttribute('aria-disabled','false');
+  } else {
+    btn.href = '#';
+    btn.classList.add('disabled');
+    btn.setAttribute('aria-disabled','true');
+    btn.title = 'No official link set — add a link to the executor object or officialLinks map.';
+  }
+
   btn.textContent = obj.price && obj.price.toLowerCase().includes('free') ? 'Download Free' : (obj.recommended ? 'Get Premium' : 'Get');
   btn.classList.add(obj.price && obj.price.toLowerCase().includes('free') ? 'free' : 'primary');
-  if(obj.recommended) btn.classList.add('pulse');
+  if(obj.recommended && !btn.classList.contains('disabled')) btn.classList.add('pulse');
 
   cta.appendChild(btn);
 
-  // optional secondary ghost for details (opens link as well by default)
+  // optional secondary ghost for details (opens link as well if available)
   const more = document.createElement('a'); more.className = 'btn ghost small';
-  more.href = finalLink;
-  more.target = '_blank';
-  more.rel = 'noopener noreferrer';
+  if(linkValue){
+    more.href = linkValue;
+    more.target = '_blank';
+    more.rel = 'noopener noreferrer';
+    more.setAttribute('aria-disabled','false');
+  } else {
+    more.href = '#';
+    more.classList.add('disabled');
+    more.setAttribute('aria-disabled','true');
+    more.title = 'No official link set — add a link to the executor object or officialLinks map.';
+  }
   more.textContent = 'Visit';
   cta.appendChild(more);
 
@@ -514,7 +543,7 @@ filterBtn.addEventListener('click', ()=>{
 /* Accessibility: allow Enter in search to focus first result link */
 input.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter'){
-    const first = grid.querySelector('.btn');
+    const first = grid.querySelector('.btn:not(.disabled)');
     if(first) first.focus();
   }
 });
