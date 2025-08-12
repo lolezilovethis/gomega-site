@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Help & Support — Gomega Watch</title>
+
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root{--bg:#ffffff;--card:#f7f9fb;--muted:#6b7280;--accent:#00d4ff;--text:#0f1724}
+    .dark{--bg:#0b0e12;--card:#0f1720;--muted:#9aa4b2;--accent:#00d4ff;--text:#e6eef6}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:var(--bg);color:var(--text);padding:20px;display:flex;flex-direction:column;align-items:center}
+    .wrap{max-width:980px;width:100%}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand img{height:44px}
+    h1{margin:0;font-size:1.4rem}
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{background:var(--accent);color:#021124;padding:8px 12px;border-radius:8px;border:none;font-weight:600;cursor:pointer}
+    .link-btn{background:transparent;color:var(--accent);border:1px solid transparent;padding:6px 10px;border-radius:8px;cursor:pointer}
+
+    .hero{margin:18px 0;padding:18px;border-radius:12px;background:var(--card);display:flex;gap:18px;align-items:center}
+    .hero .left{flex:1}
+
+    .search-row{display:flex;gap:8px;margin:14px 0;align-items:center;position:relative}
+    .search{flex:1;padding:10px;border-radius:10px;border:1px solid #e6e6e6}
+    .search-actions{display:flex;gap:8px;align-items:center}
+    button.clear-btn{background:transparent;border:0;font-size:1.1rem;cursor:pointer;padding:6px}
+
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+    .card{background:var(--card);padding:14px;border-radius:10px}
+    .card h3{margin:0 0 8px 0}
+
+    .faq-list{margin-top:18px}
+    details{background:var(--card);padding:12px;border-radius:8px;margin-bottom:8px}
+    summary{cursor:pointer;font-weight:700}
+
+    .steps{display:flex;flex-direction:column;gap:10px}
+    .step{background:linear-gradient(180deg,#ffffff00, #00000000);padding:12px;border-radius:8px;border:1px dashed #e8eef2}
+
+    footer{margin-top:28px;color:var(--muted);text-align:center}
+
+    /* Highlighting for matches */
+    mark.gomega-match { background: #fffb8f; padding: 0 2px; border-radius: 2px; }
+
+    /* Search results panel */
+    .results-panel{position:absolute;left:0;right:0;top:56px;z-index:80;background:var(--card);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);max-height:320px;overflow:auto;padding:8px;border:1px solid #e6e6e6}
+    .result-item{padding:8px;border-radius:6px;cursor:pointer}
+    .result-item:hover{background:rgba(0,0,0,0.04)}
+    .result-title{font-weight:700}
+    .result-snippet{font-size:0.95rem;color:var(--muted);margin-top:4px}
+    .result-meta{font-size:0.85rem;color:var(--muted);margin-left:6px}
+
+    .no-results{padding:14px;color:var(--muted);text-align:center}
+
+    @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)} }
+    @media (max-width:600px){.grid{grid-template-columns:1fr}.hero{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <img src="/assets/logo.png" alt="Gomega logo" onerror="this.style.display='none'">
+        <div>
+          <h1>Help & Support</h1>
+          <div style="font-size:0.9rem;color:var(--muted)">Guides, FAQs, and troubleshooting for Gomega Watch</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="darkToggle" class="link-btn" aria-pressed="false">🌓 Dark</button>
+        <button class="btn" onclick="window.location.href='/add-script'">✏️ Add Script</button>
+        <button class="link-btn" onclick="window.location.href='/scripts'">📜 Scripts</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="left">
+        <h2 style="margin-top:0">Need help? Start here.</h2>
+        <p style="margin:6px 0 0;color:var(--muted)">Search the FAQs, follow step-by-step troubleshooting, or contact support if you can’t find an answer.</p>
+
+        <div class="search-row">
+          <input id="faqSearch" class="search" autocomplete="off" placeholder="Search help — try: 'brand', 'ads', 'publish', 'copy'">
+          <div class="search-actions">
+            <button title="Clear" id="clearSearch" class="clear-btn" style="display:none">×</button>
+            <div id="searchInfo" style="min-width:140px;text-align:right;color:var(--muted);font-size:0.95rem">Results: <span id="searchCount">0</span></div>
+            <button id="openDiscord" class="btn">💬 Ask on Discord</button>
+          </div>
+
+          <!-- results panel (hidden until needed) -->
+          <div id="resultsPanel" class="results-panel" style="display:none"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button onclick="location.href='/activate'" class="link-btn">🔑 Activate Browser</button>
+          <button onclick="location.href='/browser'" class="link-btn">⬇️ Download Browser</button>
+          <button onclick="location.href='/help#troubleshooting'" class="link-btn">🛠 Troubleshooting</button>
+        </div>
+      </div>
+
+      <div style="width:260px">
+        <div class="card">
+          <h3>Quick Links</h3>
+          <ul style="padding-left:18px;margin:8px 0 0 0;color:var(--muted)">
+            <li><a href="/add-script">Make a Script</a></li>
+            <li><a href="/scripts">Browse Scripts</a></li>
+            <li><a href="/admin-optout">Admin Opt-Out</a></li>
+            <li><a href="/activate">Activate Browser</a></li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <h3>Contact</h3>
+          <div style="font-size:0.95rem;color:var(--muted)">Support: <a href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a></div>
+          <div style="margin-top:8px;color:var(--muted)">Discord: <a href="https://discord.gg/kZtW4y2Q7u">Join our server</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h3>How to publish a script</h3>
+        <ol style="color:var(--muted);padding-left:18px;margin:8px 0 0 0">
+          <li>Sign in to your account.</li>
+          <li>Go to <strong>Make a Script</strong> and fill in the title, brand, and code.</li>
+          <li>If you enable ads, choose how many viewers must open them to view your code.</li>
+          <li>Click <strong>Publish Script</strong>. Your script is added to the review queue (or published immediately if your role allows).</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>Earnings & Ads</h3>
+        <p style="color:var(--muted)">If you opt into ads, viewers will be required to open the configured number of ad pages before seeing the script code. Earnings are handled by the publisher's connected account.</p>
+      </div>
+
+      <div class="card">
+        <h3>Brand names</h3>
+        <p style="color:var(--muted)">Brand names are unique and reserved per user. If you already have a brand your input will be locked. Use the brand availability indicator when choosing a name.</p>
+      </div>
+    </section>
+
+    <section id="troubleshooting" style="margin-top:18px">
+      <h2>Troubleshooting</h2>
+      <div class="steps">
+        <div class="step"><strong>Can't sign in?</strong>
+          <div style="color:var(--muted);margin-top:6px">Make sure cookies are enabled and you are using the correct email. If your school account is blocked, contact your IT admin or use a personal email to register.</div>
+        </div>
+
+        <div class="step"><strong>Scripts show 'No scripts found'</strong>
+          <div style="color:var(--muted);margin-top:6px">Try Refresh, check your network and if your still getting the error contact support</div>
+        </div>
+
+        <div class="step"><strong>Copy to clipboard fails</strong>
+          <div style="color:var(--muted);margin-top:6px">Some browsers disallow clipboard writes on insecure contexts or without user gesture — use the displayed 'Copy Script' button or highlight + Ctrl+C.</div>
+        </div>
+
+        <div class="step"><strong>Ads opening unexpectedly</strong>
+          <div style="color:var(--muted);margin-top:6px">Ad providers sometimes open new tabs to serve impressions. If an ad provider misbehaves, report it on Discord with a screenshot and URL.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-list">
+      <h2>Frequently Asked Questions</h2>
+
+      <details>
+        <summary>Why can't I choose my brand name?</summary>
+        <div style="color:var(--muted);margin-top:8px">Brands are unique. If a brand is taken it will show as unavailable. Owners can be changed only by contacting support.</div>
+      </details>
+
+      <details>
+        <summary>How do I delete a script?</summary>
+        <div style="color:var(--muted);margin-top:8px">Go to your script entry (you must be signed in with the publishing account). There will be a delete option for scripts you own. If missing, contact support.</div>
+      </details>
+
+      <details>
+        <summary>How long does publish review take?</summary>
+        <div style="color:var(--muted);margin-top:8px">Most publishes are instant. If your account is new or flagged, manual review may take longer — typically 24–72 hours depending on volume.</div>
+      </details>
+
+      <details>
+        <summary>I'm seeing 404s for any page or scripts — what do I do?</summary>
+        <div style="color:var(--muted);margin-top:8px">Confirm Your account is not banned if it is banned it would show BANNED FOR (time) otherwise its a issue with your internet.</div>
+      </details>
+
+      <details>
+        <summary>How do I request an opt-out for my school?</summary>
+        <div style="color:var(--muted);margin-top:8px">Use the <a href="/admin-optout">Admin Opt-Out</a> page. Only verified staff with a school email can submit requests.</div>
+      </details>
+
+      <!-- NEW, simple-to-understand FAQs (added as requested) -->
+      <details>
+        <summary>How do I change my username?</summary>
+        <div style="color:var(--muted);margin-top:8px">Go to Settings → Profile. Pick a new username (unique). You can change it once every 15 days. Old names may be reused later.</div>
+      </details>
+
+      <details>
+        <summary>How do I reset my password?</summary>
+        <div style="color:var(--muted);margin-top:8px">Click "Forgot password" on the sign-in page. We'll send an email with a reset link. If you don't get the email, check spam or try resending.</div>
+      </details>
+
+      <details>
+        <summary>Why was my account banned?</summary>
+        <div style="color:var(--muted);margin-top:8px">Accounts are banned for rule violations (spam, fraud, abuse). Check the ban message in your account email or contact support with your account email for details.</div>
+      </details>
+
+    </section>
+
+    <section style="margin-top:18px">
+      <h2>Report a problem</h2>
+      <p style="color:var(--muted)">If you can't resolve the issue, please contact support — include a short description, your account email, and any console errors or screenshots.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <a class="btn" href="mailto:gomegaassist@gmail.com?subject=Gomega%20Support%20Request">📧 Email Support</a>
+        <button id="reportDiscord" class="link-btn">💬 Report on Discord</button>
+      </div>
+    </section>
+
+    <footer>
+      <div>Still stuck? Join our Discord or email <a href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a>.</div>
+      <div style="margin-top:6px;color:var(--muted)">© 2025 Gomega — Built with care.</div>
+    </footer>
+  </div>
+
+  <script>
+    (async function () {
+      // Lightweight auth guard: load firebase modules dynamically so we don't use top-level import declarations inside blocks
+      try {
+        const firebaseMod = await import('./js/firebase.js'); // your local firebase init module that exports `auth`
+        // firebase-auth module from CDN (exports onAuthStateChanged)
+        const fbAuthModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        const auth = firebaseMod.auth;
+        const onAuthStateChanged = fbAuthModule.onAuthStateChanged;
+        if (auth && typeof onAuthStateChanged === 'function') {
+          onAuthStateChanged(auth, user => { if (!user) location.href = '/'; });
+        }
+      } catch (e) {
+        // If dynamic import fails (module not present on static hosting) we silently continue
+        // so the help page still loads without error.
+        console.warn('Firebase modules not loaded (auth guard skipped).', e);
+      }
+
+      // simple dark-mode toggle persisted to localStorage
+      const btn = document.getElementById('darkToggle');
+      const saved = localStorage.getItem('gomega_dark');
+      function applyDark(val){
+        if(val){
+          document.documentElement.classList.add('dark');
+          btn.textContent='☀️ Light';
+          btn.setAttribute('aria-pressed','true');
+        } else {
+          document.documentElement.classList.remove('dark');
+          btn.textContent='🌓 Dark';
+          btn.setAttribute('aria-pressed','false');
+        }
+      }
+      applyDark(saved === '1' || (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      btn.addEventListener('click', ()=>{
+        const on = !document.documentElement.classList.contains('dark');
+        applyDark(on);
+        localStorage.setItem('gomega_dark', on ? '1':'0');
+      });
+
+      // Discord / contact handlers
+      const openDiscord = document.getElementById('openDiscord');
+      if (openDiscord) openDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
+
+      const reportDiscord = document.getElementById('reportDiscord');
+      if (reportDiscord) reportDiscord.addEventListener('click', ()=> window.open('https://discord.gg/kZtW4y2Q7u','_blank'));
+
+      /* ===============================
+         SMARTER SEARCH (improved)
+         - OR semantics (any token matches)
+         - counts occurrences and ranks
+         - minChars = 2
+         - debounce input
+         - results panel with clickable snippets
+         =============================== */
+
+      const faqSearch = document.getElementById('faqSearch');
+      const resultsPanel = document.getElementById('resultsPanel');
+      const searchCountEl = document.getElementById('searchCount');
+      const clearBtn = document.getElementById('clearSearch');
+
+      const MIN_CHARS = 2;
+      const DEBOUNCE = 250;
+      let timer = null;
+
+      function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      // Build index
+      function buildIndex() {
+        const items = [];
+        document.querySelectorAll('.faq-list details').forEach((d, i) => {
+          const summary = d.querySelector('summary');
+          const title = summary ? summary.textContent.trim() : ('FAQ ' + (i+1));
+          const text = (d.textContent || '').replace(title, '').trim();
+          items.push({ id: 'faq-'+i, el: d, title, text, type: 'FAQ' });
+        });
+
+        document.querySelectorAll('.grid .card').forEach((c, i) => {
+          const h = c.querySelector('h3');
+          const title = h ? h.textContent.trim() : 'Card ' + (i+1);
+          const text = (c.textContent || '').replace(title, '').trim();
+          items.push({ id: 'card-'+i, el: c, title, text, type: 'Guide' });
+        });
+
+        document.querySelectorAll('.steps .step').forEach((s, i) => {
+          const titleNode = s.querySelector('strong');
+          const title = titleNode ? titleNode.textContent.trim() : 'Step ' + (i+1);
+          const text = (s.textContent || '').replace(title, '').trim();
+          items.push({ id: 'step-'+i, el: s, title, text, type: 'Troubleshooting' });
+        });
+
+        const troubleshooting = document.getElementById('troubleshooting');
+        if (troubleshooting) {
+          const h = troubleshooting.querySelector('h2');
+          const title = h ? h.textContent.trim() : 'Troubleshooting';
+          const text = (troubleshooting.textContent || '').replace(title, '').trim();
+          items.push({ id: 'tr-main', el: troubleshooting, title, text, type: 'Troubleshooting' });
+        }
+
+        const heroLeft = document.querySelector('.hero .left');
+        if (heroLeft) {
+          const h = heroLeft.querySelector('h2');
+          const title = h ? h.textContent.trim() : 'Help';
+          const text = (heroLeft.textContent || '').replace(title, '').trim();
+          items.push({ id: 'hero-left', el: heroLeft, title, text, type: 'Intro' });
+        }
+
+        // dedupe by element
+        const seen = new Set();
+        return items.filter(it => {
+          if (seen.has(it.el)) return false;
+          seen.add(it.el);
+          return true;
+        });
+      }
+
+      const INDEX = buildIndex();
+      INDEX.forEach(it => { if (!it.el.dataset.origHtml) it.el.dataset.origHtml = it.el.innerHTML; });
+
+      function clearResults() {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+        searchCountEl.textContent = '0';
+        INDEX.forEach(it => {
+          if (it.el.dataset.origHtml) it.el.innerHTML = it.el.dataset.origHtml;
+          it.el.style.display = '';
+          if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+        });
+        clearBtn.style.display = 'none';
+      }
+
+      function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, function (c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      function highlightHtml(html, tokens) {
+        // highlight tokens (use word boundary when reasonable, otherwise substring)
+        tokens.forEach(t => {
+          if (!t) return;
+          // word boundary regex first
+          const safe = escapeRegExp(t);
+          const reWord = new RegExp('\\b(' + safe + ')\\b', 'ig');
+          if (reWord.test(html)) {
+            html = html.replace(reWord, '<mark class="gomega-match">$1</mark>');
+          } else {
+            const reSub = new RegExp('(' + safe + ')', 'ig');
+            html = html.replace(reSub, '<mark class="gomega-match">$1</mark>');
+          }
+        });
+        return html;
+      }
+
+      function makeSnippet(text, tokens, maxLen = 140) {
+        const lower = text.toLowerCase();
+        let pos = -1;
+        for (const t of tokens) {
+          if (!t) continue;
+          const p = lower.indexOf(t.toLowerCase());
+          if (p !== -1 && (pos === -1 || p < pos)) pos = p;
+        }
+        if (pos === -1) {
+          return text.slice(0, maxLen) + (text.length > maxLen ? '…' : '');
+        }
+        const start = Math.max(0, pos - 40);
+        const snip = text.slice(start, start + maxLen);
+        return (start > 0 ? '…' : '') + snip + (start + maxLen < text.length ? '…' : '');
+      }
+
+      function countOccurrences(hay, needle) {
+        if (!needle) return 0;
+        let count = 0;
+        let idx = 0;
+        const n = needle.length;
+        const lowerHay = hay.toLowerCase();
+        const lowerNeedle = needle.toLowerCase();
+        let pos = lowerHay.indexOf(lowerNeedle, idx);
+        while (pos !== -1) {
+          count++;
+          idx = pos + n;
+          pos = lowerHay.indexOf(lowerNeedle, idx);
+        }
+        return count;
+      }
+
+      function scoreItem(it, tokens) {
+        let score = 0;
+        const title = it.title || '';
+        const text = it.text || '';
+        tokens.forEach(t => {
+          if (!t) return;
+          if (title.toLowerCase().includes(t.toLowerCase())) score += 5;
+          score += countOccurrences(text, t);
+        });
+        return score;
+      }
+
+      function doSearch(q) {
+        const query = q.trim();
+        if (query.length < MIN_CHARS) {
+          resultsPanel.style.display = 'block';
+          resultsPanel.innerHTML = '<div class="no-results">Type ' + MIN_CHARS + ' or more characters to search</div>';
+          searchCountEl.textContent = '0';
+          clearBtn.style.display = 'inline';
+          return;
+        }
+
+        const tokens = query.split(/\s+/).filter(Boolean);
+        const matches = [];
+
+        INDEX.forEach(it => {
+          // OR semantics: match if any token occurs
+          let totalCount = 0;
+          tokens.forEach(t => totalCount += countOccurrences((it.title + ' ' + it.text), t));
+          if (totalCount > 0) {
+            const score = scoreItem(it, tokens);
+            matches.push({ it, score, totalCount });
+          }
+        });
+
+        matches.sort((a, b) => b.score - a.score);
+
+        resultsPanel.innerHTML = '';
+        if (matches.length === 0) {
+          resultsPanel.innerHTML = '<div class="no-results">No results found. Try different words or check spelling.</div>';
+          resultsPanel.style.display = 'block';
+          searchCountEl.textContent = '0';
+          clearBtn.style.display = 'inline';
+          // hide all items
+          INDEX.forEach(it => { it.el.style.display = 'none'; if (it.el.tagName.toLowerCase() === 'details') it.el.open = false; });
+          return;
+        }
+
+        const top = matches.slice(0, 20);
+        top.forEach(m => {
+          const it = m.it;
+          const snippetRaw = makeSnippet(it.text || it.title || '', tokens, 140);
+          const snippetHtml = highlightHtml(escapeHtml(snippetRaw), tokens);
+          const titleHtml = highlightHtml(escapeHtml(it.title), tokens);
+
+          const div = document.createElement('div');
+          div.className = 'result-item';
+          div.tabIndex = 0;
+          div.innerHTML = '<div class="result-title">' + titleHtml + 
+                          ' <span class="result-meta">[' + it.type + ']</span></div>' +
+                          '<div class="result-snippet">' + snippetHtml + '</div>';
+          div.addEventListener('click', ()=> {
+            resultsPanel.style.display = 'none';
+            try {
+              // restore all originals
+              INDEX.forEach(ii => { if (ii.el.dataset.origHtml) ii.el.innerHTML = ii.el.dataset.origHtml; });
+              // highlight target
+              it.el.innerHTML = highlightHtml(it.el.dataset.origHtml || it.el.innerHTML, tokens);
+              if (it.el.tagName.toLowerCase() === 'details') it.el.open = true;
+              it.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (e) { console.warn('scroll error', e); }
+          });
+          div.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') div.click(); });
+          resultsPanel.appendChild(div);
+        });
+
+        resultsPanel.style.display = 'block';
+        searchCountEl.textContent = String(matches.length);
+        clearBtn.style.display = 'inline';
+
+        const matchedEls = new Set(matches.map(m => m.it.el));
+        INDEX.forEach(it => {
+          if (matchedEls.has(it.el)) {
+            it.el.style.display = '';
+            if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+          } else {
+            it.el.style.display = 'none';
+            if (it.el.tagName.toLowerCase() === 'details') it.el.open = false;
+          }
+        });
+      }
+
+      function scheduleSearch(v) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(()=> doSearch(v), DEBOUNCE);
+      }
+
+      if (faqSearch) {
+        faqSearch.addEventListener('input', (ev) => {
+          const v = ev.target.value || '';
+          if (v.trim().length < MIN_CHARS) {
+            if (v.trim() === '') clearResults();
+            else {
+              resultsPanel.style.display = 'block';
+              resultsPanel.innerHTML = '<div class="no-results">Type ' + MIN_CHARS + ' or more characters to search</div>';
+              searchCountEl.textContent = '0';
+              clearBtn.style.display = 'inline';
+            }
+            return;
+          }
+          scheduleSearch(v);
+        });
+
+        faqSearch.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Escape') {
+            faqSearch.value = '';
+            clearResults();
+            faqSearch.blur();
+          } else if (ev.key === 'Enter') {
+            const first = resultsPanel.querySelector('.result-item');
+            if (first) first.click();
+          }
+        });
+
+        clearBtn.addEventListener('click', ()=> {
+          faqSearch.value = '';
+          faqSearch.focus();
+          clearResults();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!resultsPanel.contains(e.target) && !faqSearch.contains(e.target)) {
+            resultsPanel.style.display = 'none';
+          }
+        });
+      }
+
+      // if ?q= was provided
+      const params = new URLSearchParams(location.search);
+      if (params.get('q')) {
+        const q = params.get('q');
+        if (faqSearch) {
+          faqSearch.value = q;
+          setTimeout(()=> scheduleSearch(q), 120);
+        }
+      }
+
+      // initial reset
+      clearResults();
+
+    })();
+  </script>
+</body>
+</html>
