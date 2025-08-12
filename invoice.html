@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Invoice</title>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:#071427;color:#e6eef6;padding:28px}
+    .card{background:rgba(255,255,255,0.02);padding:18px;border-radius:12px;max-width:760px;margin:24px auto;border:1px solid rgba(255,255,255,0.03)}
+    .muted{color:#9aa5b1;font-size:13px}
+    .cta{display:inline-block;padding:8px 12px;border-radius:8px;background:linear-gradient(90deg,#6ee7b7,#60a5fa);color:#022;font-weight:700;text-decoration:none}
+    pre{background:rgba(0,0,0,0.2);padding:8px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="card" id="root">
+    <h2>Invoice</h2>
+    <div id="info" class="muted">Loading…</div>
+    <div id="content" style="margin-top:12px"></div>
+    <div style="margin-top:12px">
+      <a id="adminMark" class="cta" href="#" style="display:none">Mark paid (admin)</a>
+    </div>
+  </div>
+
+  <script>
+    (async function () {
+      // parse invoice id from URL /invoice/:id
+      const path = window.location.pathname.split('/');
+      const invoiceId = path[path.length-1] || '';
+      const root = document.getElementById('root');
+      const info = document.getElementById('info');
+      const content = document.getElementById('content');
+      const adminMark = document.getElementById('adminMark');
+
+      if(!invoiceId){
+        info.textContent = 'Invoice ID not found in the URL.';
+        return;
+      }
+
+      async function load() {
+        info.textContent = 'Loading invoice ' + invoiceId + '…';
+        try {
+          const r = await fetch('/api/invoice/' + invoiceId);
+          if(!r.ok) {
+            const json = await r.json();
+            info.textContent = 'Error: ' + (json?.message || r.status);
+            return;
+          }
+          const inv = await r.json();
+          info.textContent = `Invoice ${inv.id} — status: ${inv.status}`;
+          content.innerHTML = `
+            <div><strong>Plan:</strong> ${inv.plan} (${inv.billing})</div>
+            <div><strong>Amount:</strong> $${Number(inv.amount).toFixed(2)}</div>
+            <div><strong>Email:</strong> ${inv.email}</div>
+            <div style="margin-top:8px"><strong>Created:</strong> ${new Date(inv.createdAt).toLocaleString()}</div>
+            <div style="margin-top:12px"><strong>Method:</strong> ${inv.method}</div>
+            <div style="margin-top:12px"><strong>Raw invoice data:</strong><pre>${JSON.stringify(inv, null, 2)}</pre></div>
+          `;
+          // show admin mark button (for convenience). This endpoint may be protected on the server.
+          adminMark.style.display = 'inline-block';
+        } catch (err) {
+          info.textContent = 'Error loading invoice: ' + err.message;
+        }
+      }
+
+      adminMark.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if(!confirm('Mark this invoice as PAID? (admin only)')) return;
+        // optionally: prompt for admin token if server expects one
+        const token = prompt('If you have an admin token, enter it here (otherwise leave empty).');
+        try {
+          const r = await fetch('/api/admin/mark-paid', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json', ...(token?{'x-admin-token': token}: {})},
+            body: JSON.stringify({ invoiceId })
+          });
+          const json = await r.json();
+          if(!r.ok) return alert('Error: ' + json?.message || r.status);
+          alert('Invoice marked paid.');
+          load();
+        } catch(e){
+          alert('Error: ' + e.message);
+        }
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

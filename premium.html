@@ -53,6 +53,9 @@
 
     footer{margin-top:30px;color:var(--muted);font-size:13px}
 
+    /* Modal small tweak */
+    #checkoutModal .cta{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#022}
+
     @media (max-width:980px){main{grid-template-columns:1fr} .plans{grid-template-columns:repeat(1,1fr)}}
   </style>
 </head>
@@ -113,14 +116,67 @@
     </main>
   </div>
 
+  <!-- CHECKOUT MODAL (place before </body>) -->
+  <div id="checkoutModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;">
+    <div style="position:absolute;inset:0;background:rgba(2,6,23,0.6)"></div>
+    <div style="position:relative;max-width:760px;width:94%;background:linear-gradient(180deg,#071427,#05101a);padding:20px;border-radius:12px;box-shadow:0 20px 60px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03);color:#dff6ff;">
+      <button id="closeCheckout" style="position:absolute;right:14px;top:12px;background:transparent;border:0;color:var(--muted);font-size:16px;cursor:pointer">✕</button>
+      <h2 id="checkoutTitle" style="margin:0 0 6px 0">Complete checkout</h2>
+      <div id="checkoutDesc" style="color:var(--muted);margin-bottom:12px">Choose a payment method below to complete your order.</div>
+
+      <form id="checkoutForm">
+        <input type="hidden" id="selectedPlan" name="plan" />
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px">Email (for receipt)</label>
+            <input id="email" name="email" type="email" required style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit" placeholder="you@domain.com" />
+          </div>
+          <div style="width:160px;min-width:160px">
+            <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px">Amount</label>
+            <div id="checkoutAmount" style="font-weight:800;font-size:18px"></div>
+            <div style="color:var(--muted);font-size:12px">Billing: <span id="billingLabel">Monthly</span></div>
+          </div>
+        </div>
+
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03);margin:14px 0">
+
+        <div style="display:flex;gap:10px;flex-direction:column">
+          <label style="font-weight:700">Payment method</label>
+          <label style="display:flex;gap:10px;align-items:center">
+            <input type="radio" name="method" value="paypal" checked> PayPal (open PayPal.me / pay now)
+          </label>
+          <label style="display:flex;gap:10px;align-items:center">
+            <input type="radio" name="method" value="crypto"> Crypto (BTC/ETH/USDC) — QR provided
+          </label>
+          <label style="display:flex;gap:10px;align-items:center">
+            <input type="radio" name="method" value="bank"> Bank transfer / ACH
+          </label>
+          <label style="display:flex;gap:10px;align-items:center">
+            <input type="radio" name="method" value="manual"> Manual upload (receipt)
+          </label>
+        </div>
+
+        <div id="paymentInstructions" style="margin-top:12px;color:var(--muted);font-size:14px">
+          <!-- dynamic payment instructions appear here -->
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+          <button id="startInvoice" type="button" class="cta">Create invoice & show instructions</button>
+          <a id="finishCTA" class="cta" style="display:none">Payment completed?</a>
+          <div id="invoiceStatus" style="color:var(--muted);font-size:13px"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // Plan data — you can edit prices here
+    // Plan data — edit prices here
     const plans = [
       {
         id: 'basic',
         name: 'Basic',
         monthly: 4.99,
-        yearly: 49.99, // save ~2 months
+        yearly: 49.99,
         desc: 'Great for individual testers and casual creators',
         features: [
           'Early access to all BETA features',
@@ -239,15 +295,130 @@
     renderPlans();
     renderCompare();
 
-    // Quick enhancement: intercept checkout links to show a modal (placeholder)
-    document.addEventListener('click', (e)=>{
-      const a = e.target.closest('a[data-plan]');
-      if(!a) return;
-      e.preventDefault();
-      const plan = a.dataset.plan;
-      // Open a real checkout in production (Stripe, Paddle, etc.)
-      window.location.href = a.href; // placeholder — replace with your checkout flow
-    });
+    // Modal + Checkout flow
+    (function(){
+      function findPlan(id){ return plans.find(p=>p.id===id); }
+
+      // modal elements
+      const modal = document.getElementById('checkoutModal');
+      const closeBtn = document.getElementById('closeCheckout');
+      const titleEl = document.getElementById('checkoutTitle');
+      const descEl = document.getElementById('checkoutDesc');
+      const amountEl = document.getElementById('checkoutAmount');
+      const billingLabel = document.getElementById('billingLabel');
+      const selectedPlanInput = document.getElementById('selectedPlan');
+      const emailInput = document.getElementById('email');
+      const paymentInstructions = document.getElementById('paymentInstructions');
+      const startInvoiceBtn = document.getElementById('startInvoice');
+      const finishCTA = document.getElementById('finishCTA');
+      const invoiceStatus = document.getElementById('invoiceStatus');
+
+      function openModal(planId){
+        const p = findPlan(planId);
+        selectedPlanInput.value = p.id;
+        titleEl.textContent = `Checkout — ${p.name}`;
+        descEl.textContent = p.desc;
+        const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
+        amountEl.textContent = formatPrice(price);
+        billingLabel.textContent = billing.period === 'monthly' ? 'Monthly' : 'Yearly (billed monthly shown)';
+        emailInput.value = '';
+        paymentInstructions.innerHTML = `<div style="color:var(--muted)">Choose a method and click <strong>Create invoice</strong>. We'll generate an invoice ID and show steps.</div>`;
+        invoiceStatus.textContent = '';
+        finishCTA.style.display = 'none';
+        modal.style.display = 'flex';
+      }
+
+      closeBtn.addEventListener('click', ()=> modal.style.display='none');
+      modal.addEventListener('click', (e)=> { if(e.target===modal) modal.style.display='none'; });
+
+      // open modal from plan CTA buttons
+      document.addEventListener('click', (e)=>{
+        const a = e.target.closest('a[data-plan]');
+        if(!a) return;
+        e.preventDefault();
+        openModal(a.dataset.plan);
+      });
+
+      function renderInstructionsPreview(method, price, invoiceId){
+        if(method === 'paypal'){
+          const amt = price.toFixed(2);
+          const paypalMe = `https://paypal.me/YourPayPalMe/${amt}`;
+          return `<div><strong>Pay with PayPal:</strong> Click the link to open PayPal and send ${formatPrice(price)}. Use invoice ID <strong>${invoiceId}</strong> in the note/memo so we can match your payment.<br><a href="${paypalMe}" target="_blank" rel="noopener" style="color:var(--accent-2)">Open PayPal.me →</a></div>`;
+        } else if(method === 'crypto'){
+          const address = '0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF';
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(address + ' | Amount: ' + price.toFixed(2) + ' USD | Invoice:' + invoiceId)}`;
+          return `<div><strong>Pay with crypto:</strong> Send equivalent of ${formatPrice(price)} to this address.<br><div style="margin-top:8px;font-weight:700">${address}</div><img src="${qrUrl}" alt="QR" style="display:block;margin-top:8px;max-width:220px"></div>`;
+        } else if(method === 'bank'){
+          return `<div><strong>Bank transfer / ACH:</strong> Initiate a transfer for ${formatPrice(price)} and include invoice ID <strong>${invoiceId}</strong> in the memo. <div style="margin-top:8px"><em>Bank:</em> Example Bank • <em>Account:</em> 123456789 • <em>Routing:</em> 987654321</div></div>`;
+        } else {
+          return `<div><strong>Manual upload:</strong> Pay however you want, then click "View invoice" below to upload proof and we'll verify.</div>`;
+        }
+      }
+
+      startInvoiceBtn.addEventListener('click', async ()=>{
+        const planId = selectedPlanInput.value;
+        const p = findPlan(planId);
+        const method = document.querySelector('input[name="method"]:checked').value;
+        const email = emailInput.value.trim();
+        if(!email) return alert('Please provide an email for your receipt.');
+
+        const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
+
+        startInvoiceBtn.disabled = true;
+        startInvoiceBtn.textContent = 'Creating invoice...';
+
+        try {
+          const res = await fetch('/api/create-invoice', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              plan: planId,
+              billing: billing.period,
+              email,
+              method,
+              amount: price
+            })
+          });
+          const data = await res.json();
+          if(!res.ok) throw new Error(data?.message || 'Failed to create invoice');
+          const invoiceId = data.invoiceId;
+          paymentInstructions.innerHTML = renderInstructionsPreview(method, price, invoiceId);
+
+          finishCTA.style.display = 'inline-block';
+          finishCTA.href = `/invoice/${invoiceId}`;
+          finishCTA.textContent = 'View invoice & mark paid';
+          invoiceStatus.textContent = `Invoice created: ${invoiceId} (status: pending)`;
+
+          pollInvoice(invoiceId);
+
+        } catch (err) {
+          alert('Error creating invoice: ' + err.message);
+        } finally {
+          startInvoiceBtn.disabled = false;
+          startInvoiceBtn.textContent = 'Create invoice & show instructions';
+        }
+      });
+
+      async function pollInvoice(invoiceId){
+        invoiceStatus.textContent = 'Waiting for payment...';
+        const interval = setInterval(async ()=>{
+          try {
+            const r = await fetch(`/api/invoice/${invoiceId}`);
+            if(!r.ok) { clearInterval(interval); return; }
+            const json = await r.json();
+            invoiceStatus.textContent = `Invoice ${invoiceId} — ${json.status}`;
+            if(json.status === 'paid'){
+              clearInterval(interval);
+              invoiceStatus.textContent = `Paid! Thank you — your account will be activated shortly.`;
+              // optional: reload after a sec or redirect to account page
+            }
+          } catch(e){
+            clearInterval(interval);
+            console.error(e);
+          }
+        }, 6000);
+      }
+    })();
   </script>
 </body>
 </html>
