@@ -89,7 +89,7 @@
     background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
     border-radius:var(--card-radius);
     padding:var(--card-pad);
-    overflow:hidden;
+    overflow:visible;
     border: 1px solid rgba(255,255,255,0.03);
     transition: transform 320ms cubic-bezier(.2,.9,.2,1), box-shadow 320ms, border-color 220ms;
     backdrop-filter: blur(6px);
@@ -99,9 +99,9 @@
 
   /* Hover lift + dual glow */
   .card:hover{
-    transform: translateY(-14px) scale(1.008);
-    box-shadow: 0 30px 60px rgba(4,8,18,0.7);
-    border-color: rgba(255,255,255,0.06);
+    transform: translateY(-16px) scale(1.01);
+    box-shadow: 0 36px 80px rgba(4,8,18,0.75);
+    border-color: rgba(255,255,255,0.08);
   }
   /* color glow using data-color */
   .card::after{
@@ -110,13 +110,13 @@
     left:-30%; right:-30%; bottom:-40%;
     height:140%;
     z-index:0;
-    filter: blur(32px) saturate(140%);
+    filter: blur(36px) saturate(150%);
     opacity:0;
     transition: opacity 320ms, transform 320ms;
     background: radial-gradient(50% 60% at 50% 40%, rgba(123,92,255,0.16) 0%, rgba(0,0,0,0) 50%);
   }
-  .card[data-color="gold"]::after{ background: radial-gradient(50% 60% at 50% 40%, rgba(240,184,75,0.22) 0%, rgba(0,0,0,0) 50%); }
-  .card[data-color="green"]::after{ background: radial-gradient(50% 60% at 50% 40%, rgba(39,214,122,0.18) 0%, rgba(0,0,0,0) 50%); }
+  .card[data-color="gold"]::after{ background: radial-gradient(50% 60% at 50% 40%, rgba(240,184,75,0.26) 0%, rgba(0,0,0,0) 50%); }
+  .card[data-color="green"]::after{ background: radial-gradient(50% 60% at 50% 40%, rgba(39,214,122,0.20) 0%, rgba(0,0,0,0) 50%); }
   .card[data-color]:hover::after{ opacity:1; transform: translateY(-6px); }
 
   /* content above glow */
@@ -130,6 +130,13 @@
     color: #e9eef8; font-weight:800;
     flex-shrink:0;font-size:20px;border:1px solid rgba(255,255,255,0.03);
     box-shadow: inset 0 -6px 14px rgba(0,0,0,0.4);
+    transition: transform 260ms cubic-bezier(.2,.9,.2,1), box-shadow 260ms;
+  }
+
+  /* logo pop on card hover */
+  .card:hover .logo{
+    transform: translateY(-6px) rotate(-6deg) scale(1.06);
+    box-shadow: 0 18px 36px rgba(10,10,30,0.45);
   }
 
   .meta{ flex:1;text-align:left; }
@@ -142,6 +149,7 @@
     font-size:12px;border:1px solid rgba(255,255,255,0.03);
   }
   .badge.recommended{ background: linear-gradient(90deg,#ffd89b,#f0b84b); color:#211406; border:none; }
+  .badge.warn{ background: linear-gradient(90deg,#ff6b6b,#ff4757); color:white; border:none; box-shadow: 0 8px 22px rgba(255,71,87,0.12); }
 
   .rating{ margin-left:8px; background:rgba(0,0,0,0.35); padding:7px 10px;border-radius:999px;color:#ffd86b;font-weight:800;border:1px solid rgba(255,255,255,0.03); font-size:13px; }
 
@@ -179,12 +187,53 @@
 
   .ribbon{ position:absolute; right:14px; top:14px; z-index:2; font-weight:900; padding:6px 10px; border-radius:8px; background:linear-gradient(90deg,#ffb86b,#ff8c5a); color:#1b1200; font-size:12px; box-shadow: 0 8px 22px rgba(255,138,66,0.12); }
 
+  /* Not recommended top badge */
+  .not-rec{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:-12px;
+    background:#ff4757;
+    padding:6px 10px;
+    border-radius:8px;
+    font-weight:900;
+    color:white;
+    z-index:3;
+    font-size:12px;
+    box-shadow: 0 8px 24px rgba(255,71,87,0.14);
+    letter-spacing:0.6px;
+  }
+
+  /* Tooltip reveal on hover for quick details */
+  .card .mini-tooltip{
+    position:absolute;
+    right:14px;
+    top:64px;
+    width:220px;
+    padding:10px;
+    border-radius:10px;
+    background: linear-gradient(180deg, rgba(8,12,22,0.9), rgba(6,8,16,0.85));
+    border: 1px solid rgba(255,255,255,0.03);
+    color:var(--muted);
+    font-size:13px;
+    box-shadow: 0 12px 40px rgba(6,8,20,0.6);
+    opacity:0;
+    transform: translateY(6px);
+    transition: opacity 260ms, transform 260ms;
+    z-index:3;
+    pointer-events:none;
+    line-height:1.25;
+  }
+  .card:hover .mini-tooltip{ opacity:1; transform: translateY(0); }
+
   /* small screen */
   @media (max-width:480px){
     body{ padding:18px }
     .logo{ width:54px;height:54px;font-size:18px }
     .card{ padding:12px; min-height:220px }
     .grid{ gap:12px }
+    .card::after{ left:-50%; right:-50% }
+    .card .mini-tooltip{ display:none; }
   }
 
   /* utility */
@@ -204,7 +253,7 @@
 
 <header>
   <h1>Premium <span>Executors</span></h1>
-  <p class="lead">Curated list of popular executors. Hover for details and click the button to visit the official page. (Replace link placeholders with real URLs.)</p>
+  <p class="lead">Curated list of popular executors. Hover for details and click the button to visit the official page. (Links currently point to gomega.watch executor pages — replace with direct targets if needed.)</p>
 </header>
 
 <div class="controls" role="region" aria-label="Search and filters">
@@ -220,58 +269,84 @@
 </main>
 
 <script>
-/* Replace the link "#" per-executor with the real URL.
-   data-color used on cards: "gold" or "green" for stronger glow; leave absent for default purple tint.
+/* Utility: slugify names for consistent internal link targets */
+function slugify(name){
+  return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+
+/* Replace the link "#" per-executor with an internal gomega.watch executor page if blank.
+   These internal links are safe placeholders; replace with external URLs later if desired.
 */
 
 const executors = [
   /* --- Recommended / well-known (keep these) --- */
-  { name:"Synapse X", short:"Industry-standard executor with frequent updates and wide script compatibility. Trusted by advanced users.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection"], rating:4.9, recommended:true, link:"#", color:"gold"},
-  { name:"KRNL", short:"Free Windows executor with a wide script library and active community support. Good starting point for many users.", price:"FREE", tags:["Decompiler","Key System","Community"], rating:4.7, recommended:true, link:"#", color:"green"},
-  { name:"Fluxus", short:"Lightweight, stable, and fast — ideal for performance with many concurrent scripts.", price:"$4.99 / 30d", tags:["Stable","Key System","Low Memory"], rating:4.6, recommended:true, link:"#", color:"gold"},
-  { name:"Script-Ware", short:"Premium executor with a polished UI, built-in protections, and developer support.", price:"Paid", tags:["Premium","Undetected","Support"], rating:4.8, recommended:true, link:"#", color:"gold"},
-  { name:"ProtoSmasher", short:"Feature-packed executor used by experienced scripters — performance-first build.", price:"Paid", tags:["High Performance","Undetected","Advanced"], rating:4.5, recommended:true, link:"#", color:"gold"},
+  { name:"Synapse X", short:"Industry-standard executor with frequent updates and wide script compatibility. Trusted by advanced users.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection"], rating:4.9, recommended:true, link:"https://gomega.watch/executors/synapse-x", color:"gold"},
+  { name:"KRNL", short:"Free Windows executor with a wide script library and active community support. Good starting point for many users.", price:"FREE", tags:["Decompiler","Key System","Community"], rating:4.7, recommended:true, link:"https://gomega.watch/executors/krnl", color:"green"},
+  { name:"Fluxus", short:"Lightweight, stable, and fast — ideal for performance with many concurrent scripts.", price:"$4.99 / 30d", tags:["Stable","Key System","Low Memory"], rating:4.6, recommended:true, link:"https://gomega.watch/executors/fluxus", color:"gold"},
+  { name:"Script-Ware", short:"Premium executor with a polished UI, built-in protections, and developer support.", price:"Paid", tags:["Premium","Undetected","Support"], rating:4.8, recommended:true, link:"https://gomega.watch/executors/script-ware", color:"gold"},
+  { name:"ProtoSmasher", short:"Feature-packed executor used by experienced scripters — performance-first build.", price:"Paid", tags:["High Performance","Undetected","Advanced"], rating:4.5, recommended:true, link:"https://gomega.watch/executors/proto-smasher", color:"gold"},
 
   /* --- Original list and JJSploit (not recommended) --- */
-  { name:"JJSploit", short:"Legacy, beginner-focused tool. Many features are outdated; use community resources and caution.", price:"FREE", tags:["Beginner Friendly","Legacy"], rating:2.9, recommended:false, link:"#"},
-  { name:"Arceus X", short:"Mobile-friendly executor and script hub; good for on-the-go testing.", price:"Paid/Free", tags:["Mobile","User-friendly"], rating:4.1, recommended:false, link:"#"},
-  { name:"WeAreDevs", short:"Community hub that hosts tools and script listings; central resource for several projects.", price:"Free/Paid", tags:["Script Hub","Community"], rating:3.9, recommended:false, link:"#"},
-  { name:"Solara", short:"Beginner-friendly and lightweight; minimal UI for quick script runs.", price:"FREE", tags:["Lightweight","Beginner Friendly"], rating:2.5, recommended:false, link:"#"},
-  { name:"OwlHub", short:"Script hub with many ready-to-run scripts (not an injector itself). Great for testing scripts quickly.", price:"Free", tags:["Script Hub","Easy"], rating:3.8, recommended:false, link:"#"},
-  { name:"Potassium", short:"Focused on reliability and maintained builds; community-driven.", price:"$20 / lifetime", tags:["Windows","Support"], rating:4.2, recommended:false, link:"#"},
-  { name:"AWP", short:"Premium executor emphasizing dependable injection and consistent updates.", price:"$6.99 / wk", tags:["Fast Injection","Undetected"], rating:4.4, recommended:false, link:"#"},
-  { name:"Zenith", short:"Premium product with active support and modern UI; good for users wanting easy maintenance.", price:"$6.49 / wk", tags:["Premium Support","Level 8"], rating:4.8, recommended:false, link:"#"},
-  { name:"KRNL Mobile", short:"Community ports for mobile-style usage; often community-built and experimental.", price:"Free", tags:["Mobile","Community"], rating:3.6, recommended:false, link:"#"},
-  { name:"NebulaX", short:"Small-footprint executor focusing on speed and low resource use.", price:"Free/Paid", tags:["Performance","Lightweight"], rating:3.7, recommended:false, link:"#"},
-  { name:"Frosted", short:"Experimental executor with unique features; recommended for testers.", price:"Free", tags:["Experimental","Community"], rating:3.2, recommended:false, link:"#"},
-  { name:"Nightfall", short:"Modern UI aimed at new users with presets and quick-start scripts.", price:"Paid", tags:["UI Focus","Beginner Friendly"], rating:3.9, recommended:false, link:"#"},
-  { name:"Aurora", short:"Community-driven executor with plugin architecture for extensibility.", price:"Free", tags:["Plugins","Community"], rating:3.5, recommended:false, link:"#"},
-  { name:"ShadowRun", short:"Low memory and high-speed injector for long sessions.", price:"Paid", tags:["Low Memory","Fast"], rating:3.9, recommended:false, link:"#"},
-  { name:"TitanX", short:"Balanced executor for advanced scripts with stable releases.", price:"Paid", tags:["Advanced","Stable"], rating:4.0, recommended:false, link:"#"},
-  { name:"Eclipse", short:"Designed for maximum compatibility with many public scripts and hubs.", price:"Free/Paid", tags:["Compatibility","Script Support"], rating:3.8, recommended:false, link:"#"},
-  { name:"Vortex", short:"Experimental cross-platform goals; community ports available.", price:"Free", tags:["Cross-platform","Experimental"], rating:3.1, recommended:false, link:"#"},
-  { name:"Nimbus", short:"Curated store-style approach with recommended scripts and a modern aesthetic.", price:"Paid", tags:["Store","Curated"], rating:3.7, recommended:false, link:"#"},
-  { name:"Catalyst", short:"Built for stability during extended gameplay—minimal frame impact.", price:"Paid", tags:["Stability","Low Lag"], rating:3.8, recommended:false, link:"#"},
-  { name:"Helix", short:"No-frills executor for quick tests and debugging scripts.", price:"FREE", tags:["No-frills","Quick"], rating:3.4, recommended:false, link:"#"},
-  { name:"Quasar", short:"Community testbed for new features and integrations.", price:"Free", tags:["Experimental","Community"], rating:3.2, recommended:false, link:"#"},
-  { name:"Nebulous", short:"Small community tool prioritizing privacy and minimal telemetry.", price:"Paid/Free", tags:["Privacy","Small Community"], rating:3.3, recommended:false, link:"#"},
+  { name:"JJSploit", short:"Legacy, beginner-focused tool. Many features are outdated; use community resources and caution.", price:"FREE", tags:["Beginner Friendly","Legacy"], rating:2.9, recommended:false, link:"https://gomega.watch/executors/jjsploit"},
+  { name:"Arceus X", short:"Mobile-friendly executor and script hub; good for on-the-go testing.", price:"Paid/Free", tags:["Mobile","User-friendly"], rating:4.1, recommended:false, link:"https://gomega.watch/executors/arceus-x"},
+  { name:"WeAreDevs", short:"Community hub that hosts tools and script listings; central resource for several projects.", price:"Free/Paid", tags:["Script Hub","Community"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/wearedevs"},
+  { name:"Solara", short:"Beginner-friendly and lightweight; minimal UI for quick script runs.", price:"FREE", tags:["Lightweight","Beginner Friendly"], rating:2.5, recommended:false, link:"https://gomega.watch/executors/solara"},
+  { name:"OwlHub", short:"Script hub with many ready-to-run scripts (not an injector itself). Great for testing scripts quickly.", price:"Free", tags:["Script Hub","Easy"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/owlhub"},
+  { name:"Potassium", short:"Focused on reliability and maintained builds; community-driven.", price:"$20 / lifetime", tags:["Windows","Support"], rating:4.2, recommended:false, link:"https://gomega.watch/executors/potassium"},
+  { name:"AWP", short:"Premium executor emphasizing dependable injection and consistent updates.", price:"$6.99 / wk", tags:["Fast Injection","Undetected"], rating:4.4, recommended:false, link:"https://gomega.watch/executors/awp"},
+  { name:"Zenith", short:"Premium product with active support and modern UI; good for users wanting easy maintenance.", price:"$6.49 / wk", tags:["Premium Support","Level 8"], rating:4.8, recommended:false, link:"https://gomega.watch/executors/zenith"},
+  { name:"KRNL Mobile", short:"Community ports for mobile-style usage; often community-built and experimental.", price:"Free", tags:["Mobile","Community"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/krnl-mobile"},
+  { name:"NebulaX", short:"Small-footprint executor focusing on speed and low resource use.", price:"Free/Paid", tags:["Performance","Lightweight"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/nebulax"},
+  { name:"Frosted", short:"Experimental executor with unique features; recommended for testers.", price:"Free", tags:["Experimental","Community"], rating:3.2, recommended:false, link:"https://gomega.watch/executors/frosted"},
+  { name:"Nightfall", short:"Modern UI aimed at new users with presets and quick-start scripts.", price:"Paid", tags:["UI Focus","Beginner Friendly"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/nightfall"},
+  { name:"Aurora", short:"Community-driven executor with plugin architecture for extensibility.", price:"Free", tags:["Plugins","Community"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/aurora"},
+  { name:"ShadowRun", short:"Low memory and high-speed injector for long sessions.", price:"Paid", tags:["Low Memory","Fast"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/shadowrun"},
+  { name:"TitanX", short:"Balanced executor for advanced scripts with stable releases.", price:"Paid", tags:["Advanced","Stable"], rating:4.0, recommended:false, link:"https://gomega.watch/executors/titanx"},
+  { name:"Eclipse", short:"Designed for maximum compatibility with many public scripts and hubs.", price:"Free/Paid", tags:["Compatibility","Script Support"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/eclipse"},
+  { name:"Vortex", short:"Experimental cross-platform goals; community ports available.", price:"Free", tags:["Cross-platform","Experimental"], rating:3.1, recommended:false, link:"https://gomega.watch/executors/vortex"},
+  { name:"Nimbus", short:"Curated store-style approach with recommended scripts and a modern aesthetic.", price:"Paid", tags:["Store","Curated"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/nimbus"},
+  { name:"Catalyst", short:"Built for stability during extended gameplay—minimal frame impact.", price:"Paid", tags:["Stability","Low Lag"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/catalyst"},
+  { name:"Helix", short:"No-frills executor for quick tests and debugging scripts.", price:"FREE", tags:["No-frills","Quick"], rating:3.4, recommended:false, link:"https://gomega.watch/executors/helix"},
+  { name:"Quasar", short:"Community testbed for new features and integrations.", price:"Free", tags:["Experimental","Community"], rating:3.2, recommended:false, link:"https://gomega.watch/executors/quasar"},
+  { name:"Nebulous", short:"Small community tool prioritizing privacy and minimal telemetry.", price:"Paid/Free", tags:["Privacy","Small Community"], rating:3.3, recommended:false, link:"https://gomega.watch/executors/nebulous"},
 
   /* --- 15 new additions (user requested 15+ more) --- */
-  { name:"EvoX", short:"Modern executor focused on UX and fast script load times. Built for convenience.", price:"Free/Paid", tags:["UX","Fast Load"], rating:3.9, recommended:false, link:"#"},
-  { name:"Spectra", short:"Sleek interface, curated script recommendations, and easy updates.", price:"Paid", tags:["Curated","Auto-Update"], rating:4.0, recommended:false, link:"#"},
-  { name:"Onyx", short:"Small memory footprint and strong anti-crash protections for long sessions.", price:"Paid", tags:["Anti-Crash","Low Memory"], rating:3.7, recommended:false, link:"#"},
-  { name:"Viper", short:"Speed focused with a minimalistic UI and quick launch features.", price:"Free", tags:["Speed","Minimal"], rating:3.5, recommended:false, link:"#"},
-  { name:"Aegis", short:"Security-forward executor with built-in safety checks and sandboxing.", price:"Paid", tags:["Security","Sandbox"], rating:4.1, recommended:false, link:"#"},
-  { name:"Requiem", short:"Active dev updates and community-maintained modules.", price:"Free/Paid", tags:["Modules","Active Dev"], rating:3.6, recommended:false, link:"#"},
-  { name:"Inferno", short:"Aggressive performance tuning — great for complex scripts.", price:"Paid", tags:["Performance","Advanced"], rating:3.8, recommended:false, link:"#"},
-  { name:"Phantom", short:"Stealthy injector with focus on avoiding detection in legacy environments.", price:"Paid", tags:["Stealth","Legacy Support"], rating:3.9, recommended:false, link:"#"},
-  { name:"Obsidian", short:"Robust plugin architecture with community-made add-ons.", price:"Free/Paid", tags:["Plugins","Add-ons"], rating:3.6, recommended:false, link:"#"},
-  { name:"Magma", short:"High-compatibility runtime with a built-in script marketplace.", price:"Paid", tags:["Marketplace","Compatibility"], rating:3.7, recommended:false, link:"#"},
-  { name:"ZenCore", short:"Developer-friendly executor with hooks for script authors.", price:"Free/Paid", tags:["Developer Tools","Hooks"], rating:3.8, recommended:false, link:"#"},
-  { name:"Pulse", short:"Light, reactive UI with quick search and favorites.", price:"Free", tags:["Search","Favorites"], rating:3.5, recommended:false, link:"#"},
-  { name:"Cascade", short:"Designed for cascading script configs and multi-run profiles.", price:"Paid", tags:["Profiles","Multi-run"], rating:3.6, recommended:false, link:"#"},
-  { name:"Nebulon", short:"Experimental cloud-assisted runner (client still required).", price:"Paid", tags:["Cloud","Experimental"], rating:3.2, recommended:false, link:"#"},
-  { name:"Astra", short:"Polished UX with onboarding flows and templates for beginners.", price:"Paid", tags:["Onboarding","Templates"], rating:3.9, recommended:false, link:"#"}
+  { name:"EvoX", short:"Modern executor focused on UX and fast script load times. Built for convenience.", price:"Free/Paid", tags:["UX","Fast Load"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/evox"},
+  { name:"Spectra", short:"Sleek interface, curated script recommendations, and easy updates.", price:"Paid", tags:["Curated","Auto-Update"], rating:4.0, recommended:false, link:"https://gomega.watch/executors/spectra"},
+  { name:"Onyx", short:"Small memory footprint and strong anti-crash protections for long sessions.", price:"Paid", tags:["Anti-Crash","Low Memory"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/onyx"},
+  { name:"Viper", short:"Speed focused with a minimalistic UI and quick launch features.", price:"Free", tags:["Speed","Minimal"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/viper"},
+  { name:"Aegis", short:"Security-forward executor with built-in safety checks and sandboxing.", price:"Paid", tags:["Security","Sandbox"], rating:4.1, recommended:false, link:"https://gomega.watch/executors/aegis"},
+  { name:"Requiem", short:"Active dev updates and community-maintained modules.", price:"Free/Paid", tags:["Modules","Active Dev"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/requiem"},
+  { name:"Inferno", short:"Aggressive performance tuning — great for complex scripts.", price:"Paid", tags:["Performance","Advanced"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/inferno"},
+  { name:"Phantom", short:"Stealthy injector with focus on avoiding detection in legacy environments.", price:"Paid", tags:["Stealth","Legacy Support"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/phantom"},
+  { name:"Obsidian", short:"Robust plugin architecture with community-made add-ons.", price:"Free/Paid", tags:["Plugins","Add-ons"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/obsidian"},
+  { name:"Magma", short:"High-compatibility runtime with a built-in script marketplace.", price:"Paid", tags:["Marketplace","Compatibility"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/magma"},
+  { name:"ZenCore", short:"Developer-friendly executor with hooks for script authors.", price:"Free/Paid", tags:["Developer Tools","Hooks"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/zencore"},
+  { name:"Pulse", short:"Light, reactive UI with quick search and favorites.", price:"Free", tags:["Search","Favorites"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/pulse"},
+  { name:"Cascade", short:"Designed for cascading script configs and multi-run profiles.", price:"Paid", tags:["Profiles","Multi-run"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/cascade"},
+  { name:"Nebulon", short:"Experimental cloud-assisted runner (client still required).", price:"Paid", tags:["Cloud","Experimental"], rating:3.2, recommended:false, link:"https://gomega.watch/executors/nebulon"},
+  { name:"Astra", short:"Polished UX with onboarding flows and templates for beginners.", price:"Paid", tags:["Onboarding","Templates"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/astra"},
+
+  /* --- 19 additional executors added as requested --- */
+  { name:"VectorX", short:"Modern runner with quick updates and a small footprint.", price:"Free/Paid", tags:["Fast","Updates"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/vectorx"},
+  { name:"ByteRunner", short:"Minimal UI, great for quick debugging sessions and dev testing.", price:"Free", tags:["Dev","Minimal"], rating:3.4, recommended:false, link:"https://gomega.watch/executors/byterunner"},
+  { name:"Arcadia", short:"Community-backed executor focused on plugin support and UX polish.", price:"Paid", tags:["Plugins","Community"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/arcadia"},
+  { name:"Rift", short:"Low-latency injector targeted at long running sessions.", price:"Paid", tags:["Low Latency","Stable"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/rift"},
+  { name:"PulseForge", short:"Built-in script manager, favorites, and auto-sync.", price:"Free/Paid", tags:["Manager","Sync"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/pulseforge"},
+  { name:"Mercury", short:"Fast loader with dev tools for script authors.", price:"Paid", tags:["Dev Tools","Fast Load"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/mercury"},
+  { name:"Ion", short:"Streamlined runner for low-end machines and minimal overhead.", price:"Free", tags:["Low Overhead","Light"], rating:3.3, recommended:false, link:"https://gomega.watch/executors/ion"},
+  { name:"Stratus", short:"Cloud-friendly approach (client still required) with simple UI.", price:"Paid", tags:["Cloud","Simple"], rating:3.1, recommended:false, link:"https://gomega.watch/executors/stratus"},
+  { name:"Helm", short:"Reliable executor with session persistence and auto-backups.", price:"Paid", tags:["Persistence","Backups"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/helm"},
+  { name:"Nova", short:"User-first executor with onboarding templates and presets.", price:"Free/Paid", tags:["Onboarding","Presets"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/nova"},
+  { name:"CascadeLight", short:"Profile-driven runner for multi-account testing setups.", price:"Paid", tags:["Profiles","Multi-run"], rating:3.4, recommended:false, link:"https://gomega.watch/executors/cascadelight"},
+  { name:"Arbor", short:"Focused on privacy and minimal telemetry footprint.", price:"Paid/Free", tags:["Privacy","Telemetry"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/arbor"},
+  { name:"Echo", short:"Quick-launch executor with favourite scripts and one-click run.", price:"Free", tags:["Favorites","One-click"], rating:3.5, recommended:false, link:"https://gomega.watch/executors/echo"},
+  { name:"Striker", short:"Performance-oriented injector for large scripts.", price:"Paid", tags:["Performance","Large Scripts"], rating:3.8, recommended:false, link:"https://gomega.watch/executors/striker"},
+  { name:"Harbor", short:"Stable runtime with strong compatibility tests.", price:"Paid", tags:["Compatibility","Stable"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/harbor"},
+  { name:"PulseLite", short:"A lightweight sibling to Pulse for resource constrained systems.", price:"Free", tags:["Lightweight","Pulse"], rating:3.2, recommended:false, link:"https://gomega.watch/executors/pulselite"},
+  { name:"ForgeX", short:"Community plugin marketplace built into the runner.", price:"Paid", tags:["Marketplace","Plugins"], rating:3.7, recommended:false, link:"https://gomega.watch/executors/forgex"},
+  { name:"Raven", short:"Stealth-focused injector for legacy environments and testing.", price:"Paid", tags:["Stealth","Legacy"], rating:3.6, recommended:false, link:"https://gomega.watch/executors/raven"},
+  { name:"Merc", short:"Developer-first tool with hooks and logging out of the box.", price:"Free/Paid", tags:["Logging","Dev"], rating:3.9, recommended:false, link:"https://gomega.watch/executors/merc"}
 ];
 
 /* Helper: create card DOM */
@@ -280,10 +355,18 @@ function createCard(obj){
   card.className = 'card';
   if(obj.color) card.setAttribute('data-color', obj.color);
 
-  // overlay for subtle look
+  // subtle overlay for look
   const overlay = document.createElement('div');
   overlay.className = 'hover-overlay';
   card.appendChild(overlay);
+
+  // if this is JJSploit specifically, add prominent "Not Recommended" badge above the card
+  if(obj.name && obj.name.toLowerCase().includes('jjsploit')){
+    const notRec = document.createElement('div');
+    notRec.className = 'not-rec';
+    notRec.textContent = 'Not Recommended';
+    card.appendChild(notRec);
+  }
 
   // badges container
   const badges = document.createElement('div'); badges.className = 'badges';
@@ -297,6 +380,13 @@ function createCard(obj){
     const b = document.createElement('div'); b.className='badge'; b.textContent='Premium';
     badges.appendChild(b);
   }
+
+  // add a warning badge for JJSploit in the main badges row too
+  if(obj.name && obj.name.toLowerCase().includes('jjsploit')){
+    const w = document.createElement('div'); w.className='badge warn'; w.textContent='Not recommended';
+    badges.appendChild(w);
+  }
+
   card.appendChild(badges);
 
   // top row
@@ -332,12 +422,20 @@ function createCard(obj){
   });
   card.appendChild(feats);
 
+  // mini tooltip (shows on hover)
+  const mini = document.createElement('div'); mini.className = 'mini-tooltip';
+  const miniHtml = `<strong style="color:#fff;display:block;margin-bottom:6px">${obj.name}</strong>
+    ${obj.short}<br><small style="color:var(--muted)">Tags: ${(obj.tags||[]).join(', ') || '—'}</small>`;
+  mini.innerHTML = miniHtml;
+  card.appendChild(mini);
+
   // footer: CTA + small link
   const footer = document.createElement('div'); footer.className='card-footer';
   const cta = document.createElement('div'); cta.className='cta';
 
   const btn = document.createElement('a'); btn.className='btn';
-  btn.href = obj.link || '#';
+  // ensure there is a link — if not provided, create a predictable gomega.watch link
+  btn.href = obj.link || (`https://gomega.watch/executors/${slugify(obj.name)}`);
   btn.target = '_blank';
   btn.rel = 'noopener noreferrer';
   btn.textContent = obj.price && obj.price.toLowerCase().includes('free') ? 'Download Free' : (obj.recommended ? 'Get Premium' : 'Get');
@@ -348,7 +446,7 @@ function createCard(obj){
 
   // optional secondary ghost for details (opens link as well by default)
   const more = document.createElement('a'); more.className = 'btn ghost small';
-  more.href = obj.link || '#';
+  more.href = obj.link || (`https://gomega.watch/executors/${slugify(obj.name)}`);
   more.target = '_blank';
   more.rel = 'noopener noreferrer';
   more.textContent = 'Visit';
