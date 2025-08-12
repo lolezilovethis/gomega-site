@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gomega Premium — Plans & Pricing</title>
-  <meta name="description" content="Upgrade to Gomega Premium: Basic, Advanced, or Black Express — early betas, Browser++, Music Premium, paid script uploads and more.">
+  <meta name="description" content="Upgrade to Gomega Premium">
   <style>
     :root{
       --bg:#0f1724; --card:#0b1220; --muted:#9aa5b1; --accent:#6ee7b7; --accent-2:#60a5fa; --glass: rgba(255,255,255,0.04);
@@ -18,14 +18,11 @@
     .logo{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;font-weight:700;color:#012;box-shadow:0 6px 30px rgba(6,12,24,0.6)}
     h1{font-size:20px;margin:0}
     p.lead{margin:0;color:var(--muted);font-size:13px}
-
     .toggle{display:inline-flex;gap:8px;align-items:center;background:var(--glass);padding:6px;border-radius:999px}
     .switch{position:relative;width:62px;height:30px;background:rgba(255,255,255,0.06);border-radius:999px;padding:3px;cursor:pointer}
     .knob{position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:white;transition:all .22s}
     .switch.yearly .knob{left:35px}
-
     main{display:grid;grid-template-columns:1fr 340px;gap:22px}
-
     .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
     .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
     .card .title{display:flex;align-items:center;justify-content:space-between}
@@ -35,27 +32,16 @@
     ul.features{list-style:none;padding:0;margin:10px 0 18px 0}
     ul.features li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;color:var(--muted);font-size:13px}
     .cta{display:inline-block;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#022; font-weight:700;text-decoration:none}
-
     .badge{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.04);font-size:12px;color:var(--muted)}
-
     aside{position:relative}
     .summary{position:sticky;top:24px;padding:18px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
-    .summary h3{margin:0 0 8px 0}
-    .perks{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-    .perk{display:flex;gap:10px;align-items:flex-start}
-    .perk svg{flex-shrink:0}
-
     .compare{margin-top:18px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
     table{width:100%;border-collapse:collapse;background:rgba(255,255,255,0.01)}
     th,td{padding:10px;font-size:13px;color:var(--muted);text-align:left}
     th{background:rgba(255,255,255,0.02);color:#cfeaf2;font-weight:700}
     td{border-top:1px solid rgba(255,255,255,0.02)}
-
     footer{margin-top:30px;color:var(--muted);font-size:13px}
-
-    /* Modal small tweak */
     #checkoutModal .cta{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#022}
-
     @media (max-width:980px){main{grid-template-columns:1fr} .plans{grid-template-columns:repeat(1,1fr)}}
   </style>
 </head>
@@ -83,10 +69,7 @@
 
     <main>
       <section>
-        <div class="plans" id="plansContainer">
-          <!-- JS will inject plan cards here -->
-        </div>
-
+        <div class="plans" id="plansContainer"></div>
         <footer>
           <strong>14-day money-back guarantee</strong> • Cancel anytime. Prices shown in USD. Want annual billing or team seats? <a href="/contact" style="color:var(--accent-2);">Contact us</a>.
         </footer>
@@ -95,20 +78,11 @@
       <aside>
         <div class="summary">
           <h3>Why go Premium?</h3>
-          <p class="lead">Unlock the best of Gomega: beat features, priority support, payouts for creators and more.</p>
-
-          <div class="perks">
-            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12l5 5L20 7" stroke="#6EE7B7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Paid creator uploads</strong><div style="color:var(--muted);font-size:13px">Earn revenue when your scripts are downloaded or used.</div></div></div>
-            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2v20" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h20" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Early access & betas</strong><div style="color:var(--muted);font-size:13px">Try new pages, Browser++ features and music releases before anyone else.</div></div></div>
-            <div class="perk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#FBBF24" stroke-width="2"/><path d="M12 7v5l3 3" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>Priority support</strong><div style="color:var(--muted);font-size:13px">Faster help from our team and access to private support channel.</div></div></div>
-          </div>
-
+          <p class="lead">Unlock the best of Gomega: beta features, priority support, payouts for creators and more.</p>
           <div class="compare">
             <table aria-label="Plan comparison">
               <thead><tr><th>Feature</th><th>Basic</th><th>Advanced</th><th>Black Express</th></tr></thead>
-              <tbody id="compareBody">
-                <!-- injected -->
-              </tbody>
+              <tbody id="compareBody"></tbody>
             </table>
           </div>
         </div>
@@ -116,7 +90,7 @@
     </main>
   </div>
 
-  <!-- CHECKOUT MODAL (place before </body>) -->
+  <!-- CHECKOUT MODAL -->
   <div id="checkoutModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;">
     <div style="position:absolute;inset:0;background:rgba(2,6,23,0.6)"></div>
     <div style="position:relative;max-width:760px;width:94%;background:linear-gradient(180deg,#071427,#05101a);padding:20px;border-radius:12px;box-shadow:0 20px 60px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03);color:#dff6ff;">
@@ -142,23 +116,13 @@
 
         <div style="display:flex;gap:10px;flex-direction:column">
           <label style="font-weight:700">Payment method</label>
-          <label style="display:flex;gap:10px;align-items:center">
-            <input type="radio" name="method" value="paypal" checked> PayPal (open PayPal.me / pay now)
-          </label>
-          <label style="display:flex;gap:10px;align-items:center">
-            <input type="radio" name="method" value="crypto"> Crypto (BTC/ETH/USDC) — QR provided
-          </label>
-          <label style="display:flex;gap:10px;align-items:center">
-            <input type="radio" name="method" value="bank"> Bank transfer / ACH
-          </label>
-          <label style="display:flex;gap:10px;align-items:center">
-            <input type="radio" name="method" value="manual"> Manual upload (receipt)
-          </label>
+          <label style="display:flex;gap:10px;align-items:center"><input type="radio" name="method" value="paypal" checked> PayPal</label>
+          <label style="display:flex;gap:10px;align-items:center"><input type="radio" name="method" value="crypto"> Crypto</label>
+          <label style="display:flex;gap:10px;align-items:center"><input type="radio" name="method" value="bank"> Bank transfer</label>
+          <label style="display:flex;gap:10px;align-items:center"><input type="radio" name="method" value="manual"> Manual upload</label>
         </div>
 
-        <div id="paymentInstructions" style="margin-top:12px;color:var(--muted);font-size:14px">
-          <!-- dynamic payment instructions appear here -->
-        </div>
+        <div id="paymentInstructions" style="margin-top:12px;color:var(--muted);font-size:14px"></div>
 
         <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
           <button id="startInvoice" type="button" class="cta">Create invoice & show instructions</button>
@@ -170,136 +134,57 @@
   </div>
 
   <script>
-    // Plan data — edit prices here
+    // Plan data
     const plans = [
-      {
-        id: 'basic',
-        name: 'Basic',
-        monthly: 4.99,
-        yearly: 49.99,
-        desc: 'Great for individual testers and casual creators',
-        features: [
-          'Early access to all BETA features',
-          'Early access to Gomega Browser++ (core features)',
-          'Gomega Music Premium (limited)',
-          'Get paid from uploading scripts (revenue share, payouts monthly)',
-          'Early access to new pages',
-          '5 script uploads / mo',
-          'Standard support'
-        ]
-      },
-      {
-        id: 'advanced',
-        name: 'Advanced',
-        monthly: 9.99,
-        yearly: 99.99,
-        desc: 'For power users, creators and small teams',
-        featured: true,
-        features: [
-          'Everything in Basic',
-          'Full Gomega Browser++ access (advanced toggles)',
-          'Gomega Music Premium (full)',
-          'Higher revenue share & faster payouts',
-          'Priority support + private Discord channel',
-          '25 script uploads / mo',
-          'Advanced analytics for your uploads'
-        ]
-      },
-      {
-        id: 'black',
-        name: 'Black Express',
-        monthly: 24.99,
-        yearly: 249.99,
-        desc: 'For creators, teams and power contributors — fastest access',
-        premium: true,
-        features: [
-          'Everything in Advanced',
-          'Immediate access to all betas (including Server/Dev features)',
-          'Highest revenue share + instant payouts option',
-          'White-glove onboarding & dedicated rep',
-          'Unlimited script uploads',
-          'Private roadmap calls and feature requests',
-          'Custom themes & branding for your profile/pages'
-        ]
-      }
+      { id: 'basic', name: 'Basic', monthly: 4.99, yearly: 49.99, desc: 'Great for individuals', features: ['Early access','5 uploads / mo'] },
+      { id: 'advanced', name: 'Advanced', monthly: 9.99, yearly: 99.99, desc: 'Power users', featured:true, features:['Everything in Basic','25 uploads / mo'] },
+      { id: 'black', name: 'Black Express', monthly: 24.99, yearly: 249.99, desc: 'Teams & power', premium:true, features:['Everything in Advanced','Unlimited uploads'] },
     ];
+    const billing = { period: 'monthly' };
+    function formatPrice(n){ return n.toLocaleString('en-US', {style:'currency',currency:'USD',maximumFractionDigits:2}); }
 
-    const billing = {period: 'monthly'}; // monthly | yearly
-
-    function formatPrice(n){
-      return n.toLocaleString('en-US', {style:'currency',currency:'USD',maximumFractionDigits:2});
-    }
-
+    // Render plans & compare
     function renderPlans(){
       const container = document.getElementById('plansContainer');
       container.innerHTML = '';
       plans.forEach(p => {
         const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
-        const off = billing.period === 'yearly' ? Math.round((1 - (p.yearly/12)/p.monthly)*100) : 0;
         const el = document.createElement('article');
         el.className = 'card';
         el.innerHTML = `
           <div class="title"><div><div class="plan-name">${p.name}</div><div style="font-size:13px;color:var(--muted)">${p.desc}</div></div>${p.featured?'<div class="badge">Popular</div>':''}</div>
           <div class="price">${formatPrice(price)} <span class="per">/mo</span></div>
-          <ul class="features">
-            ${p.features.map(f=>`<li>\n<svg width=16 height=16 viewBox='0 0 24 24' fill='none' style='flex-shrink:0;margin-top:2px'><path d='M5 12l5 5L20 7' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' /></svg> <div style='line-height:1.1'>${f}</div></li>`).join('')}
-          </ul>
+          <ul class="features">${p.features.map(f=>`<li><svg width=16 height=16 viewBox='0 0 24 24' fill='none' style='flex-shrink:0;margin-top:2px'><path d='M5 12l5 5L20 7' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' /></svg> <div style='line-height:1.1'>${f}</div></li>`).join('')}</ul>
           <div style='display:flex;gap:10px;align-items:center'>
             <a class='cta' href='/checkout?plan=${encodeURIComponent(p.id)}&billing=${billing.period}' data-plan='${p.id}'>Choose ${p.name}</a>
-            ${off>0?`<div style='color:var(--accent);font-weight:700'>Save ${off}%</div>`:''}
           </div>
         `;
         container.appendChild(el);
-      })
+      });
     }
-
     function renderCompare(){
-      const features = [
-        'Early access to BETA features',
-        'Early access to Gomega Browser++',
-        'Gomega Music Premium',
-        'Earn from uploading scripts',
-        'Early access to all pages',
-        'Script uploads per month',
-        'Priority / Dedicated support',
-        'Custom themes & branding',
-        'Private roadmap calls'
-      ];
+      const features = ['Early access','Gomega Browser++','Music Premium','Uploads per month','Priority support'];
       const tbody = document.getElementById('compareBody');
-      tbody.innerHTML = features.map(f => {
-        const cells = plans.map(p => {
-          let val = '';
-          if (f === 'Script uploads per month') val = p.id === 'basic' ? '5' : p.id === 'advanced' ? '25' : 'Unlimited';
-          else if (f === 'Earn from uploading scripts') val = 'Yes';
-          else if (p.features.some(fe=>fe.toLowerCase().includes(f.split(' ')[0].toLowerCase()))) val = 'Yes';
-          else val = p.features.join(' ').toLowerCase().includes(f.split(' ')[0].toLowerCase()) ? 'Yes' : (p.id==='basic' && f==='Custom themes & branding' ? 'No' : (p.id==='black' && f==='Private roadmap calls' ? 'Yes' : (p.features.join(' ').toLowerCase().includes(f.split(' ')[0].toLowerCase()) ? 'Yes' : '—')));
-          return `<td>${val}</td>`;
+      tbody.innerHTML = features.map(f=>{
+        const cells = plans.map(p=>{
+          if(f==='Uploads per month') return `<td>${p.id==='basic'?'5':p.id==='advanced'?'25':'Unlimited'}</td>`;
+          const has = p.features.join(' ').toLowerCase().includes(f.split(' ')[0].toLowerCase()) ? 'Yes' : '—';
+          return `<td>${has}</td>`;
         }).join('');
         return `<tr><td><strong>${f}</strong></td>${cells}</tr>`;
       }).join('');
     }
 
-    // Billing switch logic
+    // Billing switch
     const switchEl = document.getElementById('billingSwitch');
-    function toggleBilling(){
-      billing.period = billing.period === 'monthly' ? 'yearly' : 'monthly';
-      switchEl.classList.toggle('yearly', billing.period==='yearly');
-      switchEl.setAttribute('aria-pressed', billing.period==='yearly');
-      renderPlans();
-      renderCompare();
-    }
-    switchEl.addEventListener('click', toggleBilling);
-    switchEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') toggleBilling(); });
+    function toggleBilling(){ billing.period = billing.period === 'monthly' ? 'yearly' : 'monthly'; switchEl.classList.toggle('yearly', billing.period==='yearly'); switchEl.setAttribute('aria-pressed', billing.period==='yearly'); renderPlans(); renderCompare(); }
+    switchEl.addEventListener('click', toggleBilling); switchEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' ') toggleBilling(); });
 
-    // initial render
-    renderPlans();
-    renderCompare();
+    renderPlans(); renderCompare();
 
-    // Modal + Checkout flow
+    // ---------- Checkout modal + improved startInvoice handler ----------
     (function(){
       function findPlan(id){ return plans.find(p=>p.id===id); }
-
-      // modal elements
       const modal = document.getElementById('checkoutModal');
       const closeBtn = document.getElementById('closeCheckout');
       const titleEl = document.getElementById('checkoutTitle');
@@ -318,9 +203,9 @@
         selectedPlanInput.value = p.id;
         titleEl.textContent = `Checkout — ${p.name}`;
         descEl.textContent = p.desc;
-        const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
+        const price = billing.period === 'monthly' ? p.monthly : p.yearly/12;
         amountEl.textContent = formatPrice(price);
-        billingLabel.textContent = billing.period === 'monthly' ? 'Monthly' : 'Yearly (billed monthly shown)';
+        billingLabel.textContent = billing.period === 'monthly' ? 'Monthly' : 'Yearly (shown /mo)';
         emailInput.value = '';
         paymentInstructions.innerHTML = `<div style="color:var(--muted)">Choose a method and click <strong>Create invoice</strong>. We'll generate an invoice ID and show steps.</div>`;
         invoiceStatus.textContent = '';
@@ -331,7 +216,6 @@
       closeBtn.addEventListener('click', ()=> modal.style.display='none');
       modal.addEventListener('click', (e)=> { if(e.target===modal) modal.style.display='none'; });
 
-      // open modal from plan CTA buttons
       document.addEventListener('click', (e)=>{
         const a = e.target.closest('a[data-plan]');
         if(!a) return;
@@ -343,18 +227,19 @@
         if(method === 'paypal'){
           const amt = price.toFixed(2);
           const paypalMe = `https://paypal.me/YourPayPalMe/${amt}`;
-          return `<div><strong>Pay with PayPal:</strong> Click the link to open PayPal and send ${formatPrice(price)}. Use invoice ID <strong>${invoiceId}</strong> in the note/memo so we can match your payment.<br><a href="${paypalMe}" target="_blank" rel="noopener" style="color:var(--accent-2)">Open PayPal.me →</a></div>`;
+          return `<div><strong>Pay with PayPal:</strong> Send ${formatPrice(price)} and include invoice ID <strong>${invoiceId}</strong> in the note.<br><a href="${paypalMe}" target="_blank" rel="noopener" style="color:var(--accent-2)">Open PayPal.me →</a></div>`;
         } else if(method === 'crypto'){
           const address = '0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF';
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(address + ' | Amount: ' + price.toFixed(2) + ' USD | Invoice:' + invoiceId)}`;
-          return `<div><strong>Pay with crypto:</strong> Send equivalent of ${formatPrice(price)} to this address.<br><div style="margin-top:8px;font-weight:700">${address}</div><img src="${qrUrl}" alt="QR" style="display:block;margin-top:8px;max-width:220px"></div>`;
+          return `<div><strong>Pay with crypto:</strong> Send ~${formatPrice(price)} to:<div style="margin-top:8px;font-weight:700">${address}</div><img src="${qrUrl}" alt="QR" style="display:block;margin-top:8px;max-width:220px"></div>`;
         } else if(method === 'bank'){
-          return `<div><strong>Bank transfer / ACH:</strong> Initiate a transfer for ${formatPrice(price)} and include invoice ID <strong>${invoiceId}</strong> in the memo. <div style="margin-top:8px"><em>Bank:</em> Example Bank • <em>Account:</em> 123456789 • <em>Routing:</em> 987654321</div></div>`;
+          return `<div><strong>Bank transfer:</strong> Transfer ${formatPrice(price)} and include invoice ID <strong>${invoiceId}</strong> in memo. Bank: Example Bank • Acc: 123456789 • Routing: 987654321</div>`;
         } else {
-          return `<div><strong>Manual upload:</strong> Pay however you want, then click "View invoice" below to upload proof and we'll verify.</div>`;
+          return `<div><strong>Manual:</strong> Pay by your chosen method then upload receipt on the invoice page.</div>`;
         }
       }
 
+      // START INVOICE: improved — shows raw response then creates fallback mock if server fails
       startInvoiceBtn.addEventListener('click', async ()=>{
         const planId = selectedPlanInput.value;
         const p = findPlan(planId);
@@ -363,36 +248,50 @@
         if(!email) return alert('Please provide an email for your receipt.');
 
         const price = billing.period === 'monthly' ? p.monthly : p.yearly / 12;
-
-        startInvoiceBtn.disabled = true;
-        startInvoiceBtn.textContent = 'Creating invoice...';
+        startInvoiceBtn.disabled = true; startInvoiceBtn.textContent = 'Creating invoice...';
 
         try {
           const res = await fetch('/api/create-invoice', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({
-              plan: planId,
-              billing: billing.period,
-              email,
-              method,
-              amount: price
-            })
+            body: JSON.stringify({ plan: planId, billing: billing.period, email, method, amount: price })
           });
-          const data = await res.json();
-          if(!res.ok) throw new Error(data?.message || 'Failed to create invoice');
-          const invoiceId = data.invoiceId;
-          paymentInstructions.innerHTML = renderInstructionsPreview(method, price, invoiceId);
 
+          // read raw text to show HTML error bodies too
+          const text = await res.text();
+          let data = null;
+          try { data = JSON.parse(text); } catch(e){ /* not JSON */ }
+
+          if(!res.ok){
+            // Show debug info and create local fallback
+            console.error('Server error creating invoice:', res.status, text);
+            const fallbackId = 'LOCAL-' + Date.now();
+            invoiceStatus.textContent = `Server error (${res.status}). Created mock invoice ${fallbackId}.`;
+            paymentInstructions.innerHTML = renderInstructionsPreview(method, price, fallbackId) +
+              `<div style="margin-top:8px;color:var(--muted)">NOTE: This is a local test invoice because the server returned ${res.status}. Check server logs.</div>`;
+            finishCTA.style.display = 'inline-block';
+            finishCTA.href = `/invoice/${fallbackId}`;
+            finishCTA.textContent = 'View invoice (local test)';
+            // persist mock invoice to localStorage so invoice page can load it
+            localStorage.setItem(`mock-invoice-${fallbackId}`, JSON.stringify({
+              id: fallbackId, plan: planId, billing: billing.period, email, method, amount: price, status:'pending', createdAt: new Date().toISOString()
+            }));
+            pollInvoice(fallbackId);
+            return;
+          }
+
+          // success path
+          const invoiceId = data?.invoiceId || ('LOCAL-' + Date.now());
+          paymentInstructions.innerHTML = renderInstructionsPreview(method, price, invoiceId);
           finishCTA.style.display = 'inline-block';
           finishCTA.href = `/invoice/${invoiceId}`;
           finishCTA.textContent = 'View invoice & mark paid';
           invoiceStatus.textContent = `Invoice created: ${invoiceId} (status: pending)`;
-
           pollInvoice(invoiceId);
 
-        } catch (err) {
-          alert('Error creating invoice: ' + err.message);
+        } catch (err){
+          console.error('Network/fetch error creating invoice:', err);
+          alert('Network or fetch error: ' + err.message + '. Check console.');
         } finally {
           startInvoiceBtn.disabled = false;
           startInvoiceBtn.textContent = 'Create invoice & show instructions';
@@ -403,21 +302,36 @@
         invoiceStatus.textContent = 'Waiting for payment...';
         const interval = setInterval(async ()=>{
           try {
+            // try server first
             const r = await fetch(`/api/invoice/${invoiceId}`);
-            if(!r.ok) { clearInterval(interval); return; }
+            if(!r.ok){
+              // if server returns 404, check mock storage
+              if(r.status === 404){
+                const mock = localStorage.getItem(`mock-invoice-${invoiceId}`);
+                if(mock){
+                  const inv = JSON.parse(mock);
+                  invoiceStatus.textContent = `Invoice ${invoiceId} — ${inv.status} (local)`;
+                  if(inv.status === 'paid'){ clearInterval(interval); invoiceStatus.textContent = `Paid! Thank you.`; }
+                  return;
+                }
+                // else do nothing, wait
+                return;
+              }
+              // other non-OK: just log
+              const text = await r.text();
+              console.warn('Non-OK invoice fetch:', r.status, text);
+              return;
+            }
             const json = await r.json();
             invoiceStatus.textContent = `Invoice ${invoiceId} — ${json.status}`;
-            if(json.status === 'paid'){
-              clearInterval(interval);
-              invoiceStatus.textContent = `Paid! Thank you — your account will be activated shortly.`;
-              // optional: reload after a sec or redirect to account page
-            }
-          } catch(e){
+            if(json.status === 'paid'){ clearInterval(interval); invoiceStatus.textContent = `Paid! Thank you — account will be activated.`; }
+          } catch (e) {
+            console.error('Error polling invoice:', e);
             clearInterval(interval);
-            console.error(e);
           }
         }, 6000);
       }
+
     })();
   </script>
 </body>
