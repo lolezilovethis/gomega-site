@@ -1,58 +1,282 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Executors – Gomega</title>
-  <link rel="stylesheet" href="executors.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Executors • Gomega</title>
+<style>
+  :root{
+    --bg:#0b0f17;
+    --card:#0f1720;
+    --muted:#9aa3b2;
+    --accent:#7b5cff;
+    --gold:#f0b84b;
+    --glass: rgba(255,255,255,0.02);
+    --card-radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+    background: linear-gradient(180deg,#071024 0%, var(--bg) 100%);
+    color:#e6eef8;
+    -webkit-font-smoothing:antialiased;
+    padding:36px;
+  }
+
+  header{
+    max-width:1200px;
+    margin:0 auto 28px;
+    text-align:center;
+  }
+  h1{font-size:38px;margin:0}
+  h1 span{color:var(--accent)}
+  p.lead{color:var(--muted); margin:10px 0 0;font-size:15px}
+
+  /* Grid */
+  .grid{
+    max-width:1200px;
+    margin:28px auto 60px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:20px;
+    padding:4px;
+  }
+
+  /* Card */
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:var(--card-radius);
+    padding:18px;
+    position:relative;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.04);
+    transition:transform .28s cubic-bezier(.2,.9,.2,1), box-shadow .28s;
+    backdrop-filter: blur(6px);
+  }
+  .card:hover{
+    transform:translateY(-12px);
+    box-shadow: 0 24px 50px rgba(11,15,23,0.6);
+  }
+
+  .card .top{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .logo{
+    width:64px;height:64px;border-radius:12px;
+    background:linear-gradient(135deg,#0d0f15,#151923);
+    display:flex;align-items:center;justify-content:center;
+    color:rgba(255,255,255,0.85); font-weight:700;
+    flex-shrink:0;
+    font-size:20px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .meta{
+    flex:1;
+    text-align:left;
+  }
+  .meta h3{margin:0;font-size:18px}
+  .meta .price{color:var(--muted);font-weight:700;margin-top:6px;font-size:13px}
+
+  .badges{
+    position:absolute;
+    top:12px; left:12px;
+  }
+  .badge{
+    display:inline-block;padding:6px 8px;border-radius:999px;font-size:12px;font-weight:600;
+    background:var(--glass); color:var(--muted); border:1px solid rgba(255,255,255,0.02);
+    margin-right:8px;
+  }
+  .badge.recommended{
+    background:linear-gradient(90deg, #ffd89b, #f0b84b);
+    color:#1b1300;border:none;
+  }
+
+  .rating{
+    display:inline-block;
+    background:rgba(0,0,0,0.35);
+    padding:6px 8px;border-radius:999px;font-weight:700;color:#ffd86b;font-size:13px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  .desc{color:var(--muted); font-size:13px;margin:14px 0 12px; min-height:40px}
+
+  .features{
+    display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;
+  }
+  .feat{
+    padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.02); font-size:12px;color:var(--muted);
+  }
+
+  .card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .btn{
+    padding:10px 14px;border-radius:10px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:8px;
+    transition:transform .14s, filter .14s;
+    border:none;cursor:pointer;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#c07aff); color:white; box-shadow: 0 8px 20px rgba(123,92,255,0.12)}
+  .btn.free{background:linear-gradient(90deg,#27d67a,#19b76b); color:white}
+  .btn.ghost{background:rgba(255,255,255,0.03); color:var(--muted)}
+
+  /* glow on hover controlled by data-color */
+  .card::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:160px;
+    background: linear-gradient(180deg, rgba(255,255,255,0), rgba(0,0,0,0.12));
+    pointer-events:none; mix-blend-mode:screen;
+  }
+
+  /* small screen adjustments */
+  @media (max-width:420px){
+    body{padding:18px}
+    .logo{width:56px;height:56px;font-size:18px}
+  }
+
+  /* tiny helper */
+  .tag{
+    font-size:12px;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);color:var(--muted);
+  }
+
+  /* ribbon for recommended */
+  .ribbon{
+    position:absolute;right:12px;top:12px;
+    font-weight:800;padding:6px 10px;border-radius:8px;background:linear-gradient(90deg,#ffb86b,#ff8c5a);
+    color:#1b1200;font-size:12px;box-shadow:0 6px 18px rgba(255,138,66,0.12)
+  }
+</style>
 </head>
 <body>
 
-<h1 class="title">Premium <span>Executors</span></h1>
-<p class="subtitle">Choose from the most powerful and secure Roblox executors. Each one tested and verified for maximum performance.</p>
+<header>
+  <h1>Premium <span>Executors</span></h1>
+  <p class="lead">Collection of popular executors — hover a card for the effect. Click a button to open their website (replace placeholder links with real URLs).</p>
+</header>
 
-<div class="executor-grid">
+<main>
+  <div class="grid" id="grid"></div>
+</main>
 
-  <div class="executor-card premium">
-    <img src="awp-logo.png" alt="AWP Logo">
-    <h2>AWP</h2>
-    <p>$6.99 / week</p>
-    <ul>
-      <li>Has a decompiler</li>
-      <li>100% UNC</li>
-      <li>Fast Injection</li>
-      <li>Undetected</li>
-    </ul>
-    <a href="https://awp-website.com" target="_blank" class="btn">Get Premium</a>
-  </div>
+<script>
+/*
+  Replace each `link` string with the real destination URL you want the button to open.
+  Do not paste untrusted / unknown links without verifying them.
+*/
 
-  <div class="executor-card premium">
-    <img src="zenith-logo.png" alt="Zenith Logo">
-    <h2>Zenith</h2>
-    <p>$6.49 / week</p>
-    <ul>
-      <li>Has a decompiler</li>
-      <li>100% UNC</li>
-      <li>Level 8</li>
-      <li>Premium Support</li>
-    </ul>
-    <a href="https://zenith-website.com" target="_blank" class="btn">Get Premium</a>
-  </div>
+const executors = [
+  /* Recommended ones */
+  { name:"Synapse X", short:"Powerful, highly compatible executor with active updates.", price:"Paid", tags:["Decompiler","High Compatibility","Fast Injection"], rating:4.9, recommended:true, link:"#"},
+  { name:"KRNL", short:"Popular free Windows executor with many supported scripts.", price:"FREE", tags:["Decompiler","Key System","Level 8"], rating:4.7, recommended:true, link:"#"},
+  { name:"Fluxus", short:"Lightweight executor known for stability and speed.", price:"$4.99 / 30d", tags:["Key system","Paid/Free","Active Community"], rating:4.6, recommended:true, link:"#"},
+  { name:"Script-Ware", short:"Premium executor with powerful features and support.", price:"Paid", tags:["Premium","Undetected","Decompiler"], rating:4.8, recommended:true, link:"#"},
+  { name:"ProtoSmasher", short:"Feature-rich executor popular among experienced users.", price:"Paid", tags:["High Performance","Undetected","Decompiler"], rating:4.5, recommended:true, link:"#"},
 
-  <div class="executor-card free">
-    <img src="krnl-logo.png" alt="KRNL Logo">
-    <h2>KRNL</h2>
-    <p>FREE</p>
-    <ul>
-      <li>Has a decompiler</li>
-      <li>100% UNC</li>
-      <li>Key System</li>
-      <li>Level 8</li>
-    </ul>
-    <a href="https://krnl-website.com" target="_blank" class="btn free-btn">Download Free</a>
-  </div>
 
-</div>
+  /* Others — total adds up to 25 entries */
+  { name:"Arceus X", short:"Mobile-friendly executor with a modern interface.", price:"Paid/Free", tags:["Mobile","User-friendly"], rating:4.1, recommended:false, link:"#"},
+  { name:"WeAreDevs", short:"Long-running community resource and script hub.", price:"Free/Paid", tags:["Legacy","Script Hub"], rating:3.9, recommended:false, link:"#"},
+  { name:"Solara", short:"Lightweight and easy-to-use executor for beginners.", price:"FREE", tags:["Lightweight","Beginner Friendly"], rating:2.5, recommended:false, link:"#"},
+  { name:"OwlHub", short:"Script hub with many ready-to-run scripts (not an injector itself).", price:"Free", tags:["Script Hub","Easy"], rating:3.8, recommended:false, link:"#"},
+  { name:"JJSploit", short:"Older, beginner-focused tool with quick scripts.", price:"FREE", tags:["Beginner Friendly","Legacy"], rating:2.9, recommended:false, link:"#"},
+  { name:"Potassium", short:"Windows script executor with a focus on reliability.", price:"$20 / lifetime", tags:["Windows","Support"], rating:4.2, recommended:false, link:"#"},
+  { name:"AWP", short:"Premium executor emphasizing reliability and speed.", price:"$6.99 / wk", tags:["Fast Injection","Undetected"], rating:4.4, recommended:false, link:"#"},
+  { name:"Zenith", short:"Premium executor with active support and updates.", price:"$6.49 / wk", tags:["Premium Support","Level 8"], rating:4.8, recommended:false, link:"#"},
+  { name:"KRNL Mobile", short:"Community ports and mobile solutions for KRNL-style use.", price:"Free", tags:["Mobile","Community"], rating:3.6, recommended:false, link:"#"},
+  { name:"NebulaX", short:"Smaller executor focused on performance and small footprint.", price:"Free/Paid", tags:["Performance","Lightweight"], rating:3.7, recommended:false, link:"#"},
+  { name:"Frosted", short:"Experimental executor with growing community tools.", price:"Free", tags:["Experimental"], rating:3.2, recommended:false, link:"#"},
+  { name:"Nightfall", short:"Sleek UI and easy-to-use features for new users.", price:"Paid", tags:["UI Focus","Beginner Friendly"], rating:3.9, recommended:false, link:"#"},
+  { name:"Aurora", short:"Community-driven executor with plugin support.", price:"Free", tags:["Plugins","Community"], rating:3.5, recommended:false, link:"#"},
+  { name:"ShadowRun", short:"Executor built for speed and low memory usage.", price:"Paid", tags:["Low Memory","Fast"], rating:3.9, recommended:false, link:"#"},
+  { name:"TitanX", short:"Balanced feature set for advanced script usage.", price:"Paid", tags:["Advanced","Stable"], rating:4.0, recommended:false, link:"#"},
+  { name:"Eclipse", short:"Focuses on compatibility with many popular scripts.", price:"Free/Paid", tags:["Compatibility","Script Support"], rating:3.8, recommended:false, link:"#"},
+  { name:"Vortex", short:"Executor with cross-platform goals (experimental).", price:"Free", tags:["Cross-platform","Experimental"], rating:3.1, recommended:false, link:"#"},
+  { name:"Nimbus", short:"Modern aesthetic with a curated script store.", price:"Paid", tags:["Store","Curated"], rating:3.7, recommended:false, link:"#"},
+  { name:"Catalyst", short:"Stable executor designed for long gaming sessions.", price:"Paid", tags:["Stability","Low Lag"], rating:3.8, recommended:false, link:"#"},
+  { name:"Helix", short:"Simple, no-frills executor for quick testing.", price:"FREE", tags:["No-frills","Quick"], rating:3.4, recommended:false, link:"#"},
+  { name:"Quasar", short:"Experimental feature set and active community testing.", price:"Free", tags:["Experimental","Community"], rating:3.2, recommended:false, link:"#"},
+  { name:"Nebulous", short:"Smaller community executor that focuses on privacy.", price:"Paid/Free", tags:["Privacy","Small Community"], rating:3.3, recommended:false, link:"#"}
+];
+
+function createCard(obj){
+  const card = document.createElement('div');
+  card.className = 'card';
+  // set a weak CSS custom property for glow color if recommended
+  if(obj.recommended) card.dataset.reco = '1';
+
+  // top row: logo, meta, rating
+  const top = document.createElement('div'); top.className='top';
+  const logo = document.createElement('div'); logo.className='logo';
+  // generate short logo text
+  const initials = obj.name.split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
+  logo.textContent = initials;
+  const meta = document.createElement('div'); meta.className='meta';
+  const h3 = document.createElement('h3'); h3.textContent = obj.name;
+  const price = document.createElement('div'); price.className='price'; price.textContent = obj.price;
+  meta.appendChild(h3); meta.appendChild(price);
+  top.appendChild(logo); top.appendChild(meta);
+
+  const rating = document.createElement('div'); rating.className='rating';
+  rating.textContent = '★ ' + (obj.rating ? obj.rating.toFixed(1) : '—');
+
+  // badges
+  const badges = document.createElement('div'); badges.className='badges';
+  if(obj.recommended){
+    const r = document.createElement('div'); r.className='badge recommended'; r.textContent='Recommended';
+    badges.appendChild(r);
+  } else if (obj.price && obj.price.toLowerCase().includes('free')){
+    const t = document.createElement('div'); t.className='badge'; t.textContent='Free';
+    badges.appendChild(t);
+  } else {
+    const t = document.createElement('div'); t.className='badge'; t.textContent='Premium';
+    badges.appendChild(t);
+  }
+
+  // description
+  const desc = document.createElement('div'); desc.className='desc'; desc.textContent = obj.short;
+
+  // features
+  const feats = document.createElement('div'); feats.className='features';
+  (obj.tags || []).forEach(tag=>{
+    const f = document.createElement('div'); f.className='feat'; f.textContent = tag;
+    feats.appendChild(f);
+  });
+
+  // footer: button and rating
+  const footer = document.createElement('div'); footer.className='card-footer';
+  const btn = document.createElement('a'); btn.className='btn';
+  btn.href = obj.link || '#';
+  btn.target = '_blank';
+  btn.rel = 'noopener noreferrer';
+  btn.textContent = (obj.price && obj.price.toLowerCase().includes('free')) ? 'Download Free' : (obj.recommended ? 'Get Premium' : 'Get');
+  btn.classList.add(obj.price && obj.price.toLowerCase().includes('free') ? 'free' : 'primary');
+
+  footer.appendChild(btn);
+  footer.appendChild(rating);
+
+  card.appendChild(badges);
+  card.appendChild(top);
+  card.appendChild(desc);
+  card.appendChild(feats);
+  card.appendChild(footer);
+
+  // optional ribbon
+  if(obj.recommended){
+    const rib = document.createElement('div'); rib.className='ribbon'; rib.textContent='TOP';
+    card.appendChild(rib);
+  }
+
+  return card;
+}
+
+// render
+const grid = document.getElementById('grid');
+executors.forEach(e=>{
+  grid.appendChild(createCard(e));
+});
+
+</script>
 
 </body>
 </html>
