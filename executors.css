@@ -1,89 +1,244 @@
-body {
-  font-family: Arial, sans-serif;
-  background: #0f0f1a;
-  color: white;
-  margin: 0;
-  padding: 20px;
-  text-align: center;
+/* executors.css
+   Polished styling for executor cards: gradients, glows, animations, accessibility.
+   Usage: Add data-color="#7b5cff" (any CSS color) to .card to change its hover glow.
+*/
+
+/* ---------- Fonts & reset ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+:root{
+  --bg-0: #061021;
+  --bg-1: linear-gradient(180deg,#071025 0%, #071021 100%);
+  --card-bg: rgba(255,255,255,0.02);
+  --card-ink: rgba(230,238,248,0.96);
+  --muted: #9aa3b2;
+  --accent: #7b5cff;       /* default accent */
+  --accent-2: #c07aff;
+  --gold: #f0b84b;
+  --success: #27d67a;
+  --glass: rgba(255,255,255,0.03);
+  --card-radius: 14px;
+  --card-padding: 18px;
+  --transition-fast: 180ms;
+  --transition-med: 280ms;
+  --max-width: 1220px;
+  --shadow-1: 0 6px 20px rgba(4,10,18,0.6);
+  --shadow-2: 0 20px 60px rgba(6,8,18,0.75);
 }
 
-.title {
-  font-size: 2.5rem;
-}
-.title span {
-  color: #a65cf2;
-}
-
-.subtitle {
-  color: #aaa;
-  margin-bottom: 30px;
-}
-
-.executor-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  max-width: 1200px;
-  margin: auto;
+/* Quick reset */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: var(--bg-1);
+  color: var(--card-ink);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  padding:36px;
 }
 
-.executor-card {
-  background: #1a1a2e;
-  border-radius: 12px;
-  padding: 20px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* ---------- Header / page layout ---------- */
+header{
+  max-width: var(--max-width);
+  margin: 0 auto 28px;
+  text-align:center;
 }
-.executor-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+h1{font-size:38px;margin:0;line-height:1}
+h1 span{color:var(--accent); font-weight:800}
+.lead{color:var(--muted); margin-top:10px; font-size:15px;}
+
+/* ---------- Grid ---------- */
+.grid{
+  max-width: var(--max-width);
+  margin: 28px auto 60px;
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap:20px;
+  align-items:stretch;
+  padding:4px;
 }
 
-.executor-card img {
-  width: 80px;
-  margin-bottom: 15px;
+/* ---------- Card ---------- */
+.card{
+  position:relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  overflow:visible;
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: transform var(--transition-med) cubic-bezier(.2,.9,.2,1), box-shadow var(--transition-med), border-color var(--transition-fast);
+  backdrop-filter: blur(6px);
+  min-height: 200px;
 }
 
-.executor-card h2 {
-  margin: 0;
+/* Slight 3D lift and glow on hover */
+.card:hover{
+  transform: translateY(-12px);
+  box-shadow: var(--shadow-2);
+  border-color: rgba(255,255,255,0.06);
 }
 
-.executor-card p {
-  color: #ccc;
-  font-weight: bold;
+/* Per-card glow (set via data-color on .card) */
+.card::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+  transition: opacity var(--transition-med), transform var(--transition-med);
+  opacity: 0;
+  transform: translateY(8px);
+  background: linear-gradient(180deg, rgba(255,255,255,0), rgba(0,0,0,0.12));
 }
 
-.executor-card ul {
-  list-style: none;
-  padding: 0;
-  margin: 15px 0;
-  font-size: 0.9rem;
-  color: #bbb;
+/* When hovering, create colored glow from data-color */
+.card[data-color]::after{
+  content: "";
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  bottom: -40%;
+  height: 120%;
+  z-index: -1;
+  filter: blur(36px) saturate(120%);
+  opacity: 0;
+  transition: opacity var(--transition-med);
+  background: radial-gradient(50% 60% at 50% 40%, var(--card-glow, var(--accent)) 0%, rgba(0,0,0,0) 50%);
 }
 
-.btn {
-  display: inline-block;
-  background: #ff4b4b;
-  padding: 10px 20px;
-  border-radius: 8px;
-  text-decoration: none;
-  color: white;
-  transition: background 0.3s ease;
+/* apply the actual color var using inline style computed from data-color */
+.card[data-color]{
+  --card-glow: attr(data-color color);
 }
-.btn:hover {
-  background: #e63b3b;
+.card:hover[data-color]::after{ opacity: 0.95; transform: translateY(-8px); }
+
+/* Fallback: if no data-color, use default accent with subtle tint */
+.card:not([data-color])::after{
+  background: radial-gradient(50% 60% at 50% 40%, rgba(123,92,255,0.18) 0%, rgba(0,0,0,0) 50%);
 }
 
-.free-btn {
-  background: #28a745;
-}
-.free-btn:hover {
-  background: #218838;
+/* ---------- Card content structure ---------- */
+.card > *{ position: relative; z-index: 1; } /* keep content above glow */
+
+.top{ display:flex; align-items:center; gap:14px; }
+.logo{
+  width:64px;height:64px;border-radius:12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  display:flex; align-items:center; justify-content:center;
+  color: var(--card-ink); font-weight:700;
+  font-size:20px; flex-shrink:0; border:1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4) inset;
 }
 
-.premium {
-  border-top: 4px solid gold;
+/* meta */
+.meta{ text-align:left; flex:1; }
+.meta h3{ margin:0; font-size:18px; letter-spacing:0.1px; }
+.price{ color:var(--muted); font-weight:700; margin-top:6px; font-size:13px; }
+
+/* badges area */
+.badges{ position:absolute; left:14px; top:14px; display:flex; gap:8px; z-index:2; }
+.badge{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700;
+  background: var(--glass); color:var(--muted); border:1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 18px rgba(3,6,12,0.45);
+}
+.badge.recommended{
+  background: linear-gradient(90deg, #ffd89b, #f0b84b);
+  color: #251706; border:none;
 }
 
-.free {
-  border-top: 4px solid limegreen;
+/* rating pill */
+.rating{
+  display:inline-flex; align-items:center; gap:8px; font-weight:700;
+  padding:8px 10px; border-radius:999px; font-size:13px;
+  background: rgba(0,0,0,0.35); color: #ffd86b; border:1px solid rgba(255,255,255,0.03);
 }
+
+/* Description and features */
+.desc{ color:var(--muted); font-size:13px; margin:14px 0 12px; min-height:40px; line-height:1.35; }
+.features{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.feat{
+  padding:7px 10px; border-radius:10px; font-size:12px; color:var(--muted);
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+  border: 1px solid rgba(255,255,255,0.02);
+  display:inline-flex; align-items:center; gap:8px;
+}
+
+/* Footer with button */
+.card-footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; }
+.btn{
+  display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px;
+  font-weight:800; font-size:13px; text-decoration:none; cursor:pointer; border:none;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space:nowrap;
+}
+.btn:active{ transform: translateY(1px) }
+
+/* primary / free / ghost styles */
+.btn.primary{
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:white;
+  box-shadow: 0 10px 30px rgba(123,92,255,0.16);
+}
+.btn.free{
+  background: linear-gradient(90deg, var(--success), #19b76b); color:white;
+  box-shadow: 0 10px 30px rgba(39,214,122,0.12);
+}
+.btn.ghost{
+  background: rgba(255,255,255,0.02); color:var(--muted);
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* tiny ribbon for top picks */
+.ribbon{
+  position:absolute; right:14px; top:14px; z-index:2;
+  font-weight:800; padding:6px 10px; border-radius:8px;
+  background: linear-gradient(90deg,#ffb86b,#ff8c5a); color:#1b1200;
+  font-size:12px; box-shadow: 0 6px 20px rgba(255,138,66,0.12);
+}
+
+/* ---------- Accessibility: focus states ---------- */
+.card:focus-within, .card:focus{
+  outline: 3px solid rgba(123,92,255,0.16);
+  outline-offset: 6px;
+}
+.btn:focus{
+  outline: 3px solid rgba(123,92,255,0.18);
+  outline-offset: 4px;
+  box-shadow: 0 8px 24px rgba(123,92,255,0.12);
+}
+
+/* ---------- Small screen tweaks ---------- */
+@media (max-width: 920px){
+  .logo{ width:58px; height:58px; font-size:18px; }
+  .grid{ gap:14px; }
+}
+
+@media (max-width: 480px){
+  body{ padding:18px; }
+  .card{ padding:14px; }
+  .logo{ width:52px; height:52px; }
+  .meta h3{ font-size:16px; }
+  .desc{ font-size:13px; }
+  .btn{ padding:9px 12px; font-size:13px; }
+}
+
+/* ---------- Utility helpers (optional) ---------- */
+/* small pill tag */
+.tag{ font-size:12px; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.02); color:var(--muted); }
+
+/* subtle hover lift for buttons */
+.btn.primary:hover{ transform: translateY(-3px); filter:brightness(1.03); }
+.btn.free:hover{ transform: translateY(-3px); filter:brightness(1.02); }
+.btn.ghost:hover{ transform: translateY(-2px); }
+
+/* ensure badges & ribbons don't wrap in narrow cards */
+.badges, .ribbon{ white-space:nowrap; }
+
+/* If you want card-specific glow colors in HTML, set like:
+   <div class="card" data-color="#7b5cff"> ... </div>
+   Note: data-color will be used by the card::after glow where supported.
+*/
