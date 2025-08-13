@@ -46,28 +46,22 @@
 </nav>
 
 <style>
-  /* Dark theme update only — no HTML or JS removed */
   :root {
-    --bg: #030305;                 /* page-level darker background if used */
-    --card: rgba(6,6,8,0.6);       /* navbar card darker */
-    --muted: #9aa6b2;              /* subdued text for dark bg */
-    --accent: #2f9be6;             /* accent color (cool blue) */
-    --accent-2: #0a6fb6;           /* accent darker stop */
-    --glass: rgba(255,255,255,0.02);
-    --panel: rgba(10,10,12,0.85);
-    --border: rgba(255,255,255,0.03);
+    --bg: #0b0b0c;
+    --card: rgba(255,255,255,0.02);
+    --muted: #bfc7cf;
+    --accent: #64b5f6;
+    --glass: rgba(255,255,255,0.03);
   }
 
   .navbar {
     width:100%;
-    /* darker, near-black navbar */
-    background: linear-gradient(180deg, var(--panel), rgba(5,5,7,0.9));
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(8px) saturate(120%);
+    background: linear-gradient(180deg,var(--card), rgba(255,255,255,0.01));
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    backdrop-filter: blur(6px);
     padding: 8px 16px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.75);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55);
     font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-    color: #dfeaf6;
   }
 
   .nav-inner {
@@ -85,16 +79,14 @@
     flex: 0 0 auto;
   }
 
-  /* logo: keep recognizable but darker gradient and subtle glow */
   .logo {
     color: #eaf6ff;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: linear-gradient(135deg,var(--accent),#8fd3ff);
     padding:8px 12px;
     border-radius:8px;
     font-weight:700;
     text-decoration:none;
-    box-shadow: 0 6px 20px rgba(10,30,60,0.35);
-    letter-spacing: -0.3px;
+    box-shadow: 0 4px 14px rgba(100,181,246,0.08);
   }
 
   .hamburger {
@@ -115,24 +107,20 @@
   }
 
   .nav-link {
-    color:#dbeaf8;
+    color:#e6eef8;
     text-decoration:none;
     padding:8px 12px;
     border-radius:8px;
     font-weight:600;
     opacity:0.95;
-    transition: background .14s ease, transform .08s ease;
   }
 
-  .nav-link:hover {
-    background: rgba(255,255,255,0.02);
-    transform: translateY(-1px);
-  }
+  .nav-link:hover { background: var(--glass); }
 
   .nav-link.active {
-    background: linear-gradient(90deg, rgba(47,155,230,0.14), rgba(10,111,182,0.12));
-    color:#dff6ff;
-    box-shadow: 0 8px 30px rgba(15,85,140,0.12);
+    background: linear-gradient(90deg,var(--accent),#2aa0ff);
+    color:#021;
+    box-shadow: 0 6px 20px rgba(42,160,255,0.12);
   }
 
   .navbar-right {
@@ -150,50 +138,30 @@
     font-weight:600;
     text-decoration:none;
     color: #e6eef8;
-    background: transparent;
   }
 
-  .btn.secondary {
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border: 1px solid rgba(255,255,255,0.03);
-    color: #d6e8f8;
-  }
-  .btn.secondary:hover {
-    background: rgba(255,255,255,0.03);
-    transform: translateY(-1px);
-  }
-
-  /* make the "Settings" button deeper blue for contrast on dark bg */
-  .btn.danger {
-    background: linear-gradient(180deg, rgba(47,155,230,0.14), rgba(10,111,182,0.12));
-    color: #e6f7ff;
-    border: 1px solid rgba(15,85,140,0.18);
-    box-shadow: 0 6px 18px rgba(8,40,80,0.18);
-  }
-  .btn.danger:hover {
-    filter: brightness(1.03);
-    transform: translateY(-1px);
-  }
+  .btn.secondary { background:#444; }
+  .btn.secondary:hover { opacity:0.9; }
+  .btn.danger { background: #3498db; color:#022; }
+  .btn.danger:hover { opacity:0.95; }
 
   .user-area { display:flex; align-items:center; gap:8px; position:relative; }
 
   .avatar {
     width:40px;height:40px;border-radius:10px;border:none;display:inline-flex;align-items:center;justify-content:center;
-    background: linear-gradient(135deg, var(--accent-2), #0b5f97);
-    color:#e8f8ff; font-weight:700; cursor:pointer;
-    box-shadow: 0 6px 18px rgba(5,35,70,0.25);
+    background:linear-gradient(135deg,var(--accent),#8fd3ff); color:#022; font-weight:700; cursor:pointer;
   }
 
   .dropdown {
     position:absolute;
     right:0;
     top:56px;
-    width:240px;
-    background: #07080a;
-    border:1px solid rgba(255,255,255,0.02);
+    width:220px;
+    background: #111217;
+    border:1px solid rgba(255,255,255,0.03);
     border-radius:10px;
-    padding:12px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    padding:10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
     display:none;
     z-index:1200;
   }
@@ -202,14 +170,14 @@
     display:flex;
     gap:10px;
     align-items:center;
-    border-bottom:1px solid rgba(255,255,255,0.02);
+    border-bottom:1px solid rgba(255,255,255,0.03);
     padding-bottom:10px;
-    margin-bottom:10px;
+    margin-bottom:8px;
   }
 
-  .avatar-large { width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent-2),#084e82); display:flex;align-items:center;justify-content:center;color:#e8fbff;font-weight:700; box-shadow: inset 0 -6px 18px rgba(0,0,0,0.25); }
+  .avatar-large { width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8fd3ff); display:flex;align-items:center;justify-content:center;color:#022;font-weight:700; }
 
-  .user-name { font-weight:700; color:#f1fbff; }
+  .user-name { font-weight:700; color:#e6eef8; }
   .user-email { font-size:0.85rem; color:var(--muted); }
 
   .dd-link {
@@ -232,7 +200,7 @@
   @media (max-width:900px) {
     .nav-inner { gap:8px; }
     .navbar-center { display:none; }
-    .hamburger { display:inline-block; color:var(--muted); }
+    .hamburger { display:inline-block; }
   }
 </style>
 
@@ -286,7 +254,7 @@
       navLinks.style.position = 'absolute';
       navLinks.style.top = '64px';
       navLinks.style.left = '12px';
-      navLinks.style.background = 'var(--panel)';
+      navLinks.style.background = 'var(--card)';
       navLinks.style.padding = '10px';
       navLinks.style.borderRadius = '10px';
       navLinks.style.boxShadow = '0 14px 40px rgba(0,0,0,0.6)';
