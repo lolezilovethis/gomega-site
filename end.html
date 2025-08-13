@@ -17,9 +17,9 @@
       --tear: rgba(173,199,255,0.12);
       --sepia: rgba(60,45,36,0.04);
       --beat: 0; /* updated by visualizer (0..1) */
-      --beat-px: 0px; /* small pixel offset derived from beat */
-      --vignette-strength: 0.7;
-      --rain-opacity: 0.06;
+      --beat-px: 0px;
+      --vignette-strength: 0.56; /* reduced to avoid heavy banding */
+      --rain-opacity: 0.04;      /* reduced and smoothed */
     }
 
     /* page layout + scroll snapping for two tall sections */
@@ -66,6 +66,18 @@
       overflow:visible;
     }
 
+    /* CLARITY PANEL (added): reduces background bleed & banding behind text */
+    .clarity {
+      position:absolute;
+      inset:14px;
+      border-radius:14px;
+      background: linear-gradient(180deg, rgba(6,8,10,0.34), rgba(8,10,12,0.18));
+      z-index:0;
+      pointer-events:none;
+      filter: blur(8px) saturate(0.95);
+      mix-blend-mode: normal;
+    }
+
     /* more melancholic typography */
     .left h1{
       margin:0 0 8px 0;
@@ -103,6 +115,7 @@
       border: 1px solid rgba(255,255,255,0.02);
       box-shadow: 0 8px 30px rgba(6,10,18,0.6);
     }
+
     /* wrapper that moves with the music (beat-driven) */
     .logo-broken-beat {
       transform: translateY(var(--beat-px,0px));
@@ -118,7 +131,7 @@
     }
     @keyframes slowFloat {
       0% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
-      50% { transform: translateY(-10px) rotate(2deg) skewY(1deg); }
+      50% { transform: translateY(-8px) rotate(2deg) skewY(1deg); }
       100% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
     }
 
@@ -128,15 +141,16 @@
       color: rgba(255,255,255,0.94);
       transform: translateY(-10px) skewY(-2deg);
       letter-spacing: -1px;
-      filter:grayscale(50%) contrast(90%) blur(0.2px);
+      filter:grayscale(45%) contrast(92%) blur(0.2px);
       margin-bottom:6px;
       display:inline-block;
       user-select:none;
+      text-shadow:0 6px 18px rgba(0,0,0,0.6);
     }
     .goodbye{font-weight:700;color:#f2f7ff}
     .small{font-size:13px;color:var(--muted)}
 
-    /* curved G logo (replaced W) */
+    /* curved G logo (clear G instead of ambiguous shape) */
     .curved-logo {
       width:140px;
       height:84px;
@@ -144,14 +158,13 @@
       margin-bottom:6px;
       transform-origin:center;
       filter: drop-shadow(0 8px 30px rgba(10,16,26,0.6));
-      /* subtle scale tied to beat */
-      transform: translateY(-6px) scale(calc(1 + var(--beat) * 0.06));
+      transform: translateY(-6px) scale(calc(1 + var(--beat) * 0.04));
       transition: transform 120ms linear;
     }
     .curved-logo svg { width:100%; height:100%; display:block; overflow:visible; }
     .curved-logo .stroke {
       fill:none;
-      stroke: rgba(230,240,255,0.94);
+      stroke: rgba(230,240,255,0.98);
       stroke-width:6;
       stroke-linecap:round;
       stroke-linejoin:round;
@@ -162,52 +175,56 @@
       stroke-dasharray: 600;
       stroke-dashoffset: 600;
       animation: draw 2400ms cubic-bezier(.22,.9,.35,1) forwards;
-      transition: stroke-opacity 160ms linear;
     }
     @keyframes draw { to { stroke-dashoffset: 0; } }
 
-    /* very sad decorative vignette and fog (amplified by beat) */
+    /* very sad decorative vignette and fog (smoothed) */
     .vignette{
       position:fixed;
       inset:0;
       pointer-events:none;
       z-index:3;
       background:
-        radial-gradient(80vh 40vh at 50% 10%, rgba(18,26,40,calc(0.08 + var(--beat) * 0.12)), transparent 20%),
-        linear-gradient(180deg, rgba(6,8,12,calc(0.20 + var(--beat) * 0.28)), transparent 30%),
-        radial-gradient(60% 30% at 80% 80%, rgba(8,10,14,calc(0.22 + var(--beat) * 0.22)), transparent 10%),
-        linear-gradient(0deg, rgba(0,0,0,0.7), rgba(0,0,0,0.46));
+        radial-gradient(60vh 32vh at 50% 8%, rgba(12,18,28,calc(0.06 + var(--beat) * 0.08)), transparent 28%),
+        linear-gradient(180deg, rgba(6,8,12,calc(0.14 + var(--beat) * 0.18)), transparent 30%),
+        radial-gradient(50% 26% at 80% 78%, rgba(8,10,14,calc(0.16 + var(--beat) * 0.14)), transparent 10%),
+        linear-gradient(0deg, rgba(0,0,0,0.6), rgba(0,0,0,0.32));
       mix-blend-mode:multiply;
       transition: background 280ms linear;
+      opacity: var(--vignette-strength,0.56);
+      filter: blur(6px);
     }
     .fog{
       position:absolute;
       inset:0;
       z-index:1;
       pointer-events:none;
-      background-image: radial-gradient(600px 160px at 10% 20%, rgba(120,140,170,0.02), transparent),
-                        radial-gradient(800px 260px at 80% 60%, rgba(70,90,120,0.03), transparent);
+      background-image: radial-gradient(700px 160px at 10% 20%, rgba(120,140,170,0.012), transparent),
+                        radial-gradient(900px 260px at 80% 60%, rgba(70,90,120,0.014), transparent);
       opacity:0.95;
-      filter: blur(calc(6px + var(--beat) * 2px)) saturate(0.8);
+      filter: blur(calc(4px + var(--beat) * 1.2px)) saturate(0.85);
     }
 
-    /* rain overlay (subtle) */
+    /* rain overlay (smoothed — removed repeating small pattern to stop banding) */
     .rain {
       position:fixed;
       inset:0;
       pointer-events:none;
       z-index:2;
-      background-image: linear-gradient(transparent 60%, rgba(200,215,255,var(--rain-opacity)) 61%);
-      opacity: calc(0.85 + var(--beat) * 0.25);
+      /* smoother diagonal streak overlay instead of tight repeating pattern */
+      background-image:
+        linear-gradient(135deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.008) 3%, rgba(255,255,255,0.0) 6%),
+        linear-gradient(180deg, rgba(200,215,255,var(--rain-opacity)) 0%, rgba(200,215,255,0.0) 20%);
+      background-size: 100% 100%, 100% 100%;
+      opacity: calc(0.75 + var(--beat) * 0.18);
       mix-blend-mode: screen;
-      background-size: 3px 60px;
       transform: translateZ(0);
       animation: rain-fall 12s linear infinite;
-      filter: blur(0.4px);
+      filter: blur(0.6px);
     }
     @keyframes rain-fall {
-      from { background-position: 0 0; }
-      to { background-position: -120px 720px; }
+      from { background-position: 0 0, 0 0; }
+      to   { background-position: -220px 900px, 0 -200px; }
     }
 
     /* tear animation variants, more numerous and slower, influenced by beat */
@@ -260,21 +277,32 @@
     }
     @keyframes bounce { 0%,100%{ transform:translateY(0) rotate(45deg)} 50%{ transform:translateY(8px) rotate(45deg)} }
 
-    /* future section styling */
+    /* future section styling (added inner panel for clarity) */
     .future-stage{
       width:100%;
       max-width:1100px;
       border-radius:18px;
       padding:48px;
-      background: linear-gradient(180deg, rgba(7,10,14,0.52), rgba(4,6,8,0.6));
+      background: transparent;
       box-shadow: 0 40px 110px rgba(1,3,8,0.84), inset 0 1px 0 rgba(255,255,255,0.02);
       border:1px solid rgba(255,255,255,0.02);
+      position:relative;
+      overflow:visible;
+    }
+    /* inner panel ensures heading and body don't clash with vignette */
+    .future-stage .panel {
+      background: linear-gradient(180deg, rgba(6,8,12,0.56), rgba(6,8,12,0.34));
+      padding:28px;
+      border-radius:12px;
+      backdrop-filter: blur(6px) saturate(0.9);
+      border: 1px solid rgba(255,255,255,0.02);
     }
     .future h2{
       font-family: Georgia,serif;
       font-size:34px;
       margin:0 0 12px 0;
       color:#f5f9ff;
+      text-shadow: 0 16px 40px rgba(0,0,0,0.6);
     }
     .future p{color:#d6e9ff; font-size:16px; line-height:1.7; max-width:78ch;}
     .future .options{margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;}
@@ -344,6 +372,7 @@
   </style>
 </head>
 <body>
+  <!-- Smoothed vignette and rain are present but tuned to avoid banding -->
   <div class="vignette" aria-hidden="true"></div>
   <div class="rain" aria-hidden="true"></div>
 
@@ -351,6 +380,8 @@
     <!-- SECTION 1: Farewell -->
     <section aria-labelledby="title-1">
       <div class="stage" role="region" aria-label="Farewell card">
+        <!-- clarity overlay added to keep content legible -->
+        <div class="clarity" aria-hidden="true"></div>
         <div class="accent-stripe" aria-hidden="true"></div>
 
         <div class="left" style="z-index:4">
@@ -393,20 +424,18 @@
         </div>
 
         <aside class="right" aria-label="Music and visual extras" style="z-index:4">
-          <!-- Curved G logo (replaces earlier W scribble) -->
+          <!-- Curved G logo (clear G now) -->
           <div class="curved-logo" aria-hidden="true" id="curvedLogo">
-            <svg viewBox="0 0 260 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved G logo">
-              <!-- scribbled 'G' path: soft loop and inward tail to read as a 'G' -->
-              <path class="stroke wave" d="M36 72
-                    C36 32, 96 20, 132 28
-                    C180 40, 198 86, 160 108
-                    C128 126, 82 118, 64 96
-                    C46 74, 66 60, 110 62
-                    C150 64, 146 46, 126 48" />
+            <svg viewBox="0 0 220 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved G logo">
+              <!-- Clear 'G' shaped path: outer loop with inward stroke to define G -->
+              <path class="stroke wave" d="M110 24
+                A46 46 0 1 0 110 116
+                A36 36 0 1 1 110 32
+                M132 84 H110" />
             </svg>
           </div>
 
-          <!-- name bounces slowly while remaining curved (beat-driven outer + slow float inner) -->
+          <!-- name bounces slowly while curved and responds slightly to beat -->
           <div class="logo-broken-beat" aria-hidden="true">
             <div class="logo-broken-float">
               <div class="logo-broken" aria-hidden="true">Gomega</div>
@@ -439,36 +468,38 @@
     <!-- SECTION 2: The Future (scroll down) -->
     <section aria-labelledby="title-2" style="background: linear-gradient(180deg, rgba(1,3,6,0.18), rgba(2,4,8,0.22));">
       <div class="future-stage" role="region" aria-label="Future plans">
-        <div class="left future" style="z-index:4">
-          <h2 id="title-2">The future — what happens next</h2>
+        <div class="panel">
+          <div class="left future" style="z-index:4">
+            <h2 id="title-2">The future — what happens next</h2>
 
-          <p>
-            We don't know every detail of what comes next. We do know that the work and the friendships that grew here
-            don't disappear with a domain. We plan to keep a static archive online while funds allow, and to explore
-            ways to hand the project over to the community as an open mirror or an archived snapshot.
-          </p>
+            <p>
+              We don't know every detail of what comes next. We do know that the work and the friendships that grew here
+              don't disappear with a domain. We plan to keep a static archive online while funds allow, and to explore
+              ways to hand the project over to the community as an open mirror or an archived snapshot.
+            </p>
 
-          <p>
-            How you can help (no payment required):
-          </p>
+            <p>
+              How you can help (no payment required):
+            </p>
 
-          <div class="options" aria-hidden="false">
-            <div class="chip">Save your favorite pages</div>
-            <div class="chip">Download screenshots & scripts</div>
-            <div class="chip">Share memories with friends</div>
-            <div class="chip">Mirror this page for safekeeping</div>
+            <div class="options" aria-hidden="false">
+              <div class="chip">Save your favorite pages</div>
+              <div class="chip">Download screenshots & scripts</div>
+              <div class="chip">Share memories with friends</div>
+              <div class="chip">Mirror this page for safekeeping</div>
+            </div>
+
+            <p style="margin-top:18px;">
+              For folks who want to help with archiving or mirroring, consider using the browser's <em>Save as…</em> feature
+              or a site-snapshot tool. If you run a trusted archive or mirror and want to help, contact the owner via the
+              usual channels — we'll share details where possible.
+            </p>
+
+            <p style="margin-top:18px;color:var(--muted);font-size:13px;">
+              No matter what happens, thank you for the laughter, the fixes, the tests, the late-night debugging sessions, and the communities formed.
+              The end is only one chapter — the memories remain.
+            </p>
           </div>
-
-          <p style="margin-top:18px;">
-            For folks who want to help with archiving or mirroring, consider using the browser's <em>Save as…</em> feature
-            or a site-snapshot tool. If you run a trusted archive or mirror and want to help, contact the owner via the
-            usual channels — we'll share details where possible.
-          </p>
-
-          <p style="margin-top:18px;color:var(--muted);font-size:13px;">
-            No matter what happens, thank you for the laughter, the fixes, the tests, the late-night debugging sessions, and the communities formed.
-            The end is only one chapter — the memories remain.
-          </p>
         </div>
       </div>
     </section>
@@ -519,15 +550,11 @@
       audio.volume = 0;
 
       // prefer the user's chosen track: set to NUMB by XXXTentacion (update filename if needed)
-      // This is added behavior; original src remains in place for fallback.
       try {
         audio.dataset.track = "NUMB — XXXTentacion";
         audio.dataset.trackFile = "NUMB_XXXTENTACION.mp3";
-        // set the active src to the named track (this will override the original src at runtime)
         audio.src = audio.dataset.trackFile;
-      } catch(e) {
-        // ignore if any issue
-      }
+      } catch(e) {}
 
       // small UI credit for the track (added element)
       (function attachNowPlaying(){
@@ -552,12 +579,10 @@
         requestAnimationFrame(step);
       }
 
-      // visualizer setup will occur after playback begins
       let visualizerAttached = false;
       function attachVisualizerOnce() {
         if(visualizerAttached) return;
         visualizerAttached = true;
-        // create WebAudio analyser to feed CSS variables (only runs after user gesture / playback)
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioContext();
@@ -568,27 +593,24 @@
           analyser.connect(ctx.destination);
           const data = new Uint8Array(analyser.frequencyBinCount);
 
+          let smooth = 0;
           function loop(){
             analyser.getByteFrequencyData(data);
-            // compute a simple normalized amplitude from lower/mid frequencies
             let sum = 0;
             let count = 0;
-            // average 20..60 (approx low-mid)
             for(let i=10;i<60;i++){ sum += data[i]; count++; }
             const avg = (count>0) ? (sum / count) / 255 : 0;
-            // smooth
-            const smoothed = Math.min(1, Math.max(0, avg));
-            // set CSS variable (0..1)
+            // smoothing to avoid jitter
+            smooth = smooth * 0.86 + avg * 0.14;
+            const smoothed = Math.min(1, Math.max(0, smooth));
             document.documentElement.style.setProperty('--beat', smoothed.toFixed(3));
-            // nudge rain opacity based on amplitude
-            const rainOp = (0.04 + smoothed * 0.07).toFixed(3);
+            const rainOp = (0.02 + smoothed * 0.06).toFixed(3);
             document.documentElement.style.setProperty('--rain-opacity', rainOp);
-            // set pixel offset for logo bounce (outer wrapper)
-            const px = (smoothed * -12).toFixed(2) + 'px'; // small upward nudge on beat
+            const px = (smoothed * -10).toFixed(2) + 'px';
             document.documentElement.style.setProperty('--beat-px', px);
             requestAnimationFrame(loop);
           }
-          // resume context on user gesture if needed
+
           if(ctx.state === 'suspended' && typeof ctx.resume === 'function'){
             const resume = () => ctx.resume().catch(()=>{/*ignore*/});
             window.addEventListener('pointerdown', resume, {once:true});
@@ -597,7 +619,6 @@
           }
           requestAnimationFrame(loop);
         } catch(err) {
-          // if WebAudio is blocked, silently skip visualizer
           console.warn('visualizer unavailable', err);
         }
       }
@@ -609,10 +630,8 @@
             fadeTo(0.46, 1600);
             overlay.classList.add('hidden');
             setTimeout(()=> overlay.style.display='none', 300);
-            // attach visualizer now that playback succeeded
             attachVisualizerOnce();
           }).catch(()=> {
-            // blocked
             overlay.classList.remove('hidden');
             overlay.style.display = 'flex';
           });
@@ -622,7 +641,6 @@
         }
       }
 
-      // attempt on load
       tryAutoplay();
 
       function userStart(){
@@ -633,9 +651,7 @@
             overlay.classList.add('hidden');
             setTimeout(()=> overlay.style.display='none', 300);
             attachVisualizerOnce();
-          }).catch(()=> {
-            // still blocked
-          });
+          }).catch(()=> {});
         } else {
           overlay.classList.add('hidden');
           setTimeout(()=> overlay.style.display='none', 300);
@@ -644,7 +660,6 @@
 
       overlayBtn.addEventListener('click', userStart);
 
-      // allow one-time tap anywhere to start
       function anyStart(){
         userStart();
         window.removeEventListener('pointerdown', anyStart);
@@ -655,13 +670,11 @@
       window.addEventListener('touchstart', anyStart, {passive:true});
       window.addEventListener('keydown', anyStart);
 
-      // defensive replay (in case some UAs don't honor loop)
       audio.addEventListener('ended', ()=> {
         audio.currentTime = 0;
         audio.play().catch(()=>{/* ignore */});
       });
 
-      // resume when visible
       document.addEventListener('visibilitychange', ()=> {
         if(document.visibilityState === 'visible'){
           audio.play().then(()=> fadeTo(0.46,900)).catch(()=>{/* ignore */});
@@ -670,7 +683,6 @@
         }
       });
 
-      // also attach visualizer if the user interacts with the overlay play button
       overlayBtn.addEventListener('pointerup', attachVisualizerOnce, {once:true});
     })();
 
@@ -711,7 +723,6 @@
             const p = document.createElement('p');
             p.className = 'story';
             p.textContent = text.replace(/\s+/g,' ').trim();
-            // insert before the footer (last child in .left)
             const footer = left.querySelector('footer.note');
             if(footer) left.insertBefore(p, footer);
             else left.appendChild(p);
@@ -729,10 +740,8 @@
         let lastTap = 0;
         right.addEventListener('click', (ev)=>{
           const now = performance.now();
-          // double click/tap quickly to toggle mute
           if(now - lastTap < 350){
             audio.muted = !audio.muted;
-            // small visual flash to acknowledge
             right.animate([{filter:'brightness(1.2)'},{filter:'brightness(1)'}], {duration:220});
           }
           lastTap = now;
@@ -740,13 +749,12 @@
       }
     })();
 
-    // --- small aesthetic: nudge the vignette strength slowly for breathing effect (uses --beat) ---
+    // --- gentle breathing for vignette (keeps page alive) ---
     (function(){
       let tick = 0;
       function breathe(){
         tick += 0.008;
-        // micro-oscillation to keep the page alive even when audio is silent
-        const micro = (Math.sin(tick) * 0.02) + 0.68;
+        const micro = (Math.sin(tick) * 0.02) + 0.56;
         document.documentElement.style.setProperty('--vignette-strength', micro.toFixed(3));
         requestAnimationFrame(breathe);
       }
