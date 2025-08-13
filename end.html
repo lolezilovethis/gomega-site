@@ -16,11 +16,10 @@
       --glass: rgba(255,255,255,0.03);
       --tear: rgba(173,199,255,0.12);
       --sepia: rgba(60,45,36,0.04);
-      --beat: 0;
-      --beat-px: 0px;
-      --vignette-strength: 0.56;
-      --rain-opacity: 0.04;
-      --content-z: 5;
+      --beat: 0; /* updated by visualizer (0..1) */
+      --beat-px: 0px; /* small pixel offset derived from beat */
+      --vignette-strength: 0.7;
+      --rain-opacity: 0.06;
     }
 
     /* page layout + scroll snapping for two tall sections */
@@ -30,8 +29,6 @@
       scroll-behavior: smooth;
       display:block;
       min-height:100vh;
-      /* ensure there's space for the fixed overlays and bottom content */
-      padding-bottom: 96px;
     }
     main{
       height:100vh;
@@ -40,19 +37,15 @@
       grid-auto-rows:100vh;
       scroll-snap-type: y mandatory;
       overflow-y:auto;
-      /* keep content above decorative layers */
-      position:relative;
-      z-index:var(--content-z);
     }
     section{
       scroll-snap-align: start;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:28px 28px 48px 28px; /* extra bottom padding to avoid overlap */
+      padding:28px;
       box-sizing:border-box;
       position:relative;
-      min-height:100vh;
     }
 
     /* common card container */
@@ -66,24 +59,11 @@
       display:grid;
       grid-template-columns: 1fr 420px;
       gap:28px;
-      align-items:start; /* align top to avoid vertical overlap */
+      align-items:center;
       backdrop-filter: blur(6px) saturate(0.75);
       border: 1px solid rgba(255,255,255,0.02);
       position:relative;
       overflow:visible;
-      z-index:calc(var(--content-z) + 1);
-    }
-
-    /* CLARITY PANEL: reduces background bleed behind content */
-    .clarity {
-      position:absolute;
-      inset:14px;
-      border-radius:14px;
-      background: linear-gradient(180deg, rgba(6,8,10,0.34), rgba(8,10,12,0.18));
-      z-index:0;
-      pointer-events:none;
-      filter: blur(6px) saturate(0.95);
-      mix-blend-mode: normal;
     }
 
     /* more melancholic typography */
@@ -111,21 +91,18 @@
 
     /* right column - UI box with deeper sadness */
     .right{
-      padding:20px 18px;
+      padding:26px;
       border-radius:14px;
       background: linear-gradient(180deg, rgba(12,18,26,0.48), rgba(8,10,14,0.36));
       display:flex;
       flex-direction:column;
-      gap:10px;
+      gap:12px;
       align-items:center;
       text-align:center;
       color:var(--muted);
       border: 1px solid rgba(255,255,255,0.02);
       box-shadow: 0 8px 30px rgba(6,10,18,0.6);
-      z-index:calc(var(--content-z) + 2);
-      min-height:140px;
     }
-
     /* wrapper that moves with the music (beat-driven) */
     .logo-broken-beat {
       transform: translateY(var(--beat-px,0px));
@@ -137,108 +114,104 @@
     .logo-broken-float {
       display:inline-block;
       transform-origin:center;
-      animation: slowFloat 6.4s ease-in-out infinite;
+      animation: slowFloat 6s ease-in-out infinite;
     }
     @keyframes slowFloat {
-      0% { transform: translateY(0) rotate(-1.6deg) skewY(-0.8deg); }
-      50% { transform: translateY(-6px) rotate(1.8deg) skewY(0.9deg); }
-      100% { transform: translateY(0) rotate(-1.6deg) skewY(-0.8deg); }
+      0% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
+      50% { transform: translateY(-10px) rotate(2deg) skewY(1deg); }
+      100% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
     }
 
     .logo-broken{
       font-family: "Georgia", serif;
-      font-size:64px; /* slightly smaller so it doesn't push layout */
+      font-size:76px;
       color: rgba(255,255,255,0.94);
-      transform: translateY(-6px) skewY(-1.5deg);
+      transform: translateY(-10px) skewY(-2deg);
       letter-spacing: -1px;
-      filter:grayscale(35%) contrast(92%) blur(0.2px);
-      margin-bottom:4px;
+      filter:grayscale(50%) contrast(90%) blur(0.2px);
+      margin-bottom:6px;
       display:inline-block;
       user-select:none;
-      text-shadow:0 8px 22px rgba(0,0,0,0.6);
-      line-height:1;
     }
     .goodbye{font-weight:700;color:#f2f7ff}
     .small{font-size:13px;color:var(--muted)}
 
-    /* Curved G (clear) - will be stroked and animated */
+    /* curved G logo (replaced W) */
     .curved-logo {
       width:140px;
       height:84px;
       display:block;
       margin-bottom:6px;
       transform-origin:center;
-      filter: drop-shadow(0 8px 28px rgba(10,16,26,0.6));
+      filter: drop-shadow(0 8px 30px rgba(10,16,26,0.6));
+      /* subtle scale tied to beat */
+      transform: translateY(-6px) scale(calc(1 + var(--beat) * 0.06));
       transition: transform 120ms linear;
     }
     .curved-logo svg { width:100%; height:100%; display:block; overflow:visible; }
-    .curved-logo path.stroke {
+    .curved-logo .stroke {
       fill:none;
-      stroke: rgba(230,240,255,0.98);
+      stroke: rgba(230,240,255,0.94);
       stroke-width:6;
       stroke-linecap:round;
       stroke-linejoin:round;
       stroke-opacity:0.98;
       mix-blend-mode:screen;
-      stroke-dasharray: 1000;
-      stroke-dashoffset: 1000;
-      animation: drawG 2200ms cubic-bezier(.22,.9,.35,1) forwards;
     }
-    @keyframes drawG {
-      to { stroke-dashoffset: 0; }
+    .curved-logo .wave {
+      stroke-dasharray: 600;
+      stroke-dashoffset: 600;
+      animation: draw 2400ms cubic-bezier(.22,.9,.35,1) forwards;
+      transition: stroke-opacity 160ms linear;
     }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
 
-    /* very sad decorative vignette and fog (smoothed) */
+    /* very sad decorative vignette and fog (amplified by beat) */
     .vignette{
       position:fixed;
       inset:0;
       pointer-events:none;
-      z-index:2;
+      z-index:3;
       background:
-        radial-gradient(60vh 32vh at 50% 8%, rgba(12,18,28,calc(0.06 + var(--beat) * 0.08)), transparent 28%),
-        linear-gradient(180deg, rgba(6,8,12,calc(0.14 + var(--beat) * 0.18)), transparent 30%),
-        radial-gradient(50% 26% at 80% 78%, rgba(8,10,14,calc(0.16 + var(--beat) * 0.14)), transparent 10%),
-        linear-gradient(0deg, rgba(0,0,0,0.6), rgba(0,0,0,0.32));
+        radial-gradient(80vh 40vh at 50% 10%, rgba(18,26,40,calc(0.08 + var(--beat) * 0.12)), transparent 20%),
+        linear-gradient(180deg, rgba(6,8,12,calc(0.20 + var(--beat) * 0.28)), transparent 30%),
+        radial-gradient(60% 30% at 80% 80%, rgba(8,10,14,calc(0.22 + var(--beat) * 0.22)), transparent 10%),
+        linear-gradient(0deg, rgba(0,0,0,0.7), rgba(0,0,0,0.46));
       mix-blend-mode:multiply;
       transition: background 280ms linear;
-      opacity: var(--vignette-strength,0.56);
-      filter: blur(6px);
     }
     .fog{
       position:absolute;
       inset:0;
       z-index:1;
       pointer-events:none;
-      background-image: radial-gradient(700px 160px at 10% 20%, rgba(120,140,170,0.012), transparent),
-                        radial-gradient(900px 260px at 80% 60%, rgba(70,90,120,0.014), transparent);
+      background-image: radial-gradient(600px 160px at 10% 20%, rgba(120,140,170,0.02), transparent),
+                        radial-gradient(800px 260px at 80% 60%, rgba(70,90,120,0.03), transparent);
       opacity:0.95;
-      filter: blur(calc(4px + var(--beat) * 1.2px)) saturate(0.85);
+      filter: blur(calc(6px + var(--beat) * 2px)) saturate(0.8);
     }
 
-    /* rain overlay (smoothed — removed repeating small pattern to stop banding) */
+    /* rain overlay (subtle) */
     .rain {
       position:fixed;
       inset:0;
       pointer-events:none;
-      z-index:3;
-      background-image:
-        linear-gradient(135deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.006) 3%, rgba(255,255,255,0.0) 6%),
-        linear-gradient(180deg, rgba(200,215,255,var(--rain-opacity)) 0%, rgba(200,215,255,0.0) 18%);
-      background-size: 100% 100%, 100% 100%;
-      opacity: calc(0.75 + var(--beat) * 0.18);
+      z-index:2;
+      background-image: linear-gradient(transparent 60%, rgba(200,215,255,var(--rain-opacity)) 61%);
+      opacity: calc(0.85 + var(--beat) * 0.25);
       mix-blend-mode: screen;
+      background-size: 3px 60px;
       transform: translateZ(0);
       animation: rain-fall 12s linear infinite;
-      filter: blur(0.6px);
-      pointer-events:none;
+      filter: blur(0.4px);
     }
     @keyframes rain-fall {
-      from { background-position: 0 0, 0 0; }
-      to   { background-position: -220px 900px, 0 -200px; }
+      from { background-position: 0 0; }
+      to { background-position: -120px 720px; }
     }
 
-    /* tear animation */
-    .tear-field{position:absolute; inset:0; pointer-events:none; z-index:4; overflow:visible;}
+    /* tear animation variants, more numerous and slower, influenced by beat */
+    .tear-field{position:absolute; inset:0; pointer-events:none; z-index:2; overflow:visible;}
     .tear{
       position:absolute;
       width:4px;
@@ -279,7 +252,7 @@
       display:flex;
       gap:10px;
       align-items:center;
-      z-index:9999;
+      z-index:10;
       opacity:0.95;
     }
     .arrow{
@@ -287,31 +260,21 @@
     }
     @keyframes bounce { 0%,100%{ transform:translateY(0) rotate(45deg)} 50%{ transform:translateY(8px) rotate(45deg)} }
 
-    /* future section styling (inner panel for clarity) */
+    /* future section styling */
     .future-stage{
       width:100%;
       max-width:1100px;
       border-radius:18px;
-      padding:48px 28px 48px 28px;
-      background: transparent;
+      padding:48px;
+      background: linear-gradient(180deg, rgba(7,10,14,0.52), rgba(4,6,8,0.6));
       box-shadow: 0 40px 110px rgba(1,3,8,0.84), inset 0 1px 0 rgba(255,255,255,0.02);
       border:1px solid rgba(255,255,255,0.02);
-      position:relative;
-      overflow:visible;
-    }
-    .future-stage .panel {
-      background: linear-gradient(180deg, rgba(6,8,12,0.6), rgba(6,8,12,0.34));
-      padding:28px;
-      border-radius:12px;
-      backdrop-filter: blur(6px) saturate(0.9);
-      border: 1px solid rgba(255,255,255,0.02);
     }
     .future h2{
       font-family: Georgia,serif;
       font-size:34px;
-      margin:0 0 18px 0;
+      margin:0 0 12px 0;
       color:#f5f9ff;
-      text-shadow: 0 16px 40px rgba(0,0,0,0.6);
     }
     .future p{color:#d6e9ff; font-size:16px; line-height:1.7; max-width:78ch;}
     .future .options{margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;}
@@ -333,7 +296,7 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      z-index:10001;
+      z-index:60;
       background: linear-gradient(180deg, rgba(3,4,6,0.64), rgba(3,4,6,0.64));
       color:#f2f7ff;
       text-align:center;
@@ -372,17 +335,15 @@
 
     /* responsive */
     @media (max-width:980px){
-      .stage{grid-template-columns:1fr; padding:20px}
+      .stage{grid-template-columns:1fr; padding:24px}
       .right{order:-1}
-      .logo-broken{font-size:48px}
-      .left h1{font-size:30px}
+      .logo-broken{font-size:54px}
+      .left h1{font-size:32px}
       .curved-logo{width:86px;height:64px}
-      section{padding-bottom:72px}
     }
   </style>
 </head>
 <body>
-  <!-- Tuned decorative layers -->
   <div class="vignette" aria-hidden="true"></div>
   <div class="rain" aria-hidden="true"></div>
 
@@ -390,10 +351,9 @@
     <!-- SECTION 1: Farewell -->
     <section aria-labelledby="title-1">
       <div class="stage" role="region" aria-label="Farewell card">
-        <div class="clarity" aria-hidden="true"></div>
         <div class="accent-stripe" aria-hidden="true"></div>
 
-        <div class="left" style="z-index:calc(var(--content-z) + 3)">
+        <div class="left" style="z-index:4">
           <h1 id="title-1">This is the end of Gomega</h1>
           <div class="byline">A quiet goodbye from the people who built it</div>
 
@@ -432,22 +392,21 @@
           </footer>
         </div>
 
-        <aside class="right" aria-label="Music and visual extras" style="z-index:calc(var(--content-z) + 4)">
-          <!-- Curved G logo (clear drawn G) -->
+        <aside class="right" aria-label="Music and visual extras" style="z-index:4">
+          <!-- Curved G logo (replaces earlier W scribble) -->
           <div class="curved-logo" aria-hidden="true" id="curvedLogo">
-            <svg viewBox="0 0 220 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved G logo">
-              <!-- Clear 'G' path:
-                   Outer loop (arc) + inner short bar to form a recognizable G -->
-              <path class="stroke"
-                    d="M160 60
-                       A56 56 0 1 0 88 116
-                       A40 40 0 1 1 150 68
-                       M124 84 H96"
-                    stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 260 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved G logo">
+              <!-- scribbled 'G' path: soft loop and inward tail to read as a 'G' -->
+              <path class="stroke wave" d="M36 72
+                    C36 32, 96 20, 132 28
+                    C180 40, 198 86, 160 108
+                    C128 126, 82 118, 64 96
+                    C46 74, 66 60, 110 62
+                    C150 64, 146 46, 126 48" />
             </svg>
           </div>
 
-          <!-- name bounces slowly while curved and responds slightly to beat -->
+          <!-- name bounces slowly while remaining curved (beat-driven outer + slow float inner) -->
           <div class="logo-broken-beat" aria-hidden="true">
             <div class="logo-broken-float">
               <div class="logo-broken" aria-hidden="true">Gomega</div>
@@ -480,38 +439,36 @@
     <!-- SECTION 2: The Future (scroll down) -->
     <section aria-labelledby="title-2" style="background: linear-gradient(180deg, rgba(1,3,6,0.18), rgba(2,4,8,0.22));">
       <div class="future-stage" role="region" aria-label="Future plans">
-        <div class="panel">
-          <div class="left future" style="z-index:calc(var(--content-z) + 3)">
-            <h2 id="title-2">The future — what happens next</h2>
+        <div class="left future" style="z-index:4">
+          <h2 id="title-2">The future — what happens next</h2>
 
-            <p>
-              We don't know every detail of what comes next. We do know that the work and the friendships that grew here
-              don't disappear with a domain. We plan to keep a static archive online while funds allow, and to explore
-              ways to hand the project over to the community as an open mirror or an archived snapshot.
-            </p>
+          <p>
+            We don't know every detail of what comes next. We do know that the work and the friendships that grew here
+            don't disappear with a domain. We plan to keep a static archive online while funds allow, and to explore
+            ways to hand the project over to the community as an open mirror or an archived snapshot.
+          </p>
 
-            <p>
-              How you can help (no payment required):
-            </p>
+          <p>
+            How you can help (no payment required):
+          </p>
 
-            <div class="options" aria-hidden="false">
-              <div class="chip">Save your favorite pages</div>
-              <div class="chip">Download screenshots & scripts</div>
-              <div class="chip">Share memories with friends</div>
-              <div class="chip">Mirror this page for safekeeping</div>
-            </div>
-
-            <p style="margin-top:18px;">
-              For folks who want to help with archiving or mirroring, consider using the browser's <em>Save as…</em> feature
-              or a site-snapshot tool. If you run a trusted archive or mirror and want to help, contact the owner via the
-              usual channels — we'll share details where possible.
-            </p>
-
-            <p style="margin-top:18px;color:var(--muted);font-size:13px;">
-              No matter what happens, thank you for the laughter, the fixes, the tests, the late-night debugging sessions, and the communities formed.
-              The end is only one chapter — the memories remain.
-            </p>
+          <div class="options" aria-hidden="false">
+            <div class="chip">Save your favorite pages</div>
+            <div class="chip">Download screenshots & scripts</div>
+            <div class="chip">Share memories with friends</div>
+            <div class="chip">Mirror this page for safekeeping</div>
           </div>
+
+          <p style="margin-top:18px;">
+            For folks who want to help with archiving or mirroring, consider using the browser's <em>Save as…</em> feature
+            or a site-snapshot tool. If you run a trusted archive or mirror and want to help, contact the owner via the
+            usual channels — we'll share details where possible.
+          </p>
+
+          <p style="margin-top:18px;color:var(--muted);font-size:13px;">
+            No matter what happens, thank you for the laughter, the fixes, the tests, the late-night debugging sessions, and the communities formed.
+            The end is only one chapter — the memories remain.
+          </p>
         </div>
       </div>
     </section>
@@ -528,19 +485,19 @@
   </div>
 
   <script>
-    // --- generate tears ---
+    // --- generate slower, more numerous tears for a sadder effect ---
     (function(){
       const container = document.getElementById('tearField');
       const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-      const count = Math.min(64, Math.floor(vw / 20));
+      const count = Math.min(72, Math.floor(vw / 18)); // more tears on wide screens
       for(let i=0;i<count;i++){
         const t = document.createElement('div');
         t.className = 'tear';
         const left = Math.random() * 100;
         const delay = Math.random() * -60;
-        const dur = 9 + Math.random()*24;
-        const width = 1 + Math.random()*6;
-        const height = 10 + Math.random()*64;
+        const dur = 10 + Math.random()*26;
+        const width = 1 + Math.random()*7;
+        const height = 10 + Math.random()*72;
         t.style.left = left + '%';
         t.style.width = width + 'px';
         t.style.height = height + 'px';
@@ -551,22 +508,28 @@
       }
     })();
 
-    // --- audio + visualizer + smooth beat mapping ---
+    // --- audio autoplay & user fallback (keeps looping and replaying) ---
     (function(){
       const audio = document.getElementById('bg-audio');
       const overlay = document.getElementById('playOverlay');
       const overlayBtn = document.getElementById('overlayPlayBtn');
 
+      // defensive settings
       audio.loop = true;
       audio.volume = 0;
 
+      // prefer the user's chosen track: set to NUMB by XXXTentacion (update filename if needed)
+      // This is added behavior; original src remains in place for fallback.
       try {
         audio.dataset.track = "NUMB — XXXTentacion";
         audio.dataset.trackFile = "NUMB_XXXTENTACION.mp3";
+        // set the active src to the named track (this will override the original src at runtime)
         audio.src = audio.dataset.trackFile;
-      } catch(e){}
+      } catch(e) {
+        // ignore if any issue
+      }
 
-      // now playing chip
+      // small UI credit for the track (added element)
       (function attachNowPlaying(){
         const container = document.getElementById('nowPlayingContainer');
         if(!container) return;
@@ -589,10 +552,12 @@
         requestAnimationFrame(step);
       }
 
+      // visualizer setup will occur after playback begins
       let visualizerAttached = false;
       function attachVisualizerOnce() {
         if(visualizerAttached) return;
         visualizerAttached = true;
+        // create WebAudio analyser to feed CSS variables (only runs after user gesture / playback)
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioContext();
@@ -603,25 +568,27 @@
           analyser.connect(ctx.destination);
           const data = new Uint8Array(analyser.frequencyBinCount);
 
-          let smooth = 0;
           function loop(){
             analyser.getByteFrequencyData(data);
+            // compute a simple normalized amplitude from lower/mid frequencies
             let sum = 0;
             let count = 0;
-            for(let i=8;i<60;i++){ sum += data[i]; count++; }
+            // average 20..60 (approx low-mid)
+            for(let i=10;i<60;i++){ sum += data[i]; count++; }
             const avg = (count>0) ? (sum / count) / 255 : 0;
-            // stronger smoothing to prevent jitter/overreaction
-            smooth = smooth * 0.9 + avg * 0.1;
-            const smoothed = Math.min(1, Math.max(0, smooth));
-            // set CSS variables
+            // smooth
+            const smoothed = Math.min(1, Math.max(0, avg));
+            // set CSS variable (0..1)
             document.documentElement.style.setProperty('--beat', smoothed.toFixed(3));
-            const rainOp = (0.02 + smoothed * 0.06).toFixed(3);
+            // nudge rain opacity based on amplitude
+            const rainOp = (0.04 + smoothed * 0.07).toFixed(3);
             document.documentElement.style.setProperty('--rain-opacity', rainOp);
-            const px = (smoothed * -10).toFixed(2) + 'px';
+            // set pixel offset for logo bounce (outer wrapper)
+            const px = (smoothed * -12).toFixed(2) + 'px'; // small upward nudge on beat
             document.documentElement.style.setProperty('--beat-px', px);
             requestAnimationFrame(loop);
           }
-
+          // resume context on user gesture if needed
           if(ctx.state === 'suspended' && typeof ctx.resume === 'function'){
             const resume = () => ctx.resume().catch(()=>{/*ignore*/});
             window.addEventListener('pointerdown', resume, {once:true});
@@ -630,6 +597,7 @@
           }
           requestAnimationFrame(loop);
         } catch(err) {
+          // if WebAudio is blocked, silently skip visualizer
           console.warn('visualizer unavailable', err);
         }
       }
@@ -641,8 +609,10 @@
             fadeTo(0.46, 1600);
             overlay.classList.add('hidden');
             setTimeout(()=> overlay.style.display='none', 300);
+            // attach visualizer now that playback succeeded
             attachVisualizerOnce();
           }).catch(()=> {
+            // blocked
             overlay.classList.remove('hidden');
             overlay.style.display = 'flex';
           });
@@ -652,6 +622,7 @@
         }
       }
 
+      // attempt on load
       tryAutoplay();
 
       function userStart(){
@@ -662,7 +633,9 @@
             overlay.classList.add('hidden');
             setTimeout(()=> overlay.style.display='none', 300);
             attachVisualizerOnce();
-          }).catch(()=> {});
+          }).catch(()=> {
+            // still blocked
+          });
         } else {
           overlay.classList.add('hidden');
           setTimeout(()=> overlay.style.display='none', 300);
@@ -671,6 +644,7 @@
 
       overlayBtn.addEventListener('click', userStart);
 
+      // allow one-time tap anywhere to start
       function anyStart(){
         userStart();
         window.removeEventListener('pointerdown', anyStart);
@@ -681,11 +655,13 @@
       window.addEventListener('touchstart', anyStart, {passive:true});
       window.addEventListener('keydown', anyStart);
 
+      // defensive replay (in case some UAs don't honor loop)
       audio.addEventListener('ended', ()=> {
         audio.currentTime = 0;
         audio.play().catch(()=>{/* ignore */});
       });
 
+      // resume when visible
       document.addEventListener('visibilitychange', ()=> {
         if(document.visibilityState === 'visible'){
           audio.play().then(()=> fadeTo(0.46,900)).catch(()=>{/* ignore */});
@@ -694,28 +670,23 @@
         }
       });
 
+      // also attach visualizer if the user interacts with the overlay play button
       overlayBtn.addEventListener('pointerup', attachVisualizerOnce, {once:true});
     })();
 
-    // toggle mute quick double-tap in right pane
+    // optional: small keyboard shortcut to toggle audio for quick testing (M mute/unmute)
     (function(){
-      const right = document.querySelector('.right');
       const audio = document.getElementById('bg-audio');
-      if(right && audio){
-        right.style.cursor = 'pointer';
-        let lastTap = 0;
-        right.addEventListener('click', (ev)=>{
-          const now = performance.now();
-          if(now - lastTap < 350){
-            audio.muted = !audio.muted;
-            right.animate([{filter:'brightness(1.15)'},{filter:'brightness(1)'}], {duration:200});
-          }
-          lastTap = now;
-        });
-      }
+      let muted = false;
+      window.addEventListener('keydown', (e)=>{
+        if(e.key.toLowerCase() === 'm'){
+          muted = !muted;
+          audio.muted = muted;
+        }
+      });
     })();
 
-    // add more melancholic paragraphs (keeps original behavior)
+    // --- append extra melancholic paragraphs (only additive) ---
     (function(){
       try {
         const left = document.querySelector('.left');
@@ -729,12 +700,18 @@
             We hope that the people and the work find new homes in places that can keep them warm.`,
             `We are leaving with the music we loved in the background. This page leans into a single song that echoed our mood
             through the last days. If you listen and feel the same ache, know that it's an ache full of gratitude and of chances,
-            not simply loss. If you cannot listen, know we still hear you in the traces you left behind.`
+            not simply loss. If you cannot listen, know we still hear you in the traces you left behind.`,
+            `There are lines of code here we never perfected, and posts that still read like notes to ourselves. It's strange to say goodbye
+            to a place that held both tools and friendships; stranger still to feel grateful and broken at the same time. We choose to keep
+            the gratitude at the center, even as we fold the project away.`,
+            `If you found solace here, carry it. If you found a friend, send them a message and say 'remember when'. If you only stumbled in
+            for a minute, take the memory and let it be a small light in a long night. Sometimes small things are the ones that matter most.`
           ];
           extra.forEach(text => {
             const p = document.createElement('p');
             p.className = 'story';
             p.textContent = text.replace(/\s+/g,' ').trim();
+            // insert before the footer (last child in .left)
             const footer = left.querySelector('footer.note');
             if(footer) left.insertBefore(p, footer);
             else left.appendChild(p);
@@ -743,12 +720,33 @@
       } catch(e){}
     })();
 
-    // breathing effect for vignette
+    // --- gentle micro-interactions: tap the right pane to toggle between muted/unmuted quickly ---
+    (function(){
+      const right = document.querySelector('.right');
+      const audio = document.getElementById('bg-audio');
+      if(right && audio){
+        right.style.cursor = 'pointer';
+        let lastTap = 0;
+        right.addEventListener('click', (ev)=>{
+          const now = performance.now();
+          // double click/tap quickly to toggle mute
+          if(now - lastTap < 350){
+            audio.muted = !audio.muted;
+            // small visual flash to acknowledge
+            right.animate([{filter:'brightness(1.2)'},{filter:'brightness(1)'}], {duration:220});
+          }
+          lastTap = now;
+        });
+      }
+    })();
+
+    // --- small aesthetic: nudge the vignette strength slowly for breathing effect (uses --beat) ---
     (function(){
       let tick = 0;
       function breathe(){
-        tick += 0.007;
-        const micro = (Math.sin(tick) * 0.02) + 0.56;
+        tick += 0.008;
+        // micro-oscillation to keep the page alive even when audio is silent
+        const micro = (Math.sin(tick) * 0.02) + 0.68;
         document.documentElement.style.setProperty('--vignette-strength', micro.toFixed(3));
         requestAnimationFrame(breathe);
       }
