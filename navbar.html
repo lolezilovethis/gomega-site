@@ -46,27 +46,22 @@
 </nav>
 
 <style>
-  :root{
+  :root {
     --bg: #0b0b0c;
-    --card: rgba(255,255,255,0.03);
-    --muted: #9aa5b2;
+    --card: rgba(255,255,255,0.02);
+    --muted: #bfc7cf;
     --accent: #64b5f6;
-    --glass: rgba(255,255,255,0.02);
-    --panel: #0f1113;
-    --danger: #e06a6a;
+    --glass: rgba(255,255,255,0.03);
   }
 
-  /* navbar container */
   .navbar {
     width:100%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    background-color: var(--bg);
+    background: linear-gradient(180deg,var(--card), rgba(255,255,255,0.01));
     border-bottom: 1px solid rgba(255,255,255,0.03);
     backdrop-filter: blur(6px);
     padding: 8px 16px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.65);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55);
     font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-    color: var(--muted);
   }
 
   .nav-inner {
@@ -77,7 +72,12 @@
     gap:12px;
   }
 
-  .navbar-left { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+  .navbar-left {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex: 0 0 auto;
+  }
 
   .logo {
     color: #eaf6ff;
@@ -86,7 +86,7 @@
     border-radius:8px;
     font-weight:700;
     text-decoration:none;
-    box-shadow: 0 6px 18px rgba(100,181,246,0.06);
+    box-shadow: 0 4px 14px rgba(100,181,246,0.08);
   }
 
   .hamburger {
@@ -96,10 +96,7 @@
     color:var(--muted);
     font-size:20px;
     cursor:pointer;
-    padding:6px;
-    border-radius:8px;
   }
-  .hamburger:focus { outline: 2px solid rgba(100,181,246,0.18); }
 
   .navbar-center {
     display:flex;
@@ -116,12 +113,9 @@
     border-radius:8px;
     font-weight:600;
     opacity:0.95;
-    transition: background .15s ease, transform .08s ease;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
   }
-  .nav-link:hover { background: var(--glass); transform: translateY(-1px); }
+
+  .nav-link:hover { background: var(--glass); }
 
   .nav-link.active {
     background: linear-gradient(90deg,var(--accent),#2aa0ff);
@@ -129,7 +123,12 @@
     box-shadow: 0 6px 20px rgba(42,160,255,0.12);
   }
 
-  .navbar-right { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  .navbar-right {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex: 0 0 auto;
+  }
 
   .btn {
     border:none;
@@ -139,21 +138,12 @@
     font-weight:600;
     text-decoration:none;
     color: #e6eef8;
-    background: transparent;
   }
 
-  .btn.secondary {
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    color: var(--muted);
-    border: 1px solid rgba(255,255,255,0.02);
-  }
-  .btn.secondary:hover { opacity:0.95; transform: translateY(-1px); }
-
-  .btn.danger {
-    background: linear-gradient(135deg,#2f9be6,#1b6fb3);
-    color: #021;
-  }
-  .btn.danger:hover { opacity:0.98; }
+  .btn.secondary { background:#444; }
+  .btn.secondary:hover { opacity:0.9; }
+  .btn.danger { background: #3498db; color:#022; }
+  .btn.danger:hover { opacity:0.95; }
 
   .user-area { display:flex; align-items:center; gap:8px; position:relative; }
 
@@ -161,18 +151,16 @@
     width:40px;height:40px;border-radius:10px;border:none;display:inline-flex;align-items:center;justify-content:center;
     background:linear-gradient(135deg,var(--accent),#8fd3ff); color:#022; font-weight:700; cursor:pointer;
   }
-  .avatar:focus { outline: 2px solid rgba(100,181,246,0.18); }
 
   .dropdown {
     position:absolute;
     right:0;
     top:56px;
-    width:240px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
-    background-color: var(--panel);
+    width:220px;
+    background: #111217;
     border:1px solid rgba(255,255,255,0.03);
-    border-radius:12px;
-    padding:12px;
+    border-radius:10px;
+    padding:10px;
     box-shadow: 0 14px 40px rgba(0,0,0,0.6);
     display:none;
     z-index:1200;
@@ -187,11 +175,7 @@
     margin-bottom:8px;
   }
 
-  .avatar-large {
-    width:48px;height:48px;border-radius:10px;
-    background:linear-gradient(135deg,var(--accent),#8fd3ff);
-    display:flex;align-items:center;justify-content:center;color:#022;font-weight:700;
-  }
+  .avatar-large { width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8fd3ff); display:flex;align-items:center;justify-content:center;color:#022;font-weight:700; }
 
   .user-name { font-weight:700; color:#e6eef8; }
   .user-email { font-size:0.85rem; color:var(--muted); }
@@ -208,35 +192,148 @@
     cursor:pointer;
     text-decoration:none;
   }
-  .dd-link:hover { background: rgba(255,255,255,0.02); color: #fff; }
+  .dd-link:hover { background: rgba(255,255,255,0.02); }
 
-  .small {
-    font-size:0.86rem;
-    color:var(--muted);
-    padding:6px 8px;
-    border-radius:8px;
-    border:1px solid rgba(255,255,255,0.02);
-    background: transparent;
-  }
+  .small { font-size:0.86rem; color:var(--muted); padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.02); }
 
-  /* mobile behavior via class toggles (JS will add .mobile-open) */
-  .navbar-center.mobile-open {
-    display:flex;
-    flex-direction:column;
-    position:absolute;
-    top:64px;
-    left:12px;
-    right:12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
-    border-radius:10px;
-    padding:10px;
-    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
-  }
-
-  /* responsive: show hamburger on smaller screens */
+  /* responsive */
   @media (max-width:900px) {
     .nav-inner { gap:8px; }
     .navbar-center { display:none; }
     .hamburger { display:inline-block; }
   }
 </style>
+
+<script type="module">
+  // Expects ./js/firebase.js to export `auth`
+  import { auth } from './js/firebase.js';
+  import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const navLinks = document.getElementById('navLinks');
+  const links = Array.from(document.querySelectorAll('.nav-link'));
+  const switchBtn = document.getElementById('switchBtn');
+  const signinLink = document.getElementById('signinLink');
+  const signedInMenu = document.getElementById('signedInMenu');
+  const avatarBtn = document.getElementById('avatarBtn');
+  const userDropdown = document.getElementById('userDropdown');
+  const avatarLarge = document.getElementById('avatarLarge');
+  const userName = document.getElementById('userName');
+  const userEmail = document.getElementById('userEmail');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const hamburger = document.getElementById('hamburger');
+  const schoolBadge = document.getElementById('schoolBadge');
+
+  // Active link highlight
+  function setActiveLink() {
+    const path = location.pathname || location.href;
+    links.forEach(a => {
+      // match by filename
+      const href = a.getAttribute('href');
+      if (!href) return;
+      const isActive = path.includes(href);
+      a.classList.toggle('active', isActive);
+    });
+  }
+  setActiveLink();
+
+  // Clear userRoute when user clicks switch page (keeps original inline behavior but centralizes it)
+  switchBtn.addEventListener('click', (e) => {
+    localStorage.removeItem('userRoute');
+    // optional short feedback
+    switchBtn.textContent = '🔁 Switching...';
+    setTimeout(()=> location.href = 'welcome.html?reset=true', 200);
+  });
+
+  // Hamburger open/close for mobile
+  hamburger.addEventListener('click', () => {
+    const expanded = hamburger.getAttribute('aria-expanded') === 'true';
+    hamburger.setAttribute('aria-expanded', String(!expanded));
+    if (!expanded) {
+      navLinks.style.display = 'flex';
+      navLinks.style.flexDirection = 'column';
+      navLinks.style.position = 'absolute';
+      navLinks.style.top = '64px';
+      navLinks.style.left = '12px';
+      navLinks.style.background = 'var(--card)';
+      navLinks.style.padding = '10px';
+      navLinks.style.borderRadius = '10px';
+      navLinks.style.boxShadow = '0 14px 40px rgba(0,0,0,0.6)';
+    } else {
+      navLinks.style.display = '';
+      navLinks.style.position = '';
+      navLinks.style.top = '';
+    }
+  });
+
+  // Close dropdown helper
+  function closeDropdown() {
+    userDropdown.style.display = 'none';
+    avatarBtn.setAttribute('aria-expanded', 'false');
+    userDropdown.setAttribute('aria-hidden', 'true');
+  }
+
+  function openDropdown() {
+    userDropdown.style.display = 'block';
+    avatarBtn.setAttribute('aria-expanded', 'true');
+    userDropdown.setAttribute('aria-hidden', 'false');
+  }
+
+  document.addEventListener('click', (e) => {
+    // if click outside user area, close dropdown
+    if (!document.getElementById('signedInMenu').contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  avatarBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = userDropdown.style.display === 'block';
+    if (isOpen) closeDropdown(); else openDropdown();
+  });
+
+  // Sign out
+  signOutBtn.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+      // reset UI
+      signedInMenu.style.display = 'none';
+      signinLink.style.display = 'inline-block';
+      closeDropdown();
+      // optionally redirect to signin or home
+      location.href = 'index';
+    } catch (err) {
+      console.error("Sign out error:", err);
+      alert("Unable to sign out right now.");
+    }
+  });
+
+  // Show selectedSchool badge (if present)
+  const selectedSchool = sessionStorage.getItem('selectedSchool') || localStorage.getItem('selectedSchool');
+  if (selectedSchool) {
+    schoolBadge.style.display = 'inline-block';
+    schoolBadge.textContent = selectedSchool;
+    schoolBadge.title = "Selected School (locked)";
+  }
+
+  // Auth state observer
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // show user menu
+      signinLink.style.display = 'none';
+      signedInMenu.style.display = 'flex';
+      // display avatar initial
+      const name = user.displayName || user.email || 'User';
+      const initial = (name.trim()[0] || 'G').toUpperCase();
+      avatarBtn.textContent = initial;
+      avatarLarge.textContent = initial;
+      userName.textContent = user.displayName || name;
+      userEmail.textContent = user.email || '';
+    } else {
+      signedInMenu.style.display = 'none';
+      signinLink.style.display = 'inline-block';
+    }
+  });
+
+  // mark active link on history changes (single-page nav scenarios)
+  window.addEventListener('popstate', setActiveLink);
+</script>
