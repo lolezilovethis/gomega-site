@@ -4,71 +4,289 @@
   <meta charset="UTF-8" />
   <title>Welcome – Gomega</title>
   <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* --- Simple embedded UI improvements (keeps dark site vibe) --- */
+    :root{
+      --bg:#0f0f11;
+      --card:#141417;
+      --muted:#bfc7cf;
+      --accent:#64b5f6;
+      --glass: rgba(255,255,255,0.03);
+      font-synthesis: none;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{
+      background: linear-gradient(180deg,var(--bg),#0b0b0c 60%);
+      color:#e6eef8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:28px;
+    }
+    .container {
+      width:100%;
+      max-width:820px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      border-radius:14px;
+      padding:26px;
+      backdrop-filter: blur(6px);
+    }
+    .center { margin: 0 auto; text-align: left; }
+    header { display:flex; align-items:center; gap:14px; margin-bottom:8px;}
+    .logo {
+      width:56px; height:56px; border-radius:10px; background:linear-gradient(135deg,var(--accent),#8fd3ff);
+      display:flex; align-items:center; justify-content:center; font-weight:700; color:#021; font-size:20px;
+    }
+    h1 { margin:0; font-size:1.5rem; letter-spacing:-0.3px;}
+    p.lead { color:var(--muted); margin:8px 0 18px 0; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    select, input[type="text"]{
+      flex: 1 1 320px;
+      min-width:220px;
+      padding:12px 14px;
+      border-radius:10px;
+      background:var(--glass);
+      color:inherit;
+      border:1px solid rgba(255,255,255,0.04);
+      outline:none;
+      font-size:0.98rem;
+    }
+    .muted { color:var(--muted); font-size:0.92rem; }
+    .actions { display:flex; gap:10px; margin-top:14px; }
+    button.primary {
+      background: linear-gradient(90deg,var(--accent),#2aa0ff);
+      color:#022;
+      border:none;
+      padding:12px 16px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.ghost {
+      background:transparent;
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.03);
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+    }
+    .hint { font-size:0.9rem; color:var(--muted); margin-top:10px; }
+    .notice {
+      margin-top:12px;
+      padding:10px 12px;
+      background:rgba(100,181,246,0.06);
+      border:1px solid rgba(100,181,246,0.08);
+      border-radius:8px;
+      color:var(--accent);
+      font-weight:600;
+      display:inline-block;
+    }
+    .field-note { font-size:0.86rem; color:var(--muted); margin-top:6px; }
+    .music-player { margin-top:10px; display:flex; gap:8px; align-items:center; }
+    .disabled { opacity:0.6; pointer-events:none; }
+    @media (max-width:520px){
+      header { flex-direction:row; gap:10px; }
+      .row { flex-direction:column; align-items:stretch; }
+      .logo{width:48px;height:48px}
+    }
+  </style>
 </head>
 <body>
-  <div class="container center">
-    <h1 id="welcomeMsg">Welcome back!</h1>
-    <p>What are you using Gomega for this time?</p>
+  <div class="container center" role="main">
+    <header>
+      <div class="logo">G</div>
+      <div>
+        <h1 id="welcomeMsg">Welcome back!</h1>
+        <div class="muted">Pick what you're using Gomega for today — we’ll remember your school when required.</div>
+      </div>
+    </header>
 
-    <select id="purpose">
-      <option disabled selected>Select an option</option>
-      <option value="scripts">Roblox Scripts</option>
-      <option value="background">Background Checks</option>
-      <option value="games">School Games</option>
-      <option value="admin">I am a School Administrator</option>
-    </select>
+    <p class="lead">What are you using Gomega for this time?</p>
 
-    <div id="schoolSelect" style="display:none;">
-      <input type="text" id="schoolName" placeholder="Enter your school name">
+    <div class="row">
+      <select id="purpose" aria-label="Select purpose">
+        <option disabled selected value="">Select an option</option>
+        <option value="scripts">Roblox Scripts</option>
+        <option value="background">Background Checks</option>
+        <option value="games">School Games</option>
+        <option value="admin">I am a School Administrator</option>
+        <option value="music">Music</option>
+        <option value="executors">Executors</option>
+      </select>
     </div>
 
-    <button onclick="continueToNext()">Continue</button>
-    <button onclick="resetRoute()">🔁 Switch Purpose</button>
+    <!-- Existing plain text schoolName kept for compatibility (hidden unless needed) -->
+    <div id="schoolSelect" style="display:none; margin-top:6px;">
+      <label class="muted">Choose your school (you can only set this once):</label>
+      <!-- NEW: school picker (select) -->
+      <select id="schoolPicker" style="margin-top:8px;">
+        <option value="">-- Choose Your School --</option>
+      </select>
+      <div class="field-note muted">Once saved this choice is locked. Admins can change it from the Firebase Console.</div>
+    </div>
+
+    <!-- fallback free-text kept but hidden to avoid removing original element -->
+    <div id="schoolFreeText" style="display:none; margin-top:8px;">
+      <input type="text" id="schoolName" placeholder="Enter your school name (legacy)" />
+    </div>
+
+    <div class="music-player" id="musicControls" style="display:none;">
+      <button class="ghost" id="playBtn">▶ Play music</button>
+      <button class="ghost" id="pauseBtn" style="display:none;">⏸ Pause</button>
+      <div class="muted">You can change the music file path in the script (MUSIC_URL).</div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="continueBtn">Continue</button>
+      <button class="ghost" id="resetBtn">🔁 Switch Purpose</button>
+    </div>
+
+    <div id="msg" class="hint" style="margin-top:12px;"></div>
   </div>
 
   <script type="module">
+    // --- keep your existing firebase imports and add needed Firestore helpers ---
     import { auth } from './js/firebase.js';
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const db = getFirestore();
     let currentUser = null;
 
-    // Redirect logic AFTER DOM is loaded
+    // --- Schools list: your 3 + 10 more ---
+    const SCHOOLS = [
+      "Pocahontas Middle School",
+      "Short Pump Middle School",
+      "Godwin High School",
+      "Deep Run High School",
+      "Hermitage High School",
+      "Tuckahoe Middle School",
+      "Douglas S. Freeman High School",
+      "Glen Allen High School",
+      "Henrico High School",
+      "Varina High School",
+      "Highland Springs High School",
+      "Brookland Middle School",
+      "Elko Middle School"
+    ];
+
+    // simple music URL placeholder — change to your hosted asset
+    const MUSIC_URL = "/assets/sample-music.mp3";
+
+    // DOM refs
+    const purposeSelect = document.getElementById("purpose");
+    const schoolSelectWrap = document.getElementById("schoolSelect");
+    const schoolPicker = document.getElementById("schoolPicker");
+    const schoolFreeText = document.getElementById("schoolFreeText");
+    const schoolNameInput = document.getElementById("schoolName");
+    const continueBtn = document.getElementById("continueBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const msgEl = document.getElementById("msg");
+    const welcomeMsg = document.getElementById("welcomeMsg");
+    const musicControls = document.getElementById("musicControls");
+    const playBtn = document.getElementById("playBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    // populate school picker
+    (function populateSchools(){
+      for(const s of SCHOOLS){
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.innerText = s;
+        schoolPicker.appendChild(opt);
+      }
+    })();
+
+    // audio element (not auto-play by default)
+    const audio = new Audio();
+    audio.src = MUSIC_URL;
+    audio.loop = true;
+    audio.preload = "none";
+
+    playBtn.addEventListener("click", () => {
+      audio.play().then(()=> {
+        playBtn.style.display = "none";
+        pauseBtn.style.display = "inline-block";
+      }).catch(()=> {
+        alert("Playback blocked by browser — try clicking the page or enabling audio.");
+      });
+    });
+    pauseBtn.addEventListener("click", () => {
+      audio.pause();
+      pauseBtn.style.display = "none";
+      playBtn.style.display = "inline-block";
+    });
+
+    // Keep existing redirect logic after DOM loaded (unchanged aside from small improvements)
     window.addEventListener("DOMContentLoaded", () => {
       const params = new URLSearchParams(location.search);
       const isReset = params.get("reset") === "true";
       const storedRoute = localStorage.getItem("userRoute");
 
       if (storedRoute && !isReset) {
+        // do not redirect if we intend to choose school first
         window.location.href = storedRoute;
       }
 
-      // Optional: clean up ?reset=true from URL
       if (isReset) {
         history.replaceState(null, "", "welcome");
       }
     });
 
-    onAuthStateChanged(auth, user => {
+    // on auth change: set welcome text and load user doc to check if school already set
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         location.href = "signin";
-      } else {
-        currentUser = user;
-        document.getElementById("welcomeMsg").innerText =
-          `Welcome back, ${user.displayName || user.email}!`;
+        return;
+      }
+      currentUser = user;
+      welcomeMsg.innerText = `Welcome back, ${user.displayName || user.email || 'user'}!`;
+
+      // load user doc
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.school) {
+            // show locked school UI
+            schoolSelectWrap.style.display = "block";
+            schoolPicker.innerHTML = `<option value="${data.school}">${data.school}</option>`;
+            schoolPicker.disabled = true;
+            schoolPicker.classList.add('disabled');
+            // also set a small message so the user knows admin must change it
+            msgEl.innerHTML = `School is locked to <strong>${data.school}</strong>. To change it, an admin must update your user record in the Firebase Console.`;
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching user data:", e);
       }
     });
 
-    const purposeSelect = document.getElementById("purpose");
-    const schoolInput = document.getElementById("schoolSelect");
-
+    // show/hide school selector when purpose changes
     purposeSelect.addEventListener("change", () => {
-      schoolInput.style.display = (purposeSelect.value === "games") ? "block" : "none";
+      const val = purposeSelect.value;
+      // show extra music controls for music purpose optionally
+      musicControls.style.display = (val === "music") ? "flex" : "none";
+
+      if (val === "games") {
+        // show the school select UI (not free text)
+        schoolSelectWrap.style.display = "block";
+        schoolFreeText.style.display = "none";
+      } else {
+        schoolSelectWrap.style.display = "none";
+        // keep free-text hidden by default (legacy)
+        schoolFreeText.style.display = "none";
+      }
     });
 
+    // logs purpose, reused from your original function (keeps same behavior)
     async function logPurpose(purpose) {
       try {
+        if(!currentUser) return;
         await addDoc(collection(db, "userPurposeLogs"), {
           email: currentUser.email,
           purpose: purpose,
@@ -79,9 +297,24 @@
       }
     }
 
-    window.continueToNext = async () => {
-      if (!currentUser) return;
+    // Save school helper — sets user doc field and locks it (merge)
+    async function saveSchoolForUser(chosen) {
+      if (!currentUser) throw new Error("No user");
+      const userDocRef = doc(db, "users", currentUser.uid);
+      // check again server-side for existing field (prevent race)
+      const snap = await getDoc(userDocRef);
+      if (snap.exists() && snap.data().school) {
+        // already set, don't overwrite
+        return { saved: false, reason: "already_set", school: snap.data().school };
+      }
+      // set with merge to preserve other fields
+      await setDoc(userDocRef, { school: chosen, schoolLocked: true, schoolSetAt: serverTimestamp() }, { merge: true });
+      return { saved: true };
+    }
 
+    // Continue button behavior (keeps original logic but integrates new school-picker locking)
+    continueBtn.addEventListener("click", async () => {
+      if (!currentUser) return;
       const email = currentUser.email || "";
       const selected = purposeSelect.value;
       const isSchoolEmail = /(@henrico\.k12\.va\.us|\.edu)$/i.test(email);
@@ -102,26 +335,89 @@
         } else {
           alert("⚠️ Only verified school staff may access this section.");
         }
-      } else if (selected === "games") {
-        const school = document.getElementById("schoolName").value.trim();
-        if (!school) return alert("Please enter your school name.");
-        sessionStorage.setItem("selectedSchool", school);
-        localStorage.setItem("userRoute", "schoolgames");
-        window.location.href = "schoolgames";
-      } else if (selected === "background") {
+        return;
+      }
+
+      if (selected === "games") {
+        // If user's school already locked in DB we won't allow changing it:
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists() && snap.data().school) {
+            // already set: continue to schoolgames
+            sessionStorage.setItem("selectedSchool", snap.data().school);
+            localStorage.setItem("userRoute", "schoolgames");
+            window.location.href = "schoolgames";
+            return;
+          }
+        } catch (e) {
+          console.error("Error checking existing school:", e);
+        }
+
+        // not set yet -> require selection from picker
+        const school = (schoolPicker.value || "").trim();
+        // fallback for legacy free text
+        const legacy = (schoolNameInput && schoolNameInput.value) ? schoolNameInput.value.trim() : "";
+
+        if (!school && !legacy) {
+          return alert("Please select your school from the list or enter it in the legacy field.");
+        }
+
+        const chosen = school || legacy;
+
+        // Save and lock the choice into Firestore
+        try {
+          const res = await saveSchoolForUser(chosen);
+          if (res.saved) {
+            alert("School saved! You cannot change it unless an admin updates your record in Firebase Console.");
+            sessionStorage.setItem("selectedSchool", chosen);
+            localStorage.setItem("userRoute", "schoolgames");
+            window.location.href = "schoolgames";
+            return;
+          } else {
+            // If race-condition: already set by another source, continue using server value
+            alert(`School is already set to "${res.school}". Redirecting you now.`);
+            sessionStorage.setItem("selectedSchool", res.school);
+            localStorage.setItem("userRoute", "schoolgames");
+            window.location.href = "schoolgames";
+            return;
+          }
+        } catch (e) {
+          console.error("Error saving school:", e);
+          alert("Unable to save school. Try again later.");
+          return;
+        }
+      } // end of games handling
+
+      // other purposes (scripts, background, music, executors)
+      if (selected === "background") {
         localStorage.setItem("userRoute", "background");
         window.location.href = "background";
       } else if (selected === "scripts") {
         localStorage.setItem("userRoute", "scripts");
         window.location.href = "scripts";
+      } else if (selected === "music") {
+        localStorage.setItem("userRoute", "music");
+        window.location.href = "music";
+      } else if (selected === "executors") {
+        localStorage.setItem("userRoute", "executors");
+        window.location.href = "executors";
+      } else {
+        // fallback
+        alert("Unknown selection; please try again.");
       }
-    };
+    });
 
-    // Switch Page Button
-    window.resetRoute = () => {
+    // reset button (unchanged)
+    resetBtn.addEventListener("click", () => {
       localStorage.removeItem("userRoute");
       location.href = "welcome.html?reset=true";
-    };
+    });
+
+    // Keep a small UX hint if user tries to change locked selector
+    schoolPicker.addEventListener("change", () => {
+      // nothing here by design; change only takes effect on Continue where we save & lock
+    });
   </script>
 </body>
 </html>
