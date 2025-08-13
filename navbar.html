@@ -17,42 +17,372 @@
 
     <div class="navbar-right" id="navRight">
       <div class="info small" id="schoolBadge" style="display:none;"></div>
+
       <button class="btn secondary" id="switchBtn" title="Switch Page">🔁 Switch Page</button>
       <a href="settings" class="btn danger" id="settingsBtn">⚙️ Settings</a>
 
-      <!-- Profile Icon + Dropdown -->
-      <div class="user-menu">
-        <button class="avatar" id="avatarBtn">D</button>
-        <div class="dropdown" id="userDropdown">
-          <div class="dropdown-top">
-            <div class="avatar-large">D</div>
-            <div class="user-info">
-              <div class="user-name">David</div>
-              <div class="user-email">david@example.com</div>
+      <div class="user-area" id="userArea">
+        <!-- Populated by JS: either sign-in link or user avatar + dropdown -->
+        <a href="signin" class="btn signin" id="signinLink" style="display:none;">Sign In</a>
+
+        <div class="user-menu" id="signedInMenu" style="display:none;">
+          <button class="avatar" id="avatarBtn" aria-haspopup="true" aria-expanded="false" title="Account">D</button>
+          <div class="dropdown" id="userDropdown" role="menu" aria-hidden="true">
+            <div class="dropdown-top">
+              <div class="avatar-large" id="avatarLarge">D</div>
+              <div class="user-info">
+                <div id="userName" class="user-name">User</div>
+                <div id="userEmail" class="user-email">you@example.com</div>
+              </div>
             </div>
+            <a href="profile" class="dd-link">Profile</a>
+            <a href="settings" class="dd-link">Settings</a>
+            <button class="dd-link signout" id="signOutBtn">Sign out</button>
           </div>
-          <a href="profile" class="dd-link">Profile</a>
-          <a href="settings" class="dd-link">Settings</a>
-          <button class="dd-link signout">Sign out</button>
         </div>
       </div>
     </div>
   </div>
 </nav>
 
-<script>
-  // Dropdown toggle
-  const avatarBtn = document.getElementById("avatarBtn");
-  const userDropdown = document.getElementById("userDropdown");
+<style>
+  :root{
+    --bg: #0b0b0c;
+    --card: rgba(255,255,255,0.03);
+    --muted: #9aa5b2;
+    --accent: #64b5f6;
+    --glass: rgba(255,255,255,0.02);
+    --panel: #0f1113;
+    --danger: #e06a6a;
+  }
 
-  avatarBtn.addEventListener("click", () => {
-    const isVisible = userDropdown.style.display === "block";
-    userDropdown.style.display = isVisible ? "none" : "block";
-  });
+  /* navbar container */
+  .navbar {
+    width:100%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    background-color: var(--bg);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    backdrop-filter: blur(6px);
+    padding: 8px 16px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.65);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    color: var(--muted);
+  }
 
-  document.addEventListener("click", (e) => {
-    if (!avatarBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-      userDropdown.style.display = "none";
+  .nav-inner {
+    max-width:1200px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+
+  .navbar-left { display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+
+  .logo {
+    color: #eaf6ff;
+    background: linear-gradient(135deg,var(--accent),#8fd3ff);
+    padding:8px 12px;
+    border-radius:8px;
+    font-weight:700;
+    text-decoration:none;
+    box-shadow: 0 6px 18px rgba(100,181,246,0.06);
+  }
+
+  .hamburger {
+    display:none;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-size:20px;
+    cursor:pointer;
+    padding:6px;
+    border-radius:8px;
+  }
+  .hamburger:focus { outline: 2px solid rgba(100,181,246,0.18); }
+
+  .navbar-center {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-left:6px;
+    flex: 1 1 auto;
+  }
+
+  .nav-link {
+    color:#e6eef8;
+    text-decoration:none;
+    padding:8px 12px;
+    border-radius:8px;
+    font-weight:600;
+    opacity:0.95;
+    transition: background .15s ease, transform .08s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .nav-link:hover { background: var(--glass); transform: translateY(-1px); }
+
+  .nav-link.active {
+    background: linear-gradient(90deg,var(--accent),#2aa0ff);
+    color:#021;
+    box-shadow: 0 6px 20px rgba(42,160,255,0.12);
+  }
+
+  .navbar-right { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+
+  .btn {
+    border:none;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    text-decoration:none;
+    color: #e6eef8;
+    background: transparent;
+  }
+
+  .btn.secondary {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+  .btn.secondary:hover { opacity:0.95; transform: translateY(-1px); }
+
+  .btn.danger {
+    background: linear-gradient(135deg,#2f9be6,#1b6fb3);
+    color: #021;
+  }
+  .btn.danger:hover { opacity:0.98; }
+
+  .user-area { display:flex; align-items:center; gap:8px; position:relative; }
+
+  .avatar {
+    width:40px;height:40px;border-radius:50%;border:none;display:inline-flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--accent),#8fd3ff); color:#022; font-weight:700; cursor:pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  }
+  .avatar:focus { outline: 2px solid rgba(100,181,246,0.18); }
+
+  .dropdown {
+    position:absolute;
+    right:0;
+    top:56px;
+    width:260px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+    background-color: var(--panel);
+    border:1px solid rgba(255,255,255,0.03);
+    border-radius:12px;
+    padding:12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+    display:none;
+    z-index:1200;
+  }
+
+  .dropdown-top {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    border-bottom:1px solid rgba(255,255,255,0.03);
+    padding-bottom:10px;
+    margin-bottom:8px;
+  }
+
+  .avatar-large {
+    width:48px;height:48px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),#8fd3ff);
+    display:flex;align-items:center;justify-content:center;color:#022;font-weight:700;
+  }
+
+  .user-name { font-weight:700; color:#e6eef8; }
+  .user-email { font-size:0.85rem; color:var(--muted); }
+
+  .dd-link {
+    display:block;
+    width:100%;
+    background:transparent;
+    color:#e6eef8;
+    border:none;
+    text-align:left;
+    padding:8px 6px;
+    border-radius:8px;
+    cursor:pointer;
+    text-decoration:none;
+  }
+  .dd-link:hover { background: rgba(255,255,255,0.02); color: #fff; }
+
+  .small {
+    font-size:0.86rem;
+    color:var(--muted);
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.02);
+    background: transparent;
+  }
+
+  /* mobile behavior via class toggles (JS will add .mobile-open) */
+  .navbar-center.mobile-open {
+    display:flex;
+    flex-direction:column;
+    position:absolute;
+    top:64px;
+    left:12px;
+    right:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+    border-radius:10px;
+    padding:10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+  }
+
+  /* responsive: show hamburger on smaller screens */
+  @media (max-width:900px) {
+    .nav-inner { gap:8px; }
+    .navbar-center { display:none; }
+    .hamburger { display:inline-block; }
+  }
+</style>
+
+<script type="module">
+  // Expects ./js/firebase.js to export `auth`
+  // (This is inline to keep the file self-contained as you requested)
+  import { auth } from './js/firebase.js';
+  import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  // Grab elements (guarded)
+  const navLinks = document.getElementById('navLinks');
+  const links = Array.from(document.querySelectorAll('.nav-link'));
+  const switchBtn = document.getElementById('switchBtn');
+  const signinLink = document.getElementById('signinLink');
+  const signedInMenu = document.getElementById('signedInMenu');
+  const avatarBtn = document.getElementById('avatarBtn');
+  const userDropdown = document.getElementById('userDropdown');
+  const avatarLarge = document.getElementById('avatarLarge');
+  const userName = document.getElementById('userName');
+  const userEmail = document.getElementById('userEmail');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const hamburger = document.getElementById('hamburger');
+  const schoolBadge = document.getElementById('schoolBadge');
+
+  // Active link highlight (safer compare)
+  function setActiveLink() {
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const current = pathSegments.length ? pathSegments[pathSegments.length-1] : 'index';
+    links.forEach(a => {
+      const href = a.getAttribute('href') || '';
+      const hrefSeg = href.split('/').filter(Boolean).pop() || href;
+      a.classList.toggle('active', hrefSeg === current || (current === '' && hrefSeg === 'index'));
+    });
+  }
+  setActiveLink();
+
+  // Switch page button
+  if (switchBtn) {
+    switchBtn.addEventListener('click', () => {
+      localStorage.removeItem('userRoute');
+      switchBtn.textContent = '🔁 Switching...';
+      setTimeout(()=> location.href = 'welcome.html?reset=true', 200);
+    });
+  }
+
+  // Hamburger open/close for mobile (toggling class)
+  if (hamburger && navLinks) {
+    hamburger.addEventListener('click', () => {
+      const expanded = hamburger.getAttribute('aria-expanded') === 'true';
+      hamburger.setAttribute('aria-expanded', String(!expanded));
+      navLinks.classList.toggle('mobile-open', !expanded);
+    });
+  }
+
+  // Dropdown open/close helpers
+  function closeDropdown() {
+    if (!userDropdown || !avatarBtn) return;
+    userDropdown.style.display = 'none';
+    avatarBtn.setAttribute('aria-expanded', 'false');
+    userDropdown.setAttribute('aria-hidden', 'true');
+  }
+
+  function openDropdown() {
+    if (!userDropdown || !avatarBtn) return;
+    userDropdown.style.display = 'block';
+    avatarBtn.setAttribute('aria-expanded', 'true');
+    userDropdown.setAttribute('aria-hidden', 'false');
+  }
+
+  // Global click: close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!signedInMenu) return;
+    if (!signedInMenu.contains(e.target)) {
+      closeDropdown();
     }
   });
+
+  // Avatar toggle
+  if (avatarBtn) {
+    avatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = userDropdown && userDropdown.style.display === 'block';
+      if (isOpen) closeDropdown(); else openDropdown();
+    });
+  }
+
+  // Escape key closes dropdown & mobile menu
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeDropdown();
+      if (hamburger && hamburger.getAttribute('aria-expanded') === 'true') {
+        hamburger.setAttribute('aria-expanded', 'false');
+        navLinks.classList.remove('mobile-open');
+      }
+    }
+  });
+
+  // Sign out
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        if (signedInMenu) signedInMenu.style.display = 'none';
+        if (signinLink) signinLink.style.display = 'inline-block';
+        closeDropdown();
+        location.href = 'index';
+      } catch (err) {
+        console.error("Sign out error:", err);
+        alert("Unable to sign out right now.");
+      }
+    });
+  }
+
+  // Show selectedSchool badge (if present)
+  try {
+    const selectedSchool = sessionStorage.getItem('selectedSchool') || localStorage.getItem('selectedSchool');
+    if (selectedSchool && schoolBadge) {
+      schoolBadge.style.display = 'inline-block';
+      schoolBadge.textContent = selectedSchool;
+      schoolBadge.title = "Selected School (locked)";
+    }
+  } catch (e) { /* storage may be blocked */ }
+
+  // Auth observer (update UI when user signs in/out)
+  try {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (signinLink) signinLink.style.display = 'none';
+        if (signedInMenu) signedInMenu.style.display = 'flex';
+        const name = user.displayName || user.email || 'User';
+        const initial = (name.trim()[0] || 'G').toUpperCase();
+        if (avatarBtn) avatarBtn.textContent = initial;
+        if (avatarLarge) avatarLarge.textContent = initial;
+        if (userName) userName.textContent = user.displayName || name;
+        if (userEmail) userEmail.textContent = user.email || '';
+      } else {
+        if (signedInMenu) signedInMenu.style.display = 'none';
+        if (signinLink) signinLink.style.display = 'inline-block';
+      }
+    });
+  } catch (err) {
+    console.warn("Auth observer not initialized:", err);
+  }
+
+  // update active links on history changes
+  window.addEventListener('popstate', setActiveLink);
 </script>
