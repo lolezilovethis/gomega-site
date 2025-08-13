@@ -17,6 +17,7 @@
       --tear: rgba(173,199,255,0.12);
       --sepia: rgba(60,45,36,0.04);
       --beat: 0; /* updated by visualizer (0..1) */
+      --beat-px: 0px; /* small pixel offset derived from beat */
       --vignette-strength: 0.7;
       --rain-opacity: 0.06;
     }
@@ -102,6 +103,25 @@
       border: 1px solid rgba(255,255,255,0.02);
       box-shadow: 0 8px 30px rgba(6,10,18,0.6);
     }
+    /* wrapper that moves with the music (beat-driven) */
+    .logo-broken-beat {
+      transform: translateY(var(--beat-px,0px));
+      transition: transform 140ms linear;
+      display:inline-block;
+      will-change: transform;
+    }
+    /* inner float animation (slow bounce) */
+    .logo-broken-float {
+      display:inline-block;
+      transform-origin:center;
+      animation: slowFloat 6s ease-in-out infinite;
+    }
+    @keyframes slowFloat {
+      0% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
+      50% { transform: translateY(-10px) rotate(2deg) skewY(1deg); }
+      100% { transform: translateY(0) rotate(-2deg) skewY(-1deg); }
+    }
+
     .logo-broken{
       font-family: "Georgia", serif;
       font-size:76px;
@@ -110,20 +130,25 @@
       letter-spacing: -1px;
       filter:grayscale(50%) contrast(90%) blur(0.2px);
       margin-bottom:6px;
+      display:inline-block;
+      user-select:none;
     }
     .goodbye{font-weight:700;color:#f2f7ff}
     .small{font-size:13px;color:var(--muted)}
 
-    /* curved W logo (new) */
+    /* curved G logo (replaced W) */
     .curved-logo {
-      width:120px;
-      height:80px;
+      width:140px;
+      height:84px;
       display:block;
       margin-bottom:6px;
-      transform: translateY(-6px);
+      transform-origin:center;
       filter: drop-shadow(0 8px 30px rgba(10,16,26,0.6));
+      /* subtle scale tied to beat */
+      transform: translateY(-6px) scale(calc(1 + var(--beat) * 0.06));
+      transition: transform 120ms linear;
     }
-    .curved-logo svg { width:100%; height:100%; display:block; }
+    .curved-logo svg { width:100%; height:100%; display:block; overflow:visible; }
     .curved-logo .stroke {
       fill:none;
       stroke: rgba(230,240,255,0.94);
@@ -134,9 +159,10 @@
       mix-blend-mode:screen;
     }
     .curved-logo .wave {
-      stroke-dasharray: 400;
-      stroke-dashoffset: 400;
-      animation: draw 2200ms ease forwards;
+      stroke-dasharray: 600;
+      stroke-dashoffset: 600;
+      animation: draw 2400ms cubic-bezier(.22,.9,.35,1) forwards;
+      transition: stroke-opacity 160ms linear;
     }
     @keyframes draw { to { stroke-dashoffset: 0; } }
 
@@ -298,6 +324,15 @@
       align-items:center;
     }
 
+    .authority-link {
+      color: #cfe7ff;
+      text-decoration: underline;
+      font-weight:600;
+      margin-top:6px;
+      display:inline-block;
+      font-size:13px;
+    }
+
     /* responsive */
     @media (max-width:980px){
       .stage{grid-template-columns:1fr; padding:24px}
@@ -348,25 +383,36 @@
             and we hope the friendships and lessons last far longer than the domain. ENDING MAR 7 2026
           </p>
 
-          <footer class="note" role="contentinfo" style="margin-top:10px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
-            <div>All content will remain accessible while we can — please archive what you want to keep.</div>
-            <div style="opacity:0.92;font-weight:600">— The Team</div>
+          <footer class="note" role="contentinfo" style="margin-top:10px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+            <div style="flex:1; min-width:220px;">All content will remain accessible while we can — please archive what you want to keep.</div>
+            <div style="opacity:0.92;font-weight:600; text-align:right; min-width:220px;">
+              — The Team
+              <div><a href="https://gomega.watch/authority" class="authority-link" target="_blank" rel="noopener noreferrer">Owners & Admins / Authority</a></div>
+            </div>
           </footer>
         </div>
 
         <aside class="right" aria-label="Music and visual extras" style="z-index:4">
-          <!-- Curved W logo added (user liked 'w' logo) -->
+          <!-- Curved G logo (replaces earlier W scribble) -->
           <div class="curved-logo" aria-hidden="true" id="curvedLogo">
-            <svg viewBox="0 0 220 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved W logo">
-              <!-- soft curved 'W' path -->
-              <path class="stroke wave" d="M14 18
-                    C40 95, 62 40, 86 78
-                    C110 116, 138 26, 160 86
-                    C182 146, 206 38, 210 38" />
+            <svg viewBox="0 0 260 140" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Curved G logo">
+              <!-- scribbled 'G' path: soft loop and inward tail to read as a 'G' -->
+              <path class="stroke wave" d="M36 72
+                    C36 32, 96 20, 132 28
+                    C180 40, 198 86, 160 108
+                    C128 126, 82 118, 64 96
+                    C46 74, 66 60, 110 62
+                    C150 64, 146 46, 126 48" />
             </svg>
           </div>
 
-          <div class="logo-broken" aria-hidden="true">Gomega</div>
+          <!-- name bounces slowly while remaining curved (beat-driven outer + slow float inner) -->
+          <div class="logo-broken-beat" aria-hidden="true">
+            <div class="logo-broken-float">
+              <div class="logo-broken" aria-hidden="true">Gomega</div>
+            </div>
+          </div>
+
           <div class="goodbye">Goodbye, and thank you</div>
           <div class="small">Music sets the tone. If it doesn't start automatically, tap anywhere to begin.</div>
           <div class="small" style="margin-top:6px">This page is a memorial — respectful use only.</div>
@@ -376,6 +422,9 @@
 
           <!-- now playing credit will be inserted here -->
           <div id="nowPlayingContainer" aria-hidden="false"></div>
+
+          <!-- authority link also visible in the right column for convenience -->
+          <a href="https://gomega.watch/authority" class="authority-link" target="_blank" rel="noopener noreferrer">Owners & Admins • Authority</a>
         </aside>
 
         <div class="tear-field" aria-hidden="true" id="tearField"></div>
@@ -529,11 +578,14 @@
             const avg = (count>0) ? (sum / count) / 255 : 0;
             // smooth
             const smoothed = Math.min(1, Math.max(0, avg));
-            // set CSS variable
+            // set CSS variable (0..1)
             document.documentElement.style.setProperty('--beat', smoothed.toFixed(3));
             // nudge rain opacity based on amplitude
             const rainOp = (0.04 + smoothed * 0.07).toFixed(3);
             document.documentElement.style.setProperty('--rain-opacity', rainOp);
+            // set pixel offset for logo bounce (outer wrapper)
+            const px = (smoothed * -12).toFixed(2) + 'px'; // small upward nudge on beat
+            document.documentElement.style.setProperty('--beat-px', px);
             requestAnimationFrame(loop);
           }
           // resume context on user gesture if needed
@@ -648,7 +700,12 @@
             We hope that the people and the work find new homes in places that can keep them warm.`,
             `We are leaving with the music we loved in the background. This page leans into a single song that echoed our mood
             through the last days. If you listen and feel the same ache, know that it's an ache full of gratitude and of chances,
-            not simply loss. If you cannot listen, know we still hear you in the traces you left behind.`
+            not simply loss. If you cannot listen, know we still hear you in the traces you left behind.`,
+            `There are lines of code here we never perfected, and posts that still read like notes to ourselves. It's strange to say goodbye
+            to a place that held both tools and friendships; stranger still to feel grateful and broken at the same time. We choose to keep
+            the gratitude at the center, even as we fold the project away.`,
+            `If you found solace here, carry it. If you found a friend, send them a message and say 'remember when'. If you only stumbled in
+            for a minute, take the memory and let it be a small light in a long night. Sometimes small things are the ones that matter most.`
           ];
           extra.forEach(text => {
             const p = document.createElement('p');
