@@ -1,53 +1,339 @@
-<nav class="navbar">
-  <div class="navbar-left">
-    <a href="index" class="logo">Gomega</a>
-  </div>
-  <div class="navbar-center">
-    <a href="scripts">Scripts</a>
-    <a href="schoolgames">Games</a>
-    <a href="background">Background</a>
-    <a href="admin-optout">Admin</a>
-  </div>
-  <div class="navbar-right">
-    <a href="welcome.html?reset=true" onclick="localStorage.removeItem('userRoute')" class="btn secondary">🔁 Switch Page</a>
-    <a href="settings" class="btn danger">⚙️ Settings</a>
+<!-- navbar.html -->
+<nav class="navbar" role="navigation" aria-label="Main Navigation">
+  <div class="nav-inner">
+    <div class="navbar-left">
+      <a href="index" class="logo" id="brand">Gomega</a>
+      <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">≡</button>
+    </div>
+
+    <div class="navbar-center" id="navLinks">
+      <a href="scripts" class="nav-link">Scripts</a>
+      <a href="schoolgames" class="nav-link">Games</a>
+      <a href="background" class="nav-link">Background</a>
+      <a href="music" class="nav-link">Music</a>
+      <a href="executors" class="nav-link">Executors</a>
+      <a href="admin-optout" class="nav-link">Admin</a>
+    </div>
+
+    <div class="navbar-right" id="navRight">
+      <div class="info small" id="schoolBadge" style="display:none;"></div>
+
+      <button class="btn secondary" id="switchBtn" title="Switch Page">🔁 Switch Page</button>
+      <a href="settings" class="btn danger" id="settingsBtn">⚙️ Settings</a>
+
+      <div class="user-area" id="userArea">
+        <!-- Populated by JS: either sign-in link or user avatar + dropdown -->
+        <a href="signin" class="btn signin" id="signinLink" style="display:none;">Sign In</a>
+
+        <div class="user-menu" id="signedInMenu" style="display:none;">
+          <button class="avatar" id="avatarBtn" aria-haspopup="true" aria-expanded="false"></button>
+          <div class="dropdown" id="userDropdown" role="menu" aria-hidden="true">
+            <div class="dropdown-top">
+              <div class="avatar-large" id="avatarLarge"></div>
+              <div class="user-info">
+                <div id="userName" class="user-name"></div>
+                <div id="userEmail" class="user-email"></div>
+              </div>
+            </div>
+            <a href="profile" class="dd-link">Profile</a>
+            <a href="settings" class="dd-link">Settings</a>
+            <button class="dd-link signout" id="signOutBtn">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </nav>
 
 <style>
+  :root {
+    --bg: #0b0b0c;
+    --card: rgba(255,255,255,0.02);
+    --muted: #bfc7cf;
+    --accent: #64b5f6;
+    --glass: rgba(255,255,255,0.03);
+  }
+
   .navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #1a1a1a;
-    color: white;
-    padding: 0.75rem 1.5rem;
-    font-family: sans-serif;
+    width:100%;
+    background: linear-gradient(180deg,var(--card), rgba(255,255,255,0.01));
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    backdrop-filter: blur(6px);
+    padding: 8px 16px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
   }
-  .navbar a {
-    color: white;
-    text-decoration: none;
-    margin: 0 0.5rem;
+
+  .nav-inner {
+    max-width:1200px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    gap:12px;
   }
-  .navbar .logo {
-    font-weight: bold;
-    font-size: 1.25rem;
+
+  .navbar-left {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex: 0 0 auto;
   }
-  .navbar .btn {
-    padding: 0.4rem 0.8rem;
-    border-radius: 4px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 0.9rem;
+
+  .logo {
+    color: #eaf6ff;
+    background: linear-gradient(135deg,var(--accent),#8fd3ff);
+    padding:8px 12px;
+    border-radius:8px;
+    font-weight:700;
+    text-decoration:none;
+    box-shadow: 0 4px 14px rgba(100,181,246,0.08);
   }
-  .navbar .btn.secondary {
-    background: #444;
+
+  .hamburger {
+    display:none;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-size:20px;
+    cursor:pointer;
   }
-  .navbar .btn.danger {
-    background: #3498db;
+
+  .navbar-center {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-left:6px;
+    flex: 1 1 auto;
   }
-  .navbar .btn.secondary:hover,
-  .navbar .btn.danger:hover {
-    opacity: 0.8;
+
+  .nav-link {
+    color:#e6eef8;
+    text-decoration:none;
+    padding:8px 12px;
+    border-radius:8px;
+    font-weight:600;
+    opacity:0.95;
+  }
+
+  .nav-link:hover { background: var(--glass); }
+
+  .nav-link.active {
+    background: linear-gradient(90deg,var(--accent),#2aa0ff);
+    color:#021;
+    box-shadow: 0 6px 20px rgba(42,160,255,0.12);
+  }
+
+  .navbar-right {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex: 0 0 auto;
+  }
+
+  .btn {
+    border:none;
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    text-decoration:none;
+    color: #e6eef8;
+  }
+
+  .btn.secondary { background:#444; }
+  .btn.secondary:hover { opacity:0.9; }
+  .btn.danger { background: #3498db; color:#022; }
+  .btn.danger:hover { opacity:0.95; }
+
+  .user-area { display:flex; align-items:center; gap:8px; position:relative; }
+
+  .avatar {
+    width:40px;height:40px;border-radius:10px;border:none;display:inline-flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--accent),#8fd3ff); color:#022; font-weight:700; cursor:pointer;
+  }
+
+  .dropdown {
+    position:absolute;
+    right:0;
+    top:56px;
+    width:220px;
+    background: #111217;
+    border:1px solid rgba(255,255,255,0.03);
+    border-radius:10px;
+    padding:10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+    display:none;
+    z-index:1200;
+  }
+
+  .dropdown-top {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    border-bottom:1px solid rgba(255,255,255,0.03);
+    padding-bottom:10px;
+    margin-bottom:8px;
+  }
+
+  .avatar-large { width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8fd3ff); display:flex;align-items:center;justify-content:center;color:#022;font-weight:700; }
+
+  .user-name { font-weight:700; color:#e6eef8; }
+  .user-email { font-size:0.85rem; color:var(--muted); }
+
+  .dd-link {
+    display:block;
+    width:100%;
+    background:transparent;
+    color:#e6eef8;
+    border:none;
+    text-align:left;
+    padding:8px 6px;
+    border-radius:8px;
+    cursor:pointer;
+    text-decoration:none;
+  }
+  .dd-link:hover { background: rgba(255,255,255,0.02); }
+
+  .small { font-size:0.86rem; color:var(--muted); padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.02); }
+
+  /* responsive */
+  @media (max-width:900px) {
+    .nav-inner { gap:8px; }
+    .navbar-center { display:none; }
+    .hamburger { display:inline-block; }
   }
 </style>
+
+<script type="module">
+  // Expects ./js/firebase.js to export `auth`
+  import { auth } from './js/firebase.js';
+  import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const navLinks = document.getElementById('navLinks');
+  const links = Array.from(document.querySelectorAll('.nav-link'));
+  const switchBtn = document.getElementById('switchBtn');
+  const signinLink = document.getElementById('signinLink');
+  const signedInMenu = document.getElementById('signedInMenu');
+  const avatarBtn = document.getElementById('avatarBtn');
+  const userDropdown = document.getElementById('userDropdown');
+  const avatarLarge = document.getElementById('avatarLarge');
+  const userName = document.getElementById('userName');
+  const userEmail = document.getElementById('userEmail');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const hamburger = document.getElementById('hamburger');
+  const schoolBadge = document.getElementById('schoolBadge');
+
+  // Active link highlight
+  function setActiveLink() {
+    const path = location.pathname || location.href;
+    links.forEach(a => {
+      // match by filename
+      const href = a.getAttribute('href');
+      if (!href) return;
+      const isActive = path.includes(href);
+      a.classList.toggle('active', isActive);
+    });
+  }
+  setActiveLink();
+
+  // Clear userRoute when user clicks switch page (keeps original inline behavior but centralizes it)
+  switchBtn.addEventListener('click', (e) => {
+    localStorage.removeItem('userRoute');
+    // optional short feedback
+    switchBtn.textContent = '🔁 Switching...';
+    setTimeout(()=> location.href = 'welcome.html?reset=true', 200);
+  });
+
+  // Hamburger open/close for mobile
+  hamburger.addEventListener('click', () => {
+    const expanded = hamburger.getAttribute('aria-expanded') === 'true';
+    hamburger.setAttribute('aria-expanded', String(!expanded));
+    if (!expanded) {
+      navLinks.style.display = 'flex';
+      navLinks.style.flexDirection = 'column';
+      navLinks.style.position = 'absolute';
+      navLinks.style.top = '64px';
+      navLinks.style.left = '12px';
+      navLinks.style.background = 'var(--card)';
+      navLinks.style.padding = '10px';
+      navLinks.style.borderRadius = '10px';
+      navLinks.style.boxShadow = '0 14px 40px rgba(0,0,0,0.6)';
+    } else {
+      navLinks.style.display = '';
+      navLinks.style.position = '';
+      navLinks.style.top = '';
+    }
+  });
+
+  // Close dropdown helper
+  function closeDropdown() {
+    userDropdown.style.display = 'none';
+    avatarBtn.setAttribute('aria-expanded', 'false');
+    userDropdown.setAttribute('aria-hidden', 'true');
+  }
+
+  function openDropdown() {
+    userDropdown.style.display = 'block';
+    avatarBtn.setAttribute('aria-expanded', 'true');
+    userDropdown.setAttribute('aria-hidden', 'false');
+  }
+
+  document.addEventListener('click', (e) => {
+    // if click outside user area, close dropdown
+    if (!document.getElementById('signedInMenu').contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  avatarBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = userDropdown.style.display === 'block';
+    if (isOpen) closeDropdown(); else openDropdown();
+  });
+
+  // Sign out
+  signOutBtn.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+      // reset UI
+      signedInMenu.style.display = 'none';
+      signinLink.style.display = 'inline-block';
+      closeDropdown();
+      // optionally redirect to signin or home
+      location.href = 'index';
+    } catch (err) {
+      console.error("Sign out error:", err);
+      alert("Unable to sign out right now.");
+    }
+  });
+
+  // Show selectedSchool badge (if present)
+  const selectedSchool = sessionStorage.getItem('selectedSchool') || localStorage.getItem('selectedSchool');
+  if (selectedSchool) {
+    schoolBadge.style.display = 'inline-block';
+    schoolBadge.textContent = selectedSchool;
+    schoolBadge.title = "Selected School (locked)";
+  }
+
+  // Auth state observer
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // show user menu
+      signinLink.style.display = 'none';
+      signedInMenu.style.display = 'flex';
+      // display avatar initial
+      const name = user.displayName || user.email || 'User';
+      const initial = (name.trim()[0] || 'G').toUpperCase();
+      avatarBtn.textContent = initial;
+      avatarLarge.textContent = initial;
+      userName.textContent = user.displayName || name;
+      userEmail.textContent = user.email || '';
+    } else {
+      signedInMenu.style.display = 'none';
+      signinLink.style.display = 'inline-block';
+    }
+  });
+
+  // mark active link on history changes (single-page nav scenarios)
+  window.addEventListener('popstate', setActiveLink);
+</script>
