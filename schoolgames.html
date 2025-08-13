@@ -14,6 +14,13 @@
       color: #333;
     }
 
+    .container {
+      padding: 2rem;
+      max-width: 800px;
+      margin: auto;
+      text-align: center;
+    }
+
     h1 {
       font-size: 2.5rem;
       margin-bottom: 0.5rem;
@@ -25,65 +32,19 @@
       margin-bottom: 2rem;
     }
 
-    .container {
-      padding: 2rem;
-      max-width: 1200px;
-      margin: auto;
-    }
-
-    .center {
-      text-align: center;
-    }
-
-    .game-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
-
-    .game-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
+    a.browser-link {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #3498db;
+      color: white;
       text-decoration: none;
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      overflow: hidden;
-      width: 180px;
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .game-card:hover {
-      transform: scale(1.05);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    }
-
-    .game-card img {
-      width: 100%;
-      height: 120px;
-      object-fit: cover;
-    }
-
-    .game-card p {
-      padding: 10px;
+      border-radius: 6px;
       font-weight: 600;
-      color: #333;
+      transition: background 0.2s ease;
     }
 
-    @media (max-width: 768px) {
-      .game-card {
-        width: 45%;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .game-card {
-        width: 100%;
-      }
+    a.browser-link:hover {
+      background: #2980b9;
     }
   </style>
 </head>
@@ -103,25 +64,12 @@
   </script>
 
   <!-- Main Content -->
-  <div class="container center">
+  <div class="container">
     <h1>🎮 School Games</h1>
-    <p class="subtitle">Enjoy school-friendly unblocked games selected just for students.</p>
-
-    <div class="game-list">
-      <a class="game-card" href="https://geometrydashonline.io/" target="_blank" rel="noopener noreferrer">
-        <img src="assets/games/geometrydash.png" alt="Play Geometry Dash online">
-        <p>Geometry Dash</p>
-      </a>
-      <a class="game-card" href="https://slopegame.online/" target="_blank" rel="noopener noreferrer">
-        <img src="assets/games/slope.png" alt="Play Slope Game online">
-        <p>Slope</p>
-      </a>
-      <a class="game-card" href="https://1v1.lol/" target="_blank" rel="noopener noreferrer">
-        <img src="assets/games/1v1lol.png" alt="Play 1v1.LOL online">
-        <p>1v1.LOL</p>
-      </a>
-      <!-- Add more games below -->
-    </div>
+    <p class="subtitle">No games available — will roll out soon.<br>For now, get our unblocked browser below:</p>
+    <a class="browser-link" href="https://gomega.watch/browser" target="_blank" rel="noopener noreferrer">
+      🚀 Open Gomega Unblocked Browser
+    </a>
   </div>
 
   <!-- Footer -->
