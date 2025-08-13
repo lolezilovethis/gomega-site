@@ -1,86 +1,386 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Download Gomega Browser</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega Browser — Download</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
-      margin: 0;
-      text-align: center;
-      padding: 40px 20px;
+    :root{
+      --bg:#0b1116;
+      --card:#0f1620;
+      --muted:#9aa5b1;
+      --accent:#58a6ff;
+      --accent-2:#238636;
+      --glass: rgba(255,255,255,0.03);
+      --radius:14px;
+      --btn-radius:12px;
+      --mono: "Segoe UI Mono", "Roboto Mono", monospace;
     }
-    h1 {
-      color: #58a6ff;
-      font-size: 2.2em;
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at -10% -10%, rgba(88,166,255,0.04), transparent 6%),
+        radial-gradient(900px 400px at 110% 110%, rgba(35,134,54,0.03), transparent 6%),
+        var(--bg);
+      color:#d7e1ea;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+    }
+
+    .wrap{
+      width:100%;
+      max-width:980px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      border-radius:18px;
+      padding:28px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+      display:grid;
+      grid-template-columns: 1fr 380px;
+      gap:26px;
+      align-items:start;
+    }
+
+    header{
+      grid-column:1 / -1;
+      display:flex;
+      gap:18px;
+      align-items:center;
+    }
+    .logo {
+      width:72px;
+      height:72px;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(135deg,var(--accent), #2ac2ff);
+      box-shadow: 0 6px 22px rgba(88,166,255,0.08), inset 0 -6px 18px rgba(255,255,255,0.02);
+      font-weight:700;
+      color:#01121a;
+      font-size:28px;
+      letter-spacing:0.6px;
+    }
+    h1{
+      margin:0;
+      font-size:1.6rem;
+      color:var(--accent);
+    }
+    .sub{
+      color:var(--muted);
+      margin:3px 0 0 0;
+      font-size:0.95rem;
+    }
+
+    .banner{
+      margin-left:auto;
+      background:linear-gradient(90deg,#ff8a00 0%, #ff2d95 100%);
+      padding:8px 14px;
+      border-radius:999px;
+      color:white;
+      font-weight:700;
+      font-size:0.92rem;
+      box-shadow: 0 6px 20px rgba(255,50,120,0.08);
+    }
+
+    .left {
+      padding:8px;
+    }
+    .headline{
+      font-size:1.15rem;
+      margin:18px 0 8px 0;
+      color:#e6f0ff;
+    }
+    .description{
+      color:var(--muted);
+      line-height:1.5;
+      font-size:0.98rem;
+      background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+      padding:14px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.02);
+    }
+
+    .features{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+    .feature{
+      background:var(--glass);
+      padding:12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.02);
+      color:var(--muted);
+      font-size:0.95rem;
+    }
+    .changelog{
+      margin-top:16px;
+      background: #071019;
+      padding:14px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.03);
+      color:var(--muted);
+      font-size:0.95rem;
+    }
+
+    .right {
+      padding:6px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:center;
+    }
+    .card {
+      width:100%;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      padding:18px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.03);
+      text-align:center;
     }
     .version {
-      font-size: 1.1em;
-      margin: 10px 0;
-      color: #8b949e;
+      color:var(--muted);
+      font-size:0.95rem;
+      margin-bottom:6px;
     }
-    .download-btn {
-      display: inline-block;
-      margin-top: 20px;
-      padding: 15px 30px;
-      font-size: 1.1em;
-      font-weight: bold;
-      color: white;
-      background: #238636;
+    .big-ver{
+      font-weight:800;
+      font-size:1.5rem;
+      margin:4px 0;
+      color:#eaf6ff;
+    }
+
+    .file-meta{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:0.9rem;
+    }
+
+    .download-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      width:100%;
+      margin-top:12px;
+      background:linear-gradient(180deg,var(--accent-2), #2ea043);
+      color:white;
+      padding:14px 18px;
+      border-radius:var(--btn-radius);
+      font-weight:800;
+      text-decoration:none;
+      box-shadow: 0 10px 30px rgba(10,40,20,0.35);
+      cursor:pointer;
       border: none;
-      border-radius: 8px;
-      text-decoration: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: background 0.2s;
+      font-size:1rem;
+      transition:transform 170ms ease, box-shadow 170ms ease;
     }
-    .download-btn:hover {
-      background: #2ea043;
+    .download-btn:hover{ transform:translateY(-3px) }
+    .download-btn[disabled]{ opacity:0.6; cursor:not-allowed; transform:none }
+
+    .secondary{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.04);
+      color:var(--muted);
+      padding:8px 12px;
+      border-radius:10px;
+      font-weight:600;
+      cursor:pointer;
     }
-    .update-info {
-      margin-top: 20px;
-      font-size: 0.95em;
-      color: #8b949e;
+
+    .small{
+      font-size:0.85rem;
+      color:var(--muted);
     }
-    .changelog {
-      background: #161b22;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 20px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-      text-align: left;
+
+    footer{
+      grid-column:1 / -1;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:0.85rem;
     }
-    footer {
-      margin-top: 40px;
-      font-size: 0.85em;
-      color: #8b949e;
+
+    @media (max-width:880px){
+      .wrap{ grid-template-columns: 1fr; padding:18px; gap:16px }
+      .right{ order:-1 }
+      header{ gap:12px }
     }
   </style>
 </head>
 <body>
-  <h1>Gomega Browser</h1>
-  <p class="version">Latest Version: <strong>14.5.1</strong></p>
-  
-  <a class="download-btn" href="https://gomega.watch/downloads/GomegaBrowser.exe">⬇ Download Now</a>
+  <main class="wrap" role="main">
+    <header>
+      <div class="logo">Gm</div>
+      <div>
+        <h1>Gomega Browser</h1>
+        <p class="sub">A fast, lightweight browser built for gaming sites, community scripts, and power users who want more control.</p>
+      </div>
+      <div class="banner" aria-hidden="false">Get ready for V14.9.9 — coming soon</div>
+    </header>
 
-  <p class="update-info">File size: ~5 MB | Works on Windows 7, 8, 10, 11</p>
+    <section class="left" aria-labelledby="about-heading">
+      <div class="headline" id="about-heading">Designed for speed, privacy, and flexibility</div>
 
-  <div class="changelog">
-    <h3>What's New in 14.5.1</h3>
-    <ul>
-      <li>✔ Added multi-tab support for Gomega Watch, School Games, and Scripts pages</li>
-      <li>✔ Added update check system to alert when new versions are available</li>
-      <li>✔ Improved performance and startup speed</li>
-    </ul>
-  </div>
+      <div class="description">
+        Gomega Browser is crafted to deliver a clean browsing experience with gaming, script hosting, and developer-friendly features at its core.
+        It uses a custom launcher optimized for low overhead, a minimal UI for fast navigation, and a secure update channel.  
+        Whether you're using Gomega for performance testing, running scripts, or browsing game portals, it was built to be lightweight, responsive,
+        and easy to extend. Expect faster startup, fewer background services, and configurable key-based access for controlled environments (when enabled).
+        <br><br>
+        Today’s build is stable and compact — perfect for low-spec machines — and V14.9.9 brings significant UI polish and multi-window improvements.
+      </div>
 
-  <footer>
-    &copy; 2025 Gomega. All Rights Reserved.  
-    <br>Need help? Visit <a href="https://gomega.watch/help" style="color:#58a6ff;">Support</a>.
-  </footer>
+      <div class="features" aria-hidden="false">
+        <div class="feature">✔ Lightweight: ~5MB installer, tiny disk footprint</div>
+        <div class="feature">✔ Tabs & Sessions: improved tab management and session restore</div>
+        <div class="feature">✔ Script-friendly: built to host and run community scripts</div>
+        <div class="feature">✔ Privacy controls: block trackers and control user-agent</div>
+      </div>
+
+      <div class="changelog" aria-label="Changelog">
+        <strong>What's new (this release)</strong>
+        <ul style="margin:10px 0 0 18px; color:var(--muted)">
+          <li>Improved multi-tab stability and memory usage</li>
+          <li>New update notifier and optional beta channel</li>
+          <li>Faster cold-start and smaller memory footprint</li>
+        </ul>
+        <div style="margin-top:10px; font-size:0.9rem; color:var(--muted)">
+          Upcoming (V14.9.9): UI polish, improved downloads, better key rotation for licensed builds, and performance overlays.
+        </div>
+      </div>
+    </section>
+
+    <aside class="right" aria-labelledby="download-area">
+      <div class="card" id="download-area">
+        <div class="version">Latest Stable</div>
+        <div class="big-ver" id="versionText">14.5.1</div>
+
+        <div class="file-meta small" id="fileMeta">Windows installer • ~5.0 MB • Works on Windows 7, 8, 10, 11</div>
+
+        <!-- Download button (uses JS below to randomly choose destination) -->
+        <button id="downloadBtn" class="download-btn" aria-label="Download Gomega Browser">
+          ⬇ Download Now
+        </button>
+
+        <button id="altBtn" class="secondary" style="margin-top:8px" title="Copy download link">Copy direct link</button>
+
+        <div class="small" style="margin-top:10px">By downloading you accept the <a href="#" style="color:var(--accent)">Terms & Privacy</a>.</div>
+      </div>
+
+      <div style="width:100%; display:flex; gap:10px;">
+        <div style="flex:1" class="card small">
+          <strong style="display:block; color:#eaf6ff">Installer Integrity</strong>
+          Signed installer and SHA256 available on the site.
+        </div>
+        <div style="flex:1" class="card small">
+          <strong style="display:block; color:#eaf6ff">Support</strong>
+          Visit <a href="https://gomega.watch/help" style="color:var(--accent)">gomega.watch/help</a>
+        </div>
+      </div>
+    </aside>
+
+    <footer>
+      <div>&copy; 2025 Gomega. All Rights Reserved.</div>
+      <div style="color:var(--muted)">Need help? <a href="https://gomega.watch/help" style="color:var(--accent)">Support</a></div>
+    </footer>
+  </main>
+
+  <script>
+    // CONFIG: set your URLs here
+    const correctDownloadUrl = "https://gomega.watch/downloads/GomegaBrowser.exe";
+    // Provided ad URL (will be used sometimes)
+    const adUrl = "https://www.profitableratecpm.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431";
+
+    // Probability to go direct to correctDownloadUrl (0..1)
+    // Example: 0.6 means 60% real download, 40% ad redirect.
+    const PROBABILITY_REAL = 0.6;
+
+    // ---- no need to change below this line ----
+    const downloadBtn = document.getElementById("downloadBtn");
+    const altBtn = document.getElementById("altBtn");
+
+    function openInNewTab(url) {
+      // Use _blank so ad opens separately if needed
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      // For direct downloads, add download attribute where possible
+      if (url === correctDownloadUrl) a.setAttribute("download", "");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function simulateDownloadFlow() {
+      downloadBtn.disabled = true;
+      const originalText = downloadBtn.textContent;
+      downloadBtn.textContent = "Preparing download…";
+
+      // small UX delay to feel like a real download-check
+      setTimeout(() => {
+        const r = Math.random();
+        const goReal = r < PROBABILITY_REAL;
+        if (goReal) {
+          downloadBtn.textContent = "Starting download…";
+          // Start the download in a new tab (or start download direct)
+          openInNewTab(correctDownloadUrl);
+          // visual feedback
+          downloadBtn.textContent = "Download started ✓";
+        } else {
+          downloadBtn.textContent = "Opening offer…";
+          // Send them to the ad link
+          openInNewTab(adUrl);
+          downloadBtn.textContent = "Redirected to offer";
+        }
+
+        // re-enable after a moment
+        setTimeout(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = originalText;
+        }, 2200);
+      }, 700 + Math.floor(Math.random()*600));
+    }
+
+    downloadBtn.addEventListener("click", simulateDownloadFlow);
+
+    // alt button copies the real download link to clipboard so users can still get the file.
+    altBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(correctDownloadUrl);
+        altBtn.textContent = "Link copied!";
+        setTimeout(()=>{ altBtn.textContent = "Copy direct link"; }, 1600);
+      } catch(e){
+        // fallback: open the correct URL in a new tab
+        openInNewTab(correctDownloadUrl);
+      }
+    });
+
+    // Accessibility: allow keyboard Enter
+    downloadBtn.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" || e.key === " ") { simulateDownloadFlow(); e.preventDefault(); }
+    });
+
+    // OPTIONAL: show "Get ready" animation in title for attention
+    (function flickerBanner(){
+      const banner = document.querySelector(".banner");
+      if(!banner) return;
+      setInterval(()=>{
+        banner.style.transform = banner.style.transform ? "" : "scale(1.02)";
+      }, 3000 + Math.floor(Math.random()*2000));
+    })();
+  </script>
 </body>
 </html>
