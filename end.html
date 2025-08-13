@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega — Farewell</title>
+  <style>
+    :root{
+      --bg1:#0b0c10;
+      --bg2:#14141a;
+      --accent:#6b98d6;
+      --muted:#9aa6c4;
+      --card:#0f1720;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(40,50,80,0.12), transparent),
+                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:#e6eef8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .card{
+      width:100%;
+      max-width:980px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px;
+      box-shadow: 0 10px 30px rgba(3,6,18,0.6);
+      padding:36px;
+      display:grid;
+      grid-template-columns: 1fr 360px;
+      gap:28px;
+      align-items:center;
+      backdrop-filter: blur(6px);
+    }
+
+    .left{
+      padding-right:10px;
+    }
+
+    h1{
+      margin:0 0 8px 0;
+      font-size:32px;
+      letter-spacing:0.2px;
+      color:#f0f6ff;
+    }
+    .subtitle{
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:18px;
+    }
+
+    .message{
+      font-size:16px;
+      line-height:1.5;
+      color:#dbe9ff;
+      margin-bottom:18px;
+    }
+
+    .donation{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-top:10px;
+    }
+    .donate-btn{
+      background:linear-gradient(180deg,var(--accent),#497abf);
+      border:none;
+      color:white;
+      padding:12px 16px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      box-shadow: 0 6px 18px rgba(75,120,200,0.18);
+    }
+    .donate-btn:active{transform:translateY(1px)}
+
+    .muted-cta{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .right{
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+      padding:18px;
+      border-radius:12px;
+      text-align:center;
+      color:var(--muted);
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      align-items:center;
+    }
+
+    .sad-emoji{
+      font-size:72px;
+      margin-bottom:2px;
+      filter:drop-shadow(0 8px 30px rgba(0,0,0,0.6));
+      transform:translateY(-6px);
+      opacity:0.98;
+    }
+
+    .play-btn{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      padding:10px 12px;
+      border-radius:10px;
+      color:var(--muted);
+      cursor:pointer;
+      font-weight:600;
+    }
+
+    .small{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    footer.note{
+      grid-column:1/-1;
+      margin-top:6px;
+      color:#8ea0c8;
+      font-size:13px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    /* subtle rain animation (decorative) */
+    .rain {
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      opacity:0.14;
+      background-image: radial-gradient(circle at 10% 20%, rgba(200,220,255,0.02) 0 1px, transparent 2px),
+                        radial-gradient(circle at 60% 40%, rgba(200,220,255,0.02) 0 1px, transparent 2px);
+      background-size: 40px 40px, 80px 80px;
+      mix-blend-mode:overlay;
+    }
+
+    @media (max-width:880px){
+      .card{grid-template-columns:1fr; padding:22px}
+      .right{order:-1}
+    }
+  </style>
+</head>
+<body>
+  <div class="rain" aria-hidden="true"></div>
+
+  <main class="card" role="main" aria-labelledby="title">
+    <section class="left" aria-label="Farewell message">
+      <h1 id="title">This is the end of Gomega</h1>
+      <div class="subtitle">A brief goodbye and a small ask</div>
+
+      <p class="message">
+        The owner can no longer afford to keep Gomega running. We need <strong>$50</strong> to keep the lights on.
+        The history here was incredible — friends made, projects launched, late-night fixes, and countless tiny
+        victories that added up to something we were proud of.
+      </p>
+
+      <p class="message">
+        If you loved Gomega even a little, please consider helping. A small donation will keep the site alive for
+        a little longer so folks can grab memories, screenshots, and shared files. If you can't donate, sharing this
+        message or saving your favorite pages is just as meaningful.
+      </p>
+
+      <div class="donation" aria-hidden="false">
+        <!-- replace the href with your real donate link (PayPal, Ko-fi, etc.) -->
+        <a class="donate-btn" id="donateLink" href="https://example.com/donate" target="_blank" rel="noopener">Donate $50</a>
+        <div class="muted-cta small">Or any amount helps — thank you from the team.</div>
+      </div>
+    </section>
+
+    <aside class="right" aria-label="Music and controls">
+      <div class="sad-emoji" aria-hidden="true">😢</div>
+      <div style="font-weight:700;color:#e6f0ff">Goodbye, and thank you</div>
+      <div class="small">Memories, screenshots, and archived posts will remain available while we can.</div>
+
+      <div style="width:100%; display:flex; gap:8px; justify-content:center; margin-top:6px;">
+        <button id="playFallback" class="play-btn" aria-pressed="false">Play music</button>
+        <button id="pauseBtn" class="play-btn" aria-pressed="false" style="display:none">Pause</button>
+      </div>
+
+      <div class="small" style="margin-top:6px">If audio doesn't start automatically, press <strong>Play music</strong>.</div>
+
+      <!-- accessible audio element; replace 'farewell.mp3' with your file -->
+      <audio id="bg-audio" loop preload="auto" src="farewell.mp3"></audio>
+    </aside>
+
+    <footer class="note" role="contentinfo">
+      <div>Thank you to everyone who built, played, and supported Gomega.</div>
+      <div style="opacity:0.9;font-weight:600">Target: $50</div>
+    </footer>
+  </main>
+
+  <script>
+    // Attempt autoplay; browsers may block it without user interaction.
+    (function(){
+      const audio = document.getElementById('bg-audio');
+      const playFallback = document.getElementById('playFallback');
+      const pauseBtn = document.getElementById('pauseBtn');
+
+      // Set a very low initial volume for gentle fade-in
+      audio.volume = 0.0;
+
+      function fadeTo(targetVol, duration=1800){
+        const start = audio.volume;
+        const startTime = performance.now();
+        const step = (t) => {
+          const now = performance.now();
+          const p = Math.min(1, (now - startTime) / duration);
+          audio.volume = start + (targetVol - start) * p;
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+
+      function setPlayingUI(isPlaying){
+        playFallback.style.display = isPlaying ? 'none' : '';
+        pauseBtn.style.display = isPlaying ? '' : 'none';
+        playFallback.setAttribute('aria-pressed', String(isPlaying));
+        pauseBtn.setAttribute('aria-pressed', String(!isPlaying));
+      }
+
+      function tryPlay(){
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            fadeTo(0.45, 2000); // fade to a comfortable volume
+            setPlayingUI(true);
+          }).catch((err) => {
+            // autoplay blocked; show play button
+            setPlayingUI(false);
+            // keep a hint for users to press play
+          });
+        } else {
+          // older browsers
+          setPlayingUI(false);
+        }
+      }
+
+      // initial attempt
+      tryPlay();
+
+      // user-initiated controls
+      playFallback.addEventListener('click', () => {
+        audio.play().then(()=> {
+          fadeTo(0.45, 1400);
+          setPlayingUI(true);
+        }).catch(()=> setPlayingUI(false));
+      });
+
+      pauseBtn.addEventListener('click', () => {
+        // smooth fade out then pause
+        fadeTo(0.0, 700);
+        setTimeout(()=> {
+          audio.pause();
+          audio.currentTime = 0;
+          setPlayingUI(false);
+        }, 750);
+      });
+
+      // make sure UI matches playback when user uses native controls or external events
+      audio.addEventListener('pause', ()=> setPlayingUI(false));
+      audio.addEventListener('play', ()=> setPlayingUI(true));
+    })();
+  </script>
+</body>
+</html>
