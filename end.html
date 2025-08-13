@@ -3,275 +3,362 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gomega — Farewell</title>
+  <title>Gomega — The End</title>
+
   <style>
     :root{
-      --bg1:#0b0c10;
-      --bg2:#14141a;
-      --accent:#6b98d6;
+      --bg:#07080b;
+      --panel:#0c0f14;
       --muted:#9aa6c4;
-      --card:#0f1720;
+      --accent:#5a77a0;
+      --sad:#243248;
       --glass: rgba(255,255,255,0.03);
+      --tear: rgba(173,199,255,0.12);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
       margin:0;
-      font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 600px at 10% 10%, rgba(40,50,80,0.12), transparent),
-                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:
+        radial-gradient(1200px 600px at 10% 10%, rgba(20,30,50,0.12), transparent),
+        linear-gradient(180deg, #05060a 0%, #0b0e14 100%);
       color:#e6eef8;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:24px;
+      padding:20px;
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
+      overflow:hidden;
     }
 
+    /* Card */
     .card{
       width:100%;
-      max-width:980px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      max-width:1100px;
       border-radius:18px;
-      box-shadow: 0 10px 30px rgba(3,6,18,0.6);
       padding:36px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.008));
+      box-shadow: 0 30px 80px rgba(2,6,14,0.7);
       display:grid;
-      grid-template-columns: 1fr 360px;
+      grid-template-columns: 1fr 420px;
       gap:28px;
-      align-items:center;
+      position:relative;
+      overflow:visible;
       backdrop-filter: blur(6px);
     }
 
-    .left{
-      padding-right:10px;
-    }
-
-    h1{
-      margin:0 0 8px 0;
-      font-size:32px;
+    /* Left content */
+    .left h1{
+      margin:0 0 6px 0;
+      font-size:36px;
       letter-spacing:0.2px;
-      color:#f0f6ff;
+      color:#f5f9ff;
     }
-    .subtitle{
+    .left .byline{
       color:var(--muted);
+      margin-bottom:18px;
       font-size:14px;
-      margin-bottom:18px;
     }
-
-    .message{
+    .story{
+      color:#d6e7ff;
       font-size:16px;
-      line-height:1.5;
-      color:#dbe9ff;
-      margin-bottom:18px;
+      line-height:1.6;
+      margin-bottom:14px;
+      text-wrap:balance;
     }
+    .story em{color:var(--muted); font-style:normal; opacity:0.95}
 
-    .donation{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      margin-top:10px;
-    }
-    .donate-btn{
-      background:linear-gradient(180deg,var(--accent),#497abf);
-      border:none;
-      color:white;
-      padding:12px 16px;
-      border-radius:10px;
-      cursor:pointer;
-      font-weight:600;
-      box-shadow: 0 6px 18px rgba(75,120,200,0.18);
-    }
-    .donate-btn:active{transform:translateY(1px)}
-
-    .muted-cta{
-      color:var(--muted);
-      font-size:13px;
-    }
-
+    /* Right column */
     .right{
-      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
-      padding:18px;
       border-radius:12px;
-      text-align:center;
-      color:var(--muted);
+      padding:22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
       display:flex;
       flex-direction:column;
-      gap:14px;
       align-items:center;
+      gap:12px;
+      color:var(--muted);
+      text-align:center;
     }
-
-    .sad-emoji{
-      font-size:72px;
-      margin-bottom:2px;
-      filter:drop-shadow(0 8px 30px rgba(0,0,0,0.6));
+    .logo-broken{
+      font-size:64px;
       transform:translateY(-6px);
+      filter:grayscale(35%) contrast(90%);
       opacity:0.98;
     }
-
-    .play-btn{
-      background:transparent;
-      border:1px solid rgba(255,255,255,0.06);
-      padding:10px 12px;
-      border-radius:10px;
-      color:var(--muted);
-      cursor:pointer;
-      font-weight:600;
+    .goodbye{
+      font-weight:700;
+      color:#f0f6ff;
+      margin-top:4px;
     }
-
     .small{
       font-size:13px;
       color:var(--muted);
     }
 
+    /* Tear / rain decorations */
+    .tear-field{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      overflow:visible;
+    }
+    .tear{
+      position:absolute;
+      width:6px;
+      height:22px;
+      background:linear-gradient(180deg, rgba(200,215,255,0.22), rgba(200,215,255,0.06));
+      border-radius:6px;
+      opacity:0.9;
+      transform:translateY(-40vh);
+      animation:fall linear infinite;
+      filter: blur(0.6px);
+      mix-blend-mode:screen;
+    }
+    @keyframes fall {
+      to { transform:translateY(120vh) rotate(8deg); opacity:0.06; }
+    }
+
+    /* subtle pulse */
+    .card:before{
+      content:"";
+      position:absolute;
+      inset:-28px;
+      border-radius:22px;
+      background: radial-gradient(400px 120px at 20% 10%, rgba(90,110,150,0.02), transparent);
+      pointer-events:none;
+    }
+
+    /* overlay prompt for play */
+    .play-overlay{
+      position:fixed;
+      inset:0;
+      backdrop-filter: blur(6px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:40;
+      background: linear-gradient(180deg, rgba(5,7,10,0.55), rgba(3,4,7,0.55));
+      color:#f3f7ff;
+      text-align:center;
+      padding:28px;
+      gap:18px;
+      flex-direction:column;
+      transition:opacity 260ms ease;
+    }
+    .play-overlay.hidden{opacity:0; pointer-events:none}
+    .play-overlay .cta{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      padding:12px 18px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .play-hint{
+      color:var(--muted);
+      font-size:14px;
+      max-width:760px;
+      line-height:1.4;
+    }
+
+    /* footer note */
     footer.note{
       grid-column:1/-1;
-      margin-top:6px;
-      color:#8ea0c8;
+      margin-top:8px;
+      color:var(--muted);
       font-size:13px;
       display:flex;
       justify-content:space-between;
       align-items:center;
     }
 
-    /* subtle rain animation (decorative) */
-    .rain {
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:0;
-      opacity:0.14;
-      background-image: radial-gradient(circle at 10% 20%, rgba(200,220,255,0.02) 0 1px, transparent 2px),
-                        radial-gradient(circle at 60% 40%, rgba(200,220,255,0.02) 0 1px, transparent 2px);
-      background-size: 40px 40px, 80px 80px;
-      mix-blend-mode:overlay;
-    }
-
-    @media (max-width:880px){
+    @media (max-width:900px){
       .card{grid-template-columns:1fr; padding:22px}
       .right{order:-1}
     }
   </style>
 </head>
 <body>
-  <div class="rain" aria-hidden="true"></div>
+  <!-- Tear decorations (many copies with varying left and duration set via JS) -->
+  <div class="tear-field" aria-hidden="true" id="tearField"></div>
 
   <main class="card" role="main" aria-labelledby="title">
     <section class="left" aria-label="Farewell message">
       <h1 id="title">This is the end of Gomega</h1>
-      <div class="subtitle">A brief goodbye and a small ask</div>
+      <div class="byline">A quiet goodbye from the people who built it</div>
 
-      <p class="message">
-        The owner can no longer afford to keep Gomega running. We need <strong>$50</strong> to keep the lights on.
-        The history here was incredible — friends made, projects launched, late-night fixes, and countless tiny
-        victories that added up to something we were proud of.
+      <p class="story">
+        Today we close a page that was written together: late-night fixes, messy prototypes that became features,
+        inside jokes in code comments, the first small triumph of a deploy that actually worked, and the endless
+        human kindness that showed up in unexpected places. For a long while Gomega was more than a site —
+        it was a patchwork of memories, of people who showed up and stayed to help each other.
       </p>
 
-      <p class="message">
-        If you loved Gomega even a little, please consider helping. A small donation will keep the site alive for
-        a little longer so folks can grab memories, screenshots, and shared files. If you can't donate, sharing this
-        message or saving your favorite pages is just as meaningful.
+      <p class="story">
+        The owner doesn't have the funds to run hosting, domain, and the upkeep anymore. We tried to stretch what we had,
+        held fund drives, and trimmed costs, but the lights must dim unless somehow the very small sum to cover one more
+        month appears. We're not asking for fortunes; we only hoped for a breath of help so we could archive everything
+        properly and give everyone a chance to save what mattered to them.
       </p>
 
-      <div class="donation" aria-hidden="false">
-        <!-- replace the href with your real donate link (PayPal, Ko-fi, etc.) -->
-        <a class="donate-btn" id="donateLink" href="https://example.com/donate" target="_blank" rel="noopener">Donate $50</a>
-        <div class="muted-cta small">Or any amount helps — thank you from the team.</div>
-      </div>
+      <p class="story">
+        If you've ever laughed at a post here, learned something from a shared script, or met a friend in a comment thread,
+        then Gomega mattered. If you can, please copy your favorite pages, screenshots, and conversations. If you can't,
+        please keep a memory and, if you wish, tell someone else about what Gomega was — that matters more than a payment.
+      </p>
+
+      <p class="story">
+        This goodbye is full of gratitude. We are proud of the little world we made together and quietly broken that it must end.
+        Thank you to everyone who built, chatted, tested, trolled, and repaired. We will carry these small triumphs forward,
+        and we hope the friendships and lessons last far longer than the domain.
+      </p>
+
+      <footer class="note" role="contentinfo">
+        <div>All content will remain accessible while we can — please archive what you want to keep.</div>
+        <div style="opacity:0.92;font-weight:600">— The Team</div>
+      </footer>
     </section>
 
-    <aside class="right" aria-label="Music and controls">
-      <div class="sad-emoji" aria-hidden="true">😢</div>
-      <div style="font-weight:700;color:#e6f0ff">Goodbye, and thank you</div>
-      <div class="small">Memories, screenshots, and archived posts will remain available while we can.</div>
+    <aside class="right" aria-label="Music and visual">
+      <div class="logo-broken" aria-hidden="true">Gomega</div>
+      <div class="goodbye">Goodbye, and thank you</div>
+      <div class="small">Music sets the tone. If it doesn't start automatically, tap anywhere to begin.</div>
+      <div class="small" style="margin-top:8px">This page is a memorial — respectful use only.</div>
 
-      <div style="width:100%; display:flex; gap:8px; justify-content:center; margin-top:6px;">
-        <button id="playFallback" class="play-btn" aria-pressed="false">Play music</button>
-        <button id="pauseBtn" class="play-btn" aria-pressed="false" style="display:none">Pause</button>
-      </div>
-
-      <div class="small" style="margin-top:6px">If audio doesn't start automatically, press <strong>Play music</strong>.</div>
-
-      <!-- accessible audio element; replace 'farewell.mp3' with your file -->
-      <audio id="bg-audio" loop preload="auto" src="farewell.mp3"></audio>
+      <!-- hidden accessible audio element -->
+      <audio id="bg-audio" src="farewell.mp3" preload="auto" loop></audio>
     </aside>
-
-    <footer class="note" role="contentinfo">
-      <div>Thank you to everyone who built, played, and supported Gomega.</div>
-      <div style="opacity:0.9;font-weight:600">Target: $50</div>
-    </footer>
   </main>
 
+  <!-- overlay shown if autoplay blocked; clicking anywhere triggers playback attempt -->
+  <div id="playOverlay" class="play-overlay" role="dialog" aria-modal="true" aria-label="Play audio prompt" tabindex="-1">
+    <div style="font-size:28px; font-weight:700">A gentle request</div>
+    <div class="play-hint">
+      Autoplay is blocked by your browser. Tap or click anywhere on the page to start the music and continue the quiet farewell.
+      The track will loop continuously and replay.
+    </div>
+    <button id="overlayPlayBtn" class="cta" aria-label="Start music now">Play — Remember</button>
+  </div>
+
   <script>
-    // Attempt autoplay; browsers may block it without user interaction.
+    // --- Tear generation ---
+    (function(){
+      const container = document.getElementById('tearField');
+      const viewportW = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      const count = Math.min(28, Math.floor(viewportW / 36)); // responsive number of tears
+      for(let i=0;i<count;i++){
+        const tear = document.createElement('div');
+        tear.className = 'tear';
+        const left = Math.random() * 100;
+        const delay = Math.random() * -30;
+        const dur = 6 + Math.random()*10;
+        const width = 2 + Math.random()*6;
+        const height = 14 + Math.random()*32;
+        tear.style.left = left + '%';
+        tear.style.width = width + 'px';
+        tear.style.height = height + 'px';
+        tear.style.animationDuration = dur + 's';
+        tear.style.animationDelay = delay + 's';
+        tear.style.opacity = 0.7 + Math.random()*0.3;
+        container.appendChild(tear);
+      }
+    })();
+
+    // --- Audio handling: try autoplay, fallback to prompt. Keep looping/replay. ---
     (function(){
       const audio = document.getElementById('bg-audio');
-      const playFallback = document.getElementById('playFallback');
-      const pauseBtn = document.getElementById('pauseBtn');
+      const overlay = document.getElementById('playOverlay');
+      const overlayBtn = document.getElementById('overlayPlayBtn');
 
-      // Set a very low initial volume for gentle fade-in
-      audio.volume = 0.0;
+      // Ensure loop and volume start low then fade-in
+      audio.loop = true;
+      audio.volume = 0;
 
-      function fadeTo(targetVol, duration=1800){
+      // fade helper
+      function fadeTo(target, duration=1200){
         const start = audio.volume;
-        const startTime = performance.now();
-        const step = (t) => {
+        const startT = performance.now();
+        function step(){
           const now = performance.now();
-          const p = Math.min(1, (now - startTime) / duration);
-          audio.volume = start + (targetVol - start) * p;
-          if (p < 1) requestAnimationFrame(step);
-        };
+          const p = Math.min(1, (now - startT) / duration);
+          audio.volume = start + (target - start) * p;
+          if(p < 1) requestAnimationFrame(step);
+        }
         requestAnimationFrame(step);
       }
 
-      function setPlayingUI(isPlaying){
-        playFallback.style.display = isPlaying ? 'none' : '';
-        pauseBtn.style.display = isPlaying ? '' : 'none';
-        playFallback.setAttribute('aria-pressed', String(isPlaying));
-        pauseBtn.setAttribute('aria-pressed', String(!isPlaying));
-      }
-
-      function tryPlay(){
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            fadeTo(0.45, 2000); // fade to a comfortable volume
-            setPlayingUI(true);
-          }).catch((err) => {
-            // autoplay blocked; show play button
-            setPlayingUI(false);
-            // keep a hint for users to press play
+      // Attempt autoplay, show overlay if blocked
+      function tryAutoplay(){
+        const p = audio.play();
+        if (p !== undefined) {
+          p.then(()=> {
+            fadeTo(0.45, 1600);
+            overlay.classList.add('hidden');
+            setTimeout(()=> overlay.style.display='none', 300);
+          }).catch(()=> {
+            // blocked: show overlay
+            overlay.classList.remove('hidden');
+            overlay.style.display = 'flex';
           });
         } else {
-          // older browsers
-          setPlayingUI(false);
+          overlay.classList.remove('hidden');
+          overlay.style.display = 'flex';
         }
       }
 
-      // initial attempt
-      tryPlay();
+      // Try once on load
+      tryAutoplay();
 
-      // user-initiated controls
-      playFallback.addEventListener('click', () => {
-        audio.play().then(()=> {
-          fadeTo(0.45, 1400);
-          setPlayingUI(true);
-        }).catch(()=> setPlayingUI(false));
+      // Clicking overlay or anywhere should start audio if blocked
+      function userStart(){
+        const promise = audio.play();
+        if (promise !== undefined) {
+          promise.then(()=> {
+            fadeTo(0.45, 1200);
+            overlay.classList.add('hidden');
+            setTimeout(()=> overlay.style.display='none', 300);
+          }).catch(()=> {
+            // still blocked in some rare cases; keep overlay visible
+          });
+        } else {
+          overlay.classList.add('hidden');
+          setTimeout(()=> overlay.style.display='none', 300);
+        }
+      }
+
+      overlayBtn.addEventListener('click', userStart);
+
+      // Also listen for a one-time user interaction anywhere on the page
+      function anyInteractionStart(){
+        userStart();
+        window.removeEventListener('pointerdown', anyInteractionStart);
+        window.removeEventListener('keydown', anyInteractionStart);
+        window.removeEventListener('touchstart', anyInteractionStart);
+      }
+      window.addEventListener('pointerdown', anyInteractionStart);
+      window.addEventListener('touchstart', anyInteractionStart);
+      window.addEventListener('keydown', anyInteractionStart);
+
+      // Keep looping (defensive: in case loop is ignored by some user agents)
+      audio.addEventListener('ended', ()=> {
+        audio.currentTime = 0;
+        audio.play().catch(()=>{/* ignore */});
       });
 
-      pauseBtn.addEventListener('click', () => {
-        // smooth fade out then pause
-        fadeTo(0.0, 700);
-        setTimeout(()=> {
-          audio.pause();
-          audio.currentTime = 0;
-          setPlayingUI(false);
-        }, 750);
+      // Try to resume when visibility changes (user switches back)
+      document.addEventListener('visibilitychange', ()=> {
+        if (document.visibilityState === 'visible') {
+          audio.play().then(()=> fadeTo(0.45,900)).catch(()=>{/* ignore */});
+        } else {
+          // optionally pause or lower volume when user leaves to be polite
+          fadeTo(0.06, 900);
+        }
       });
-
-      // make sure UI matches playback when user uses native controls or external events
-      audio.addEventListener('pause', ()=> setPlayingUI(false));
-      audio.addEventListener('play', ()=> setPlayingUI(true));
     })();
   </script>
 </body>
