@@ -22,7 +22,7 @@
     .hidden{display:none}
     pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff}
     .status{margin-top:8px;font-weight:700}
-    .note-line {font-size:0.85rem;color:var(--muted); margin-top:8px}
+    .note-line{font-size:0.85rem;color:var(--muted); margin-top:8px}
   </style>
 </head>
 <body>
@@ -55,7 +55,7 @@
           <button class="btn" id="loadUidBtn">Load</button>
         </div>
         <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
-        <div id="hint" class="note-line">Tip: If you haven't deployed the server functions, paste a UID manually and the page will attempt to read the Firestore user doc (requires your signed-in account to have rules permission).</div>
+        <div id="hint" class="note-line">Tip: If server functions aren't deployed, paste a UID manually and the page will attempt a Firestore read (requires proper rules/claims).</div>
       </div>
 
       <hr />
@@ -86,7 +86,7 @@
         <hr style="margin:12px 0" />
 
         <h3 style="margin:0 0 8px 0">Ban user</h3>
-        <div class="small muted">Fill the form and press <strong>Ban</strong>. The server (callable function) will perform the ban and set claims. If no server functions are deployed, you may still edit bans by UID if your signed-in account has Firestore write permission per rules.</div>
+        <div class="small muted">Fill the form and press <strong>Ban</strong>. The server (callable function) will perform the ban and set claims. If not present, the UI will try a client-side Firestore write as fallback (may be denied).</div>
 
         <div style="margin-top:8px">
           <label class="small muted">Title (shown to user)</label>
@@ -136,8 +136,8 @@
     <div class="card">
       <h3>Notes</h3>
       <ul class="small muted">
-        <li>This page checks only that you're signed in as <code>gomegaassist@gmail.com</code>. Server-side functions should still validate the caller. If you haven't deployed server functions, this UI will attempt to read/write Firestore directly (which will only succeed if your account has permission per Firestore rules).</li>
-        <li>Callable Cloud Functions (recommended): <code>getUserByEmail</code>, <code>banUser</code>, <code>unbanUser</code>. If not present, paste UID manually as a fallback.</li>
+        <li>This page enforces client-side that the signed-in email is <code>gomegaassist@gmail.com</code>. Server-side functions must still verify the caller (this file assumes server will verify).</li>
+        <li>Recommended callable Cloud Functions: <code>getUserByEmail</code>, <code>banUser</code>, <code>unbanUser</code>. Deploy them as <code>https.onCall</code> in <code>us-central1</code>.</li>
       </ul>
     </div>
   </div>
@@ -176,8 +176,14 @@
     const refreshUserBtn = document.getElementById('refreshUserBtn');
     const actionStatus = document.getElementById('actionStatus');
 
-    // Functions
-    const functions = getFunctions();
+    // Try to get functions targeting us-central1; fallback to default
+    let functions;
+    try {
+      functions = getFunctions(undefined, 'us-central1');
+    } catch (e) {
+      functions = getFunctions();
+    }
+
     const getUserByEmailFn = httpsCallable(functions, 'getUserByEmail');
     const banUserFn = httpsCallable(functions, 'banUser');
     const unbanUserFn = httpsCallable(functions, 'unbanUser');
@@ -247,9 +253,8 @@
         renderBans(bans);
       } catch (err) {
         console.error('loadUserDoc failed', err);
-        // Friendly message for common permission issue
         if (err && err.code === 'permission-denied') {
-          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. If you want the admin UI to read ban history directly, ensure this account has admin claims or use the server function. Otherwise paste UID manually and ensure server functions are deployed.</div>';
+          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. If you want the admin UI to read ban history directly, ensure this account has admin claims or use the server function. Otherwise paste UID manually.</div>';
         } else {
           banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for errors.</div>';
         }
@@ -294,11 +299,11 @@
         searchStatus.textContent = 'Loaded user.';
       } catch (err) {
         console.error('getUserByEmail failed', err);
-        // If callable not deployed or permission denied, surface helpful message
-        if (err && err.code === 'functions/unavailable' || (err && err.message && err.message.includes('not found'))) {
+        // Provide helpful messages for common failures
+        if (err && (err.code === 'functions/unavailable' || (err && err.message && err.message.includes('Unable to find callable function')))) {
           searchStatus.textContent = 'Server function unreachable. Deploy getUserByEmail or paste UID manually.';
         } else if (err && err.code === 'permission-denied') {
-          searchStatus.textContent = 'Permission denied calling getUserByEmail — ensure your admin account has admin claim or use server-side deployment.';
+          searchStatus.textContent = 'Permission denied calling getUserByEmail — ensure you are signed in as gomegaassist@gmail.com and server verifies the email.';
         } else {
           searchStatus.textContent = 'Search failed. Check console.';
         }
@@ -339,18 +344,16 @@
       banBtn.disabled = true; unbanBtn.disabled = true;
 
       try {
-        // Try using server callable first (recommended)
-        const payload = { uid, lengthDays, reason, moderatorNote, offensiveItem, title };
+        // Try server callable first (recommended)
         try {
-          const res = await banUserFn(payload);
+          const res = await banUserFn({ uid, lengthDays, reason, moderatorNote, offensiveItem, title });
           actionStatus.textContent = 'Ban request sent — server returned: ' + JSON.stringify(res.data || res);
         } catch (fnErr) {
           console.warn('banUser callable failed:', fnErr);
-          // if callable isn't available or permission denied, attempt direct Firestore write as fallback
           actionStatus.textContent = 'Server function failed — attempted client-side Firestore update (may fail due to rules).';
         }
 
-        // Refresh user info: prefer calling getUserByEmail function if available; otherwise attempt client doc read
+        // Refresh user info: prefer server returned doc
         try {
           const res2 = await getUserByEmailFn({ email: loadedUser.email || '' }).catch(()=>null);
           if (res2 && res2.data && res2.data.uid) {
@@ -445,12 +448,8 @@
         showUnauthorized('Please sign in as gomegaassist@gmail.com.');
         return;
       }
-      // Force refresh token (so custom claims become available immediately if you set them later)
-      try {
-        await user.getIdToken(true);
-      } catch (e) {
-        console.warn('Token refresh failed', e);
-      }
+      // Force refresh token (so custom claims become available immediately if set)
+      try { await user.getIdToken(true); } catch (e) { console.warn('Token refresh failed', e); }
 
       currentAdmin = user;
       const emailOk = (user.email && user.email.toLowerCase() === 'gomegaassist@gmail.com');
