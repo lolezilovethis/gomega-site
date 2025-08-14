@@ -1,18 +1,19 @@
 // /js/ban-guard.js
 // Place <script type="module" src="/js/ban-guard.js"></script> at the very top of every page (in <head>).
+//
+// Purpose:
+// - Prevent signed-in users with active bans from using the site.
+// - Treat an explicit `banned: false` as authoritative (do not redirect).
+// - Avoid redirect loop when already on the ban page.
+// - Fail-open on errors (don't block users if guard errors).
 
 import { auth, db } from '/js/firebase.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {
-  doc,
-  getDoc,
-  // getDocFromServer is available in firestore v10+; if it isn't present the try/catch below will handle it.
-  getDocFromServer
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 /*
-  Configure this to the public path you serve the not-approved page at.
-  Many hosts route /not-approved -> /not-approved.html; change to '/not-approved.html' if your host requires an actual file.
+  Edit this if your not-approved page is served at a different public path.
+  Use '/not-approved.html' if your host requires the file name.
 */
 const BAN_REDIRECT = '/not-approved';
 const BAN_PAGE_PATHS = [BAN_REDIRECT, '/not-approved.html'];
@@ -23,93 +24,103 @@ function isOnBanPage() {
   return BAN_PAGE_PATHS.some(sp => p === sp || p.endsWith(sp));
 }
 
+// helper: parse possible timestamp values (Firestore Timestamp, Date, ISO string)
+function toMillis(ts) {
+  if (ts === undefined || ts === null) return null;
+  try {
+    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+    if (ts instanceof Date) return ts.getTime();
+    const n = Number(ts);
+    if (!isNaN(n)) return n;
+    const parsed = Date.parse(ts);
+    return isNaN(parsed) ? null : parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
 // helper: checks whether a ban entry is currently active
 function banIsActive(b) {
   try {
     const now = Date.now();
-    // small tolerance to avoid false positives from near-immediate changes
-    const EPS_MS = 1000; // 1 second tolerance
-
-    const start = b?.start && b.start.toDate ? b.start.toDate().getTime()
-                : b?.start ? new Date(b.start).getTime() : -Infinity;
-    const end   = b?.end   && b.end.toDate   ? b.end.toDate().getTime()
-                : b?.end   ? new Date(b.end).getTime() : Infinity;
-
-    // If end is already sufficiently in the past, treat as not active
-    if (isFinite(end) && end <= (now - EPS_MS)) return false;
-
-    // Consider active only if now is between start and (end - EPS_MS)
-    return (start <= now) && (now <= (end - EPS_MS));
+    const startMs = toMillis(b?.start);
+    const endMs = toMillis(b?.end);
+    const start = (startMs !== null) ? startMs : -Infinity;
+    const end = (endMs !== null) ? endMs : Infinity;
+    return (start <= now) && (now <= end);
   } catch (e) {
     return false;
   }
 }
 
-// If user was reactivated very recently (client just wrote reactivatedAt),
-// don't immediately redirect them. This prevents race conditions.
-function recentlyReactivated(data) {
+// small tolerance to avoid immediately redirecting right after a reactivation write
+function recentlyReactivated(data, windowMs = 5000) {
   try {
     if (!data) return false;
-    const ra = data.reactivatedAt;
+    const ra = data.reactivatedAt || data.lastUnbannedAt;
     if (!ra) return false;
-    const raMs = ra && ra.toDate ? ra.toDate().getTime() : new Date(ra).getTime();
-    const now = Date.now();
-    // window to consider "recent" — 5 seconds
-    return (now - raMs) < 5000;
+    const raMs = toMillis(ra);
+    if (!raMs) return false;
+    return (Date.now() - raMs) < windowMs;
   } catch (e) {
     return false;
   }
 }
 
-// Main guard
+// main guard
 onAuthStateChanged(auth, async (user) => {
   try {
-    // If not signed in, do nothing (signed-out users are not redirected)
+    // if not signed in, don't block (signed-out users should not be redirected)
     if (!user) return;
 
-    // If already on the ban page, don't redirect (prevents loop)
+    // avoid infinite loop when already viewing the ban page
     if (isOnBanPage()) return;
 
     const uref = doc(db, 'users', user.uid);
 
-    // Try server copy first (fresh). If getDocFromServer isn't available or fails, fallback to getDoc().
-    let snap = null;
+    // read user doc (simple approach using getDoc)
+    let snap;
     try {
-      if (typeof getDocFromServer === 'function') {
-        snap = await getDocFromServer(uref);
-      } else {
-        // In older setups getDocFromServer might not be exported — throw to jump to fallback
-        throw new Error('getDocFromServer unavailable');
-      }
+      snap = await getDoc(uref);
     } catch (e) {
-      // server fetch failed (network/offline or function missing) -> fallback to cached getDoc
-      try {
-        snap = await getDoc(uref);
-      } catch (e2) {
-        // If both fail, log and fail open (do not block)
-        console.error('ban-guard: failed to fetch user doc (server fallback failed)', e2);
-        return;
-      }
-    }
-
-    if (!snap || !snap.exists()) return;
-    const data = snap.data();
-
-    // If we detect a very recent reactivation, skip redirect to avoid immediate bounce
-    if (recentlyReactivated(data)) {
-      console.debug('ban-guard: recent reactivation detected, skipping redirect.');
+      console.error('ban-guard: failed to read user doc', e);
+      // fail open: don't block users if we can't read the doc
       return;
     }
 
-    const flagBanned = !!data.banned;
+    if (!snap || !snap.exists()) {
+      // no user doc — nothing to do
+      return;
+    }
+
+    const data = snap.data();
+
+    // If admin/client explicitly cleared banned flag, treat that as authoritative: do not redirect.
+    if (data && data.banned === false) {
+      // allow user even if bans array contains stale/active entries
+      console.debug('ban-guard: banned === false — allowing user');
+      return;
+    }
+
+    // If recently reactivated, avoid immediate redirect (helps race conditions).
+    if (recentlyReactivated(data)) {
+      console.debug('ban-guard: recent reactivation detected — allowing user briefly');
+      return;
+    }
+
+    // Otherwise, check bans array for any active entries
     const arrayBanned = Array.isArray(data.bans) && data.bans.some(banIsActive);
 
-    if (flagBanned || arrayBanned) {
-      // Use replace() so the back button doesn't simply go back to the page that immediately redirects
+    if (data.banned || arrayBanned) {
+      // block: redirect to ban page (replace so back button won't return to a page that immediately redirects)
+      console.warn('ban-guard: redirecting user to ban page', { uid: user.uid, banned: !!data.banned, activeBanCount: Array.isArray(data.bans) ? data.bans.filter(banIsActive).length : 0 });
       location.replace(BAN_REDIRECT);
+    } else {
+      // allowed
+      console.debug('ban-guard: no active ban found; user allowed');
     }
   } catch (err) {
-    // Fail open — do not block users if guard errors
+    // Fail open — do not block users if guard errors. Log for debugging.
     console.error('ban-guard error', err);
   }
 });
