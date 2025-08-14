@@ -27,6 +27,12 @@
     hr{border:none;border-top:1px solid rgba(255,255,255,0.04);margin:12px 0}
     .top-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .mono{font-family:monospace; font-size:0.9rem}
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999}
+    .modal{background:var(--card);padding:18px;border-radius:10px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.8)}
+    .modal h3{margin-top:0;color:var(--accent)}
+    .modal .warn{background:rgba(255,82,82,0.06);border-left:4px solid rgba(255,82,82,0.18);padding:10px;border-radius:6px;color:#ffdede;margin-top:8px}
+    .modal .controls{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
   </style>
 </head>
 <body>
@@ -68,7 +74,7 @@
           <button class="btn" id="loadUidBtn">Load</button>
         </div>
         <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
-        <div id="hint" class="note-line">Tip: Add a `usersByEmail/{encodedEmail}` mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
+        <div id="hint" class="note-line">Tip: Add a <code>usersByEmail/{encodedEmail}</code> mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
       </div>
 
       <hr />
@@ -135,9 +141,11 @@
           <label class="small muted">Moderator note (internal)</label>
           <textarea id="banNote" placeholder="Moderator notes for audit (internal)"></textarea>
 
-          <div style="margin-top:12px; display:flex; gap:8px">
+          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
             <button class="btn" id="banBtn">Ban</button>
             <button class="danger" id="unbanBtn">Unban</button>
+            <!-- Permanent ban button added -->
+            <button class="danger" id="permBanBtn" title="Permanent ban — requires 3 confirmations">Permanent Ban</button>
             <button class="ghost" id="refreshUserBtn">Refresh</button>
           </div>
 
@@ -163,30 +171,31 @@
     </div>
   </div>
 
+  <!-- Permanent ban confirmation modal (hidden by default) -->
+  <div id="permModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="permModalTitle">
+      <h3 id="permModalTitle">Permanent ban — confirmation</h3>
+      <div id="permStep" class="small muted">Step <span id="permStepNum">1</span> of 3</div>
+      <div class="warn" id="permWarnText" style="margin-top:12px">
+        Your response will be recorded and if you do this without permission you might be sued
+      </div>
+      <div style="margin-top:12px" class="small muted">
+        Please confirm you understand the consequences. This action is irreversible from the client UI.
+      </div>
+      <div class="controls">
+        <button class="ghost" id="permCancel">Cancel</button>
+        <button class="btn" id="permConfirm">I understand — continue</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
-    // Use your firebase.js which exports {firebaseConfig, auth, db, provider}
-    import * as fb from './js/firebase.js';
-
-    // Prefer explicit exports (works with your current firebase.js)
-    const auth = fb.auth || undefined;
-    const db = fb.db || undefined;
-    // provider might be exported; fallback to creating a new one if not.
-    import { GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    const provider = fb.provider ? fb.provider : new GoogleAuthProvider();
-
-    // Firestore / Auth helpers from CDN
-    import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { doc, getDoc, setDoc, arrayUnion, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    // Quick guard if fb didn't export auth/db
-    if (!auth || !db) {
-      console.error('Firebase auth/db not available from ./js/firebase.js. Please ensure it exports { auth, db }.');
-      const accessErrEl = document.getElementById('accessErr');
-      if (accessErrEl) {
-        accessErrEl.classList.remove('hidden');
-        accessErrEl.textContent = 'Firebase not initialized (auth/db missing). Check ./js/firebase.js';
-      }
-    }
+    // Updated admin ban page with corrected ban/unban and permanent ban workflow.
+    import { auth, db } from '/js/firebase.js';
+    import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // UI refs
     const accessMsg = document.getElementById('accessMsg');
@@ -219,6 +228,7 @@
 
     const banBtn = document.getElementById('banBtn');
     const unbanBtn = document.getElementById('unbanBtn');
+    const permBanBtn = document.getElementById('permBanBtn');
     const refreshUserBtn = document.getElementById('refreshUserBtn');
     const actionStatus = document.getElementById('actionStatus');
     const actionError = document.getElementById('actionError');
@@ -230,7 +240,17 @@
     let loadedUid = null;
     let loadedEmail = null;
 
-    // ===== helpers =====
+    // Modal refs
+    const permModal = document.getElementById('permModal');
+    const permStepNum = document.getElementById('permStepNum');
+    const permWarnText = document.getElementById('permWarnText');
+    const permCancel = document.getElementById('permCancel');
+    const permConfirm = document.getElementById('permConfirm');
+
+    // Auth provider
+    const provider = new GoogleAuthProvider();
+
+    // debug helper
     function appendDebug(...args) {
       try {
         const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' ');
@@ -283,33 +303,54 @@
       }
     }
 
+    // normalize & render bans (improved so unban logs won't look like active bans)
     function renderBans(bansArray) {
       if (!Array.isArray(bansArray) || bansArray.length === 0) {
         banHistory.innerHTML = '<div class="small muted">No bans recorded for this user.</div>';
         return;
       }
       banHistory.innerHTML = '';
-      bansArray.slice().reverse().forEach((b, i) => {
+      const nowMs = Date.now();
+      bansArray.slice().reverse().forEach((raw, i) => {
+        const b = {...raw};
+        try {
+          if (b.reviewedAt && b.reviewedAt.toDate) b.reviewedAt = b.reviewedAt.toDate().toISOString();
+          if (b.start && b.start.toDate) b.start = b.start.toDate().toISOString();
+          if (b.end && b.end.toDate) b.end = b.end.toDate().toISOString();
+        } catch(e){}
+        const reviewed = b.reviewedAt ? new Date(b.reviewedAt).toLocaleString() : '—';
+        const start = b.start ? new Date(b.start).toLocaleString() : '—';
+        const end = b.end ? new Date(b.end).toLocaleString() : '—';
+
+        let isActive = false;
+        try {
+          if ((b.action === 'ban' || !b.action)) {
+            const sMs = b.start ? new Date(b.start).getTime() : -Infinity;
+            const eMs = b.end ? new Date(b.end).getTime() : Infinity;
+            isActive = (sMs <= nowMs) && (nowMs <= eMs);
+          }
+        } catch (e) { isActive = false; }
+
         const div = document.createElement('div');
-        div.className = 'small muted';
-        const reviewed = b.reviewedAt || '';
-        const start = b.start || '';
-        const end = b.end || '';
-        div.innerHTML = `<strong>${b.title || 'Suspension #' + (i+1)}</strong><br/>
-          Reason: ${b.reason || '—'}<br/>
-          Moderator Note: ${b.moderatorNote || '—'}<br/>
-          Offensive Item: ${b.offensiveItem || '—'}<br/>
-          Reviewed: ${reviewed}<br/>
-          Start: ${start} — Reactivate: ${end}<hr style="opacity:0.06;margin:8px 0">`;
+        div.className = 'small muted' + (isActive ? ' active' : '');
+        const title = b.title || (b.action === 'unban' ? 'Unban' : `Suspension #${i+1}`);
+        let inner = `<strong>${escapeHtml(title)}</strong><br/>`;
+        if (b.action && b.action.startsWith('ban') && b.permanent) {
+          inner += `Type: Permanent ban<br/>Moderator Note: ${escapeHtml(b.moderatorNote || '')}<br/>Start: ${start}<br/>${isActive ? '<strong style="color:#ffdcdc">ACTIVE</strong><br/>' : ''}<hr style="opacity:0.06;margin:8px 0">`;
+        } else if (b.action === 'unban') {
+          inner += `Action: Unban<br/>Moderator Note: ${escapeHtml(b.moderatorNote || '')}<br/>At: ${reviewed}<hr style="opacity:0.06;margin:8px 0">`;
+        } else {
+          inner += `Reason: ${escapeHtml(b.reason || '—')}<br/>Moderator Note: ${escapeHtml(b.moderatorNote || '—')}<br/>Offensive Item: ${escapeHtml(b.offensiveItem || '—')}<br/>Reviewed: ${reviewed}<br/>Start: ${start} — Reactivate: ${end}<hr style="opacity:0.06;margin:8px 0">`;
+        }
+        div.innerHTML = inner;
         banHistory.appendChild(div);
       });
     }
 
-    // ===== Firestore access (client-side) =====
+    // ===== Firestore helpers =====
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
-      // method 1: usersByEmail mapping
       try {
         const mapped = await getDoc(doc(db, 'usersByEmail', enc));
         if (mapped.exists()) {
@@ -319,19 +360,15 @@
       } catch (e) {
         appendDebug('usersByEmail lookup failed', e);
       }
-
-      // method 2: query users where email == email
       try {
         const q = query(collection(db, 'users'), where('email', '==', email));
         const snaps = await getDocs(q);
         if (!snaps.empty) {
-          const first = snaps.docs[0];
-          return first.id;
+          return snaps.docs[0].id;
         }
       } catch (e) {
         appendDebug('users collection query failed', e);
       }
-
       return null;
     }
 
@@ -357,29 +394,33 @@
       }
     }
 
-    async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
+    // Improved banUserClient: adds consistent ban entry
+    async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem, permanent=false }) {
       try {
         const nowIso = new Date().toISOString();
         let endIso = null;
-        if (Number.isFinite(lengthDays) && lengthDays > 0) {
+        if (!permanent && Number.isFinite(lengthDays) && lengthDays > 0) {
           endIso = new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000).toISOString();
         }
         const banEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-          title: title || `Ban by ${currentAdmin.uid}`,
+          title: title || `Suspension`,
           reason: reason || 'Violation of Terms',
           moderatorNote: moderatorNote || '',
           offensiveItem: offensiveItem || '',
           start: nowIso,
-          end: endIso,
+          end: endIso,            // null for indefinite (but for permanent we'll mark permanent:true)
           reviewedAt: nowIso,
-          action: 'ban',
+          action: permanent ? 'ban-permanent' : 'ban',
+          permanent: !!permanent,
           moderatorUid: currentAdmin.uid
         };
 
+        // Merge: set banned true and push ban entry
         await setDoc(doc(db, 'users', uid), {
           banned: true,
-          bans: arrayUnion(banEntry)
+          bans: arrayUnion(banEntry),
+          lastBannedAt: serverTimestamp()
         }, { merge: true });
 
         return { success: true, banEntry };
@@ -389,27 +430,64 @@
       }
     }
 
+    // Corrected unban which closes active bans (sets end/reactivatedAt) and sets banned:false
     async function unbanUserClient(uid, { moderatorNote }) {
       try {
         const nowIso = new Date().toISOString();
-        const unbanEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-          action: 'unban',
-          moderatorNote: moderatorNote || '',
-          moderatorUid: currentAdmin.uid,
-          at: nowIso
-        };
+        const uref = doc(db, 'users', uid);
+        const snap = await getDoc(uref);
+        if (!snap.exists()) throw new Error('User document does not exist.');
+        const data = snap.data();
+        const bans = Array.isArray(data.bans) ? data.bans.slice() : [];
 
-        await setDoc(doc(db, 'users', uid), {
+        let modified = false;
+        for (let i = 0; i < bans.length; i++) {
+          const b = bans[i];
+          const sMs = b.start ? new Date(b.start).getTime() : -Infinity;
+          const eMs = b.end ? new Date(b.end).getTime() : Infinity;
+          if ((b.action === 'ban' || b.action === 'ban-permanent' || !b.action) && (!b.end || eMs > Date.now())) {
+            bans[i] = {
+              ...b,
+              end: b.end ? b.end : nowIso,
+              reactivatedAt: nowIso,
+              moderatorNote: (b.moderatorNote ? b.moderatorNote + ' | ' : '') + (moderatorNote || 'Unbanned by admin'),
+              action: (b.action === 'ban-permanent' ? 'ban-permanent-closed' : 'ban-closed')
+            };
+            modified = true;
+          }
+        }
+
+        if (!modified) {
+          const audit = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+            action: 'unban',
+            moderatorNote: moderatorNote || 'Unbanned by admin',
+            moderatorUid: currentAdmin.uid,
+            start: nowIso,
+            end: nowIso,
+            reviewedAt: nowIso
+          };
+          bans.push(audit);
+        }
+
+        // Write back whole bans array and set banned:false
+        await updateDoc(uref, {
           banned: false,
-          bans: arrayUnion(unbanEntry)
-        }, { merge: true });
+          bans: bans,
+          lastUnbannedAt: serverTimestamp()
+        });
 
-        return { success: true, unbanEntry };
+        return { success: true, modified };
       } catch (err) {
         appendDebug('unbanUserClient failed', err);
         throw err;
       }
+    }
+
+    // Permanent ban client-side (requires confirmation)
+    async function permanentBanClient(uid, { title, reason, moderatorNote, offensiveItem }) {
+      // Permanent ban uses banUserClient(permanent:true) to add an entry with permanent:true
+      return await banUserClient(uid, { title, lengthDays: null, reason, moderatorNote, offensiveItem, permanent: true });
     }
 
     // ===== UI wiring =====
@@ -504,7 +582,7 @@
     banBtn.addEventListener('click', async () => {
       clearActionMessages();
       if (!loadedUid) { showActionError('No user loaded.'); return; }
-      banBtn.disabled = true; unbanBtn.disabled = true;
+      banBtn.disabled = true; unbanBtn.disabled = true; permBanBtn.disabled = true;
       actionStatus.textContent = 'Banning…';
       const title = banTitle.value.trim() || null;
       const lengthDays = banDays.value ? parseInt(banDays.value, 10) : null;
@@ -513,7 +591,7 @@
       const moderatorNote = banNote.value.trim() || '';
 
       try {
-        const res = await banUserClient(loadedUid, { title, lengthDays, reason, moderatorNote, offensiveItem });
+        const res = await banUserClient(loadedUid, { title, lengthDays, reason, moderatorNote, offensiveItem, permanent: false });
         showActionSuccess('Ban recorded (client write).');
         actionStatus.textContent = '';
         try { await loadUserDocByUid(loadedUid); } catch(e){}
@@ -525,7 +603,7 @@
           showActionError('Ban failed — check console for details.');
         }
       } finally {
-        banBtn.disabled = false; unbanBtn.disabled = false;
+        banBtn.disabled = false; unbanBtn.disabled = false; permBanBtn.disabled = false;
       }
     });
 
@@ -533,7 +611,7 @@
       clearActionMessages();
       if (!loadedUid) { showActionError('No user loaded.'); return; }
       if (!confirm('Confirm unban for this user?')) return;
-      banBtn.disabled = true; unbanBtn.disabled = true;
+      banBtn.disabled = true; unbanBtn.disabled = true; permBanBtn.disabled = true;
       actionStatus.textContent = 'Unbanning…';
       const moderatorNote = banNote.value.trim() || 'Unbanned by admin';
       try {
@@ -549,8 +627,77 @@
           showActionError('Unban failed — check console for details.');
         }
       } finally {
-        banBtn.disabled = false; unbanBtn.disabled = false;
+        banBtn.disabled = false; unbanBtn.disabled = false; permBanBtn.disabled = false;
       }
+    });
+
+    // Permanent ban: shows 3 confirmation steps, then executes permanent ban
+    let permStep = 0;
+    function openPermModal() {
+      permStep = 1;
+      permStepNum.textContent = permStep;
+      permWarnText.textContent = 'Your response will be recorded and if you do this without permission you might be sued';
+      permModal.classList.remove('hidden');
+      permModal.setAttribute('aria-hidden','false');
+    }
+    function closePermModal() {
+      permModal.classList.add('hidden');
+      permModal.setAttribute('aria-hidden','true');
+    }
+
+    permCancel.addEventListener('click', () => {
+      closePermModal();
+    });
+
+    permConfirm.addEventListener('click', async () => {
+      // If not at final step, increment and change message
+      if (permStep < 3) {
+        permStep++;
+        permStepNum.textContent = permStep;
+        // keep the same warning text for each step (per your requirement)
+        permWarnText.textContent = 'Your response will be recorded and if you do this without permission you might be sued';
+        // subtle variation to emphasize seriousness
+        if (permStep === 2) {
+          permWarnText.textContent += ' — THIS IS A SERIOUS ACTION.';
+        } else if (permStep === 3) {
+          permWarnText.textContent += ' — FINAL CONFIRMATION. THIS ACTION IS IRREVERSIBLE FROM THE CLIENT.';
+        }
+        return;
+      }
+
+      // Step 3 confirmed: perform permanent ban
+      if (!loadedUid) { showActionError('No user loaded.'); closePermModal(); return; }
+      permConfirm.disabled = true;
+      permCancel.disabled = true;
+      actionStatus.textContent = 'Applying permanent ban…';
+      const title = banTitle.value.trim() || 'Permanent ban';
+      const reason = banReason.value.trim() || 'Violation of Terms';
+      const offensiveItem = banOffensive.value.trim() || '';
+      const moderatorNote = banNote.value.trim() || 'Permanent ban by admin';
+
+      try {
+        await permanentBanClient(loadedUid, { title, reason, moderatorNote, offensiveItem });
+        showActionSuccess('Permanent ban recorded (client write).');
+        actionStatus.textContent = '';
+        try { await loadUserDocByUid(loadedUid); } catch(e){}
+      } catch (err) {
+        appendDebug('permanent ban error', err);
+        if (err && err.code === 'permission-denied') {
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim OR change rules.');
+        } else {
+          showActionError('Permanent ban failed — check console for details.');
+        }
+      } finally {
+        permConfirm.disabled = false;
+        permCancel.disabled = false;
+        closePermModal();
+      }
+    });
+
+    permBanBtn.addEventListener('click', () => {
+      // show modal with 3-step confirmation
+      if (!loadedUid) { showActionError('Load a user first'); return; }
+      openPermModal();
     });
 
     refreshUserBtn.addEventListener('click', async () => {
@@ -605,6 +752,12 @@
         showUnauthorized(`Signed in as wrong account (${userEmail}). Sign in as ${ADMIN_EMAIL}.`);
       }
     });
+
+    // Utilities
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
 
   </script>
 </body>
