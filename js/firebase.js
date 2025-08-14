@@ -1,24 +1,592 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getAuth,
-  GoogleAuthProvider
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin — Ban Users | Gomega Watch</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#0f0f10;--card:#141416;--muted:#9aa0a6;--accent:#00d4ff;--accent2:#0066ff;--danger:#ff5252}
+    body{background:var(--bg);color:#eef2f3;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:24px}
+    .wrap{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:16px}
+    .card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.02)}
+    h1{margin:0 0 6px;color:var(--accent)}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    input[type="text"], textarea, select, input[type="number"] {width:100%;padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0c;color:#eef2f3}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    button.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;padding:10px 12px;border-radius:8px;color:#001;font-weight:700;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent);padding:8px 10px;border-radius:8px;cursor:pointer}
+    button.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040);color:#fff;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .small{font-size:0.9rem;color:var(--muted)}
+    .hidden{display:none}
+    pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff}
+    .status{margin-top:8px;font-weight:700}
+    .note-line{font-size:0.85rem;color:var(--muted); margin-top:8px}
+    .error { color: #ffb3b3; font-weight:700; margin-top:8px}
+    .success { color: #a8ffdf; font-weight:700; margin-top:8px}
+    hr{border:none;border-top:1px solid rgba(255,255,255,0.04);margin:12px 0}
+    .top-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .mono{font-family:monospace; font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="accessCard">
+      <h1>Admin — Ban Management</h1>
+      <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong>.</p>
+      <div id="accessMsg" class="small muted">Checking authentication…</div>
+      <div id="accessErr" class="error hidden"></div>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCosaEc1xMspmr9Z0ykfI3_6Ksrp-3r5WM",
-  authDomain: "gomega-65e3f.firebaseapp.com",
-  projectId: "gomega-65e3f",
-  storageBucket: "gomega-65e3f.appspot.com",
-  messagingSenderId: "212961835634",
-  appId: "1:212961835634:web:12330a07ff79668ea060eb",
-  measurementId: "G-B9JYLXVQT6"
-};
+      <div style="margin-top:12px" class="top-controls">
+        <button class="btn" id="signInBtn">Sign in with Google</button>
+        <button class="ghost hidden" id="signOutBtn">Sign out</button>
+        <button class="ghost" id="forceRefreshBtn" title="Force token refresh">Force token refresh</button>
+      </div>
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+      <div id="debugConsole" class="small muted mono" style="margin-top:8px;white-space:pre-wrap;"></div>
+    </div>
 
-export { firebaseConfig, auth, db, provider };
+    <div class="card hidden" id="mainCard" aria-hidden="true">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <h2 style="margin:0">Find user</h2>
+          <div class="small muted">Search by email (recommended) or paste UID.</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="ghost" id="signOutBtn2">Sign out</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div class="row" style="gap:8px">
+          <input type="text" id="searchEmail" placeholder="user@example.com (search by email)" />
+          <button class="btn" id="searchEmailBtn">Search</button>
+        </div>
+        <div style="height:8px"></div>
+        <div class="row" style="gap:8px">
+          <input type="text" id="manualUid" placeholder="Or paste UID here (fallback)" />
+          <button class="btn" id="loadUidBtn">Load</button>
+        </div>
+        <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
+        <div id="hint" class="note-line">Tip: Add a `usersByEmail/{encodedEmail}` mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
+      </div>
+
+      <hr />
+
+      <div id="userInfo" class="hidden">
+        <h3 style="margin:0 0 8px 0">User info</h3>
+        <div class="two">
+          <div>
+            <label class="small muted">UID</label>
+            <pre id="u_uid"></pre>
+          </div>
+          <div>
+            <label class="small muted">Email</label>
+            <pre id="u_email"></pre>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label class="small muted">Display Name</label>
+          <pre id="u_name"></pre>
+        </div>
+
+        <div style="margin-top:12px">
+          <h4 style="margin:0 0 6px 0">Ban history</h4>
+          <div id="banHistory" class="small muted">Loading…</div>
+        </div>
+
+        <hr style="margin:12px 0" />
+
+        <h3 style="margin:0 0 8px 0">Ban user</h3>
+        <div class="small muted">Fill the form and press <strong>Ban</strong>. This page performs Firestore writes directly — your signed-in account must have permission (per rules) to write to <code>users/{uid}</code>.</div>
+
+        <div style="margin-top:8px">
+          <label class="small muted">Title (shown to user)</label>
+          <input type="text" id="banTitle" placeholder="Banned for 6 Months" />
+
+          <div style="height:8px"></div>
+
+          <label class="small muted">Length</label>
+          <div class="row" style="gap:8px">
+            <input type="number" id="banDays" placeholder="Days (e.g. 180). Leave empty for indefinite" />
+            <select id="lengthPreset">
+              <option value="">-- Presets --</option>
+              <option value="7">7 days</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="180">180 days</option>
+              <option value="365">365 days</option>
+            </select>
+          </div>
+
+          <div style="height:8px"></div>
+
+          <label class="small muted">Reason</label>
+          <input type="text" id="banReason" placeholder="Bullying, Exploit, etc." />
+
+          <div style="height:8px"></div>
+
+          <label class="small muted">Offensive item (optional)</label>
+          <input type="text" id="banOffensive" placeholder="ExploitDetected - Place ID: 537413528" />
+
+          <div style="height:8px"></div>
+
+          <label class="small muted">Moderator note (internal)</label>
+          <textarea id="banNote" placeholder="Moderator notes for audit (internal)"></textarea>
+
+          <div style="margin-top:12px; display:flex; gap:8px">
+            <button class="btn" id="banBtn">Ban</button>
+            <button class="danger" id="unbanBtn">Unban</button>
+            <button class="ghost" id="refreshUserBtn">Refresh</button>
+          </div>
+
+          <div id="actionStatus" class="status small muted"></div>
+          <div id="actionError" class="error hidden"></div>
+          <div id="actionSuccess" class="success hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Notes & troubleshooting</h3>
+      <ul class="small muted">
+        <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
+          <ul>
+            <li>Set the admin custom claim for your admin user (`admin:true`) using the Firebase Admin SDK, or</li>
+            <li>Add a Firestore mapping <code>usersByEmail/{encodedEmail}</code> that the client can read, or</li>
+            <li>Temporarily relax your rules for testing (not recommended long-term).</li>
+          </ul>
+        </li>
+        <li>Client-side writes are not tamper-proof — for secure audit logs use Cloud Functions / Admin SDK to perform bans server-side.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="module">
+    // ---- use local ./js/firebase.js which should export { auth, db, provider } ----
+    import { auth, db, provider } from './js/firebase.js';
+
+    // CDN helpers
+    import { onAuthStateChanged, signOut, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc, setDoc, arrayUnion, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // UI refs
+    const accessMsg = document.getElementById('accessMsg');
+    const accessErr = document.getElementById('accessErr');
+    const mainCard = document.getElementById('mainCard');
+    const signInBtn = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const signOutBtn2 = document.getElementById('signOutBtn2');
+    const forceRefreshBtn = document.getElementById('forceRefreshBtn');
+    const debugConsole = document.getElementById('debugConsole');
+
+    const searchEmail = document.getElementById('searchEmail');
+    const searchEmailBtn = document.getElementById('searchEmailBtn');
+    const manualUid = document.getElementById('manualUid');
+    const loadUidBtn = document.getElementById('loadUidBtn');
+    const searchStatus = document.getElementById('searchStatus');
+
+    const userInfo = document.getElementById('userInfo');
+    const u_uid = document.getElementById('u_uid');
+    const u_email = document.getElementById('u_email');
+    const u_name = document.getElementById('u_name');
+    const banHistory = document.getElementById('banHistory');
+
+    const banTitle = document.getElementById('banTitle');
+    const banDays = document.getElementById('banDays');
+    const lengthPreset = document.getElementById('lengthPreset');
+    const banReason = document.getElementById('banReason');
+    const banOffensive = document.getElementById('banOffensive');
+    const banNote = document.getElementById('banNote');
+
+    const banBtn = document.getElementById('banBtn');
+    const unbanBtn = document.getElementById('unbanBtn');
+    const refreshUserBtn = document.getElementById('refreshUserBtn');
+    const actionStatus = document.getElementById('actionStatus');
+    const actionError = document.getElementById('actionError');
+    const actionSuccess = document.getElementById('actionSuccess');
+
+    const ADMIN_EMAIL = 'gomegaassist@gmail.com';
+
+    let currentAdmin = null;
+    let loadedUid = null;
+    let loadedEmail = null;
+
+    // helpers
+    function appendDebug(...args) {
+      try {
+        const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' ');
+        console.log('DEBUG:', ...args);
+        debugConsole.textContent = (debugConsole.textContent ? debugConsole.textContent + '\n' : '') + s;
+      } catch (e) { console.log('DEBUG append failed', e); }
+    }
+
+    function showUnauthorized(msg) {
+      accessMsg.textContent = msg || 'Unauthorized. Sign in as admin.';
+      accessErr.classList.remove('hidden');
+      accessErr.textContent = msg || 'Unauthorized';
+      mainCard.classList.add('hidden');
+      mainCard.setAttribute('aria-hidden','true');
+      signInBtn.classList.remove('hidden');
+      signOutBtn.classList.add('hidden');
+      signOutBtn2.classList.add('hidden');
+    }
+    function showMain() {
+      accessErr.classList.add('hidden');
+      accessMsg.textContent = 'Signed in as admin: ' + (currentAdmin.email || '');
+      mainCard.classList.remove('hidden');
+      mainCard.setAttribute('aria-hidden','false');
+      signInBtn.classList.add('hidden');
+      signOutBtn.classList.remove('hidden');
+      signOutBtn2.classList.remove('hidden');
+    }
+    function clearActionMessages() {
+      actionStatus.textContent = '';
+      actionError.classList.add('hidden');
+      actionSuccess.classList.add('hidden');
+    }
+    function showActionError(txt) {
+      actionError.textContent = txt;
+      actionError.classList.remove('hidden');
+      actionSuccess.classList.add('hidden');
+    }
+    function showActionSuccess(txt) {
+      actionSuccess.textContent = txt;
+      actionSuccess.classList.remove('hidden');
+      actionError.classList.add('hidden');
+    }
+
+    function encodeEmailForId(email) {
+      try {
+        const b = btoa(email);
+        return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      } catch (e) {
+        return email.replace(/\./g,',');
+      }
+    }
+
+    function renderBans(bansArray) {
+      if (!Array.isArray(bansArray) || bansArray.length === 0) {
+        banHistory.innerHTML = '<div class="small muted">No bans recorded for this user.</div>';
+        return;
+      }
+      banHistory.innerHTML = '';
+      bansArray.slice().reverse().forEach((b, i) => {
+        const div = document.createElement('div');
+        div.className = 'small muted';
+        const reviewed = b.reviewedAt || '';
+        const start = b.start || '';
+        const end = b.end || '';
+        div.innerHTML = `<strong>${b.title || 'Suspension #' + (i+1)}</strong><br/>
+          Reason: ${b.reason || '—'}<br/>
+          Moderator Note: ${b.moderatorNote || '—'}<br/>
+          Offensive Item: ${b.offensiveItem || '—'}<br/>
+          Reviewed: ${reviewed}<br/>
+          Start: ${start} — Reactivate: ${end}<hr style="opacity:0.06;margin:8px 0">`;
+        banHistory.appendChild(div);
+      });
+    }
+
+    // Firestore access
+    async function findUidByEmail(email) {
+      if (!email) return null;
+      const enc = encodeEmailForId(email);
+      try {
+        const mapped = await getDoc(doc(db, 'usersByEmail', enc));
+        if (mapped.exists()) {
+          const d = mapped.data();
+          if (d && d.uid) return d.uid;
+        }
+      } catch (e) {
+        appendDebug('usersByEmail lookup failed', e);
+      }
+
+      try {
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const snaps = await getDocs(q);
+        if (!snaps.empty) {
+          const first = snaps.docs[0];
+          return first.id;
+        }
+      } catch (e) {
+        appendDebug('users collection query failed', e);
+      }
+
+      return null;
+    }
+
+    async function loadUserDocByUid(uid) {
+      banHistory.textContent = 'Loading…';
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (!snap.exists()) {
+          banHistory.innerHTML = '<div class="small muted">No user doc found in Firestore (users/{uid}).</div>';
+          return null;
+        }
+        const data = snap.data();
+        renderBans(Array.isArray(data.bans) ? data.bans : []);
+        return data;
+      } catch (err) {
+        appendDebug('loadUserDoc failed', err);
+        if (err && err.code === 'permission-denied') {
+          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin OR create a usersByEmail mapping doc that the client can read.</div>';
+        } else {
+          banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for details.</div>';
+        }
+        throw err;
+      }
+    }
+
+    // Safer ban/unban that uses ISO timestamps and setDoc(..., { merge: true })
+    async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
+      try {
+        const nowIso = new Date().toISOString();
+        let endIso = null;
+        if (Number.isFinite(lengthDays) && lengthDays > 0) {
+          endIso = new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000).toISOString();
+        }
+        const banEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          title: title || `Ban by ${currentAdmin.uid}`,
+          reason: reason || 'Violation of Terms',
+          moderatorNote: moderatorNote || '',
+          offensiveItem: offensiveItem || '',
+          start: nowIso,
+          end: endIso,
+          reviewedAt: nowIso,
+          action: 'ban',
+          moderatorUid: currentAdmin.uid
+        };
+
+        await setDoc(doc(db, 'users', uid), {
+          banned: true,
+          bans: arrayUnion(banEntry)
+        }, { merge: true });
+
+        return { success: true, banEntry };
+      } catch (err) {
+        appendDebug('banUserClient failed', err);
+        throw err;
+      }
+    }
+
+    async function unbanUserClient(uid, { moderatorNote }) {
+      try {
+        const nowIso = new Date().toISOString();
+        const unbanEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          action: 'unban',
+          moderatorNote: moderatorNote || '',
+          moderatorUid: currentAdmin.uid,
+          at: nowIso
+        };
+
+        await setDoc(doc(db, 'users', uid), {
+          banned: false,
+          bans: arrayUnion(unbanEntry)
+        }, { merge: true });
+
+        return { success: true, unbanEntry };
+      } catch (err) {
+        appendDebug('unbanUserClient failed', err);
+        throw err;
+      }
+    }
+
+    // UI wiring
+    signInBtn.addEventListener('click', async () => {
+      appendDebug('Sign-in clicked');
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        appendDebug('Sign-in error', e);
+        accessErr.classList.remove('hidden');
+        accessErr.textContent = 'Sign-in failed: ' + (e && e.message ? e.message : String(e));
+      }
+    });
+
+    async function doSignOut() {
+      try { await signOut(auth); } catch (e) { appendDebug('Sign-out failed', e); }
+    }
+    signOutBtn.addEventListener('click', doSignOut);
+    signOutBtn2.addEventListener('click', doSignOut);
+
+    forceRefreshBtn.addEventListener('click', async () => {
+      if (!auth || !auth.currentUser) { appendDebug('No current user to refresh token for.'); return; }
+      appendDebug('Forcing id token refresh...');
+      try {
+        await auth.currentUser.getIdToken(true);
+        appendDebug('Token refresh requested.');
+        try {
+          const tr = await auth.currentUser.getIdTokenResult(true);
+          appendDebug('New claims:', tr.claims);
+        } catch (e) { appendDebug('getIdTokenResult failed after refresh', e); }
+      } catch (e) { appendDebug('Token refresh error', e); }
+    });
+
+    lengthPreset.addEventListener('change', () => { banDays.value = lengthPreset.value; });
+
+    searchEmailBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      const email = (searchEmail.value || '').trim();
+      if (!email) { searchStatus.textContent = 'Enter an email to search.'; return; }
+      searchStatus.textContent = 'Searching for uid…';
+      try {
+        const uid = await findUidByEmail(email);
+        if (!uid) {
+          searchStatus.textContent = 'No mapping found for that email. Paste UID manually as fallback or create usersByEmail mapping.';
+          return;
+        }
+        searchStatus.textContent = 'Found UID: ' + uid + ' — loading user doc…';
+        loadedUid = uid; loadedEmail = email;
+        u_uid.textContent = uid; u_email.textContent = email; u_name.textContent = '(loading…)';
+        userInfo.classList.remove('hidden');
+
+        try {
+          const data = await loadUserDocByUid(uid);
+          if (data) {
+            u_name.textContent = data.displayName || '(unknown)';
+            searchStatus.textContent = 'Loaded user document.';
+          } else {
+            u_name.textContent = '(no doc)';
+            searchStatus.textContent = 'No user doc found.';
+          }
+        } catch (e) {
+          searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
+        }
+      } catch (err) {
+        appendDebug('Search failed', err);
+        searchStatus.textContent = 'Search failed — check console.';
+      }
+    });
+
+    loadUidBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      const uid = (manualUid.value || '').trim();
+      if (!uid) { searchStatus.textContent = 'Paste a UID to load.'; return; }
+      searchStatus.textContent = 'Loading user doc…';
+      loadedUid = uid; loadedEmail = null;
+      u_uid.textContent = uid; u_email.textContent = '(unknown)'; u_name.textContent = '(loading…)';
+      userInfo.classList.remove('hidden');
+      try {
+        const data = await loadUserDocByUid(uid);
+        if (data) {
+          u_name.textContent = data.displayName || '(unknown)';
+          searchStatus.textContent = 'Loaded user document.';
+        } else {
+          u_name.textContent = '(no doc)';
+          searchStatus.textContent = 'No user doc found.';
+        }
+      } catch (err) {
+        searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
+      }
+    });
+
+    banBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      if (!loadedUid) { showActionError('No user loaded.'); return; }
+      banBtn.disabled = true; unbanBtn.disabled = true;
+      actionStatus.textContent = 'Banning…';
+      const title = banTitle.value.trim() || null;
+      const lengthDays = banDays.value ? parseInt(banDays.value, 10) : null;
+      const reason = banReason.value.trim() || 'Violation of Terms';
+      const offensiveItem = banOffensive.value.trim() || '';
+      const moderatorNote = banNote.value.trim() || '';
+
+      try {
+        const res = await banUserClient(loadedUid, { title, lengthDays, reason, moderatorNote, offensiveItem });
+        showActionSuccess('Ban recorded (client write).');
+        actionStatus.textContent = '';
+        try { await loadUserDocByUid(loadedUid); } catch(e){}
+      } catch (err) {
+        appendDebug('ban error', err);
+        if (err && err.code === 'permission-denied') {
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim OR change rules.');
+        } else {
+          showActionError('Ban failed — check console for details.');
+        }
+      } finally {
+        banBtn.disabled = false; unbanBtn.disabled = false;
+      }
+    });
+
+    unbanBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      if (!loadedUid) { showActionError('No user loaded.'); return; }
+      if (!confirm('Confirm unban for this user?')) return;
+      banBtn.disabled = true; unbanBtn.disabled = true;
+      actionStatus.textContent = 'Unbanning…';
+      const moderatorNote = banNote.value.trim() || 'Unbanned by admin';
+      try {
+        await unbanUserClient(loadedUid, { moderatorNote });
+        showActionSuccess('Unban recorded (client write).');
+        actionStatus.textContent = '';
+        try { await loadUserDocByUid(loadedUid); } catch(e){}
+      } catch (err) {
+        appendDebug('unban error', err);
+        if (err && err.code === 'permission-denied') {
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim OR change rules.');
+        } else {
+          showActionError('Unban failed — check console for details.');
+        }
+      } finally {
+        banBtn.disabled = false; unbanBtn.disabled = false;
+      }
+    });
+
+    refreshUserBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      if (!loadedUid) { actionStatus.textContent = 'No user loaded.'; return; }
+      actionStatus.textContent = 'Refreshing…';
+      try {
+        await loadUserDocByUid(loadedUid);
+        actionStatus.textContent = 'Refreshed.';
+      } catch (e) {
+        actionStatus.textContent = 'Refresh failed (permission?).';
+      }
+    });
+
+    searchEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchEmailBtn.click(); });
+    manualUid.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUidBtn.click(); });
+
+    // Auth guard
+    onAuthStateChanged(auth, async (user) => {
+      appendDebug('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
+      accessMsg.textContent = 'Auth state changed — checking...';
+
+      if (!user) {
+        accessMsg.textContent = 'Not signed in. Please sign in with the admin account.';
+        showUnauthorized('Please sign in as ' + ADMIN_EMAIL + '.');
+        return;
+      }
+
+      currentAdmin = user;
+
+      let tokenResult = null;
+      try {
+        tokenResult = await user.getIdTokenResult(true);
+        appendDebug('idTokenResult.claims =', tokenResult.claims);
+      } catch (e) {
+        appendDebug('getIdTokenResult failed', e);
+      }
+
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const adminEmail = (ADMIN_EMAIL || '').toLowerCase().trim();
+      const emailOk = userEmail === adminEmail;
+      const hasAdminClaim = !!(tokenResult && tokenResult.claims && (tokenResult.claims.admin === true || tokenResult.claims.admin == 'true'));
+
+      accessMsg.textContent = `Signed in as: ${userEmail} — emailOk: ${emailOk} — adminClaim: ${hasAdminClaim}`;
+
+      if (emailOk || hasAdminClaim) {
+        appendDebug('admin check passed', { emailOk, hasAdminClaim });
+        showMain();
+      } else {
+        appendDebug('admin check failed', { userEmail, ADMIN_EMAIL, claims: tokenResult && tokenResult.claims });
+        showUnauthorized(`Signed in as wrong account (${userEmail}). Sign in as ${ADMIN_EMAIL}.`);
+      }
+    });
+
+  </script>
+</body>
+</html>
