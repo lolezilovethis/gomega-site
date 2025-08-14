@@ -27,6 +27,16 @@
     .script-actions { display:flex; gap:8px; align-items:center; }
     small.time { color:var(--muted); display:block; margin-top:6px; font-size:0.85rem; }
 
+    /* Top tabs */
+    .top-tabs { display:flex; gap:8px; margin-bottom:16px; background:transparent; }
+    .tab { padding:8px 12px; border-radius:8px; cursor:pointer; border:1px solid rgba(255,255,255,0.04); background:transparent; color:#e6f9ff; }
+    .tab.active { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; }
+
+    /* Announcement / update cards */
+    .announce-card, .update-card { background:#151515; padding:12px; border-radius:8px; margin-bottom:10px; }
+    .announce-title { font-weight:700; color:#fff; margin-bottom:6px; }
+    .announce-body { color:var(--muted); white-space:pre-wrap; }
+
     /* Modal */
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:60; }
     .modal { background: #111; width: min(900px,95%); max-height:90vh; overflow:auto; border-radius:10px; padding:16px; box-shadow:0 12px 50px rgba(0,0,0,0.8); }
@@ -67,8 +77,16 @@
     </aside>
 
     <main class="main">
+      <!-- Top tab bar to switch sections -->
+      <div class="top-tabs" id="topTabs">
+        <div class="tab active" data-target="myScriptsSection">Scripts</div>
+        <div class="tab" data-target="announcementsSection">Announcements</div>
+        <div class="tab" data-target="updatesSection">Updates</div>
+        <div class="tab" data-target="otherSections">Other</div>
+      </div>
+
       <!-- My Scripts Section -->
-      <section class="section" id="myScriptsSection">
+      <section class="section" id="myScriptsSection" data-section>
         <h2>My Scripts</h2>
         <p class="hint">You can edit each script once every 30 days. You can delete any time. Brand names are locked after publishing.</p>
 
@@ -79,8 +97,45 @@
         <p id="noScriptsMsg" class="muted" style="display:none;">You haven't published any scripts yet. Click "Add New Script" to publish.</p>
       </section>
 
+      <!-- Announcements Section (new) -->
+      <section class="section" id="announcementsSection" data-section style="display:none;">
+        <h2>Announcements</h2>
+        <p class="hint">Official announcements from the Gomega team will appear here. If there are no announcements, this list will be empty.</p>
+
+        <div id="announcementsContainer">
+          <!-- announcements will load here -->
+          <div class="muted">Loading announcements…</div>
+        </div>
+      </section>
+
+      <!-- Updates Section (new) -->
+      <section class="section" id="updatesSection" data-section style="display:none;">
+        <h2>Updates</h2>
+        <p class="hint">Release notes and upcoming updates for Gomega products.</p>
+
+        <!-- Pinned update about V14.9.9 -->
+        <div class="update-card">
+          <div class="announce-title">🔔 Upcoming: Gomega Browser — V14.9.9</div>
+          <div class="announce-body">
+            The upcoming **V14.9.9** release for the Gomega Browser is planned as a focused stability & feature patch:
+            - Performance optimizations to reduce memory usage and startup time.
+            - Improvements to the activation key system (12-hour keys): better sync and validation across devices.
+            - Fixes for several reported issues with the AutoAnswer integration and Top Most window behavior.
+            - Security hardening for extension-style scripts and improved sandboxing of user scripts.
+            - Misc bugfixes and UI polish for the activation screen.
+
+            This is a pinned summary — more granular release notes will appear below when available.
+          </div>
+        </div>
+
+        <div id="updatesContainer">
+          <!-- updates from Firestore will load here -->
+          <div class="muted">Loading updates…</div>
+        </div>
+      </section>
+
       <!-- Placeholder: add more profile sections here -->
-      <section class="section" id="otherSections">
+      <section class="section" id="otherSections" data-section style="display:none;">
         <h2>Other sections</h2>
         <p class="muted">Copy the "My Scripts" block to add more sections like "My Claims", "My Announcements", etc.</p>
       </section>
@@ -170,6 +225,11 @@
     const scriptsContainer = document.getElementById('scriptsContainer');
     const noScriptsMsg = document.getElementById('noScriptsMsg');
 
+    // New DOM elements for announcements and updates
+    const announcementsContainer = document.getElementById('announcementsContainer');
+    const updatesContainer = document.getElementById('updatesContainer');
+    const topTabs = document.getElementById('topTabs');
+
     // Modals & form
     const editBackdrop = document.getElementById('editModalBackdrop');
     const editForm = document.getElementById('editForm');
@@ -194,6 +254,8 @@
 
     let currentUser = null;
     let unsubscribe = null;
+    let annUnsub = null;
+    let updatesUnsub = null;
     let editingScriptId = null;
     let deletingScriptId = null;
 
@@ -305,6 +367,58 @@
       scripts.forEach(s => {
         const card = createScriptCard(s.id, s);
         scriptsContainer.appendChild(card);
+      });
+    }
+
+    // Render announcements
+    function renderAnnouncements(docs) {
+      announcementsContainer.innerHTML = '';
+      if (!docs.length) {
+        announcementsContainer.innerHTML = '<div class="muted">No announcements at the moment.</div>';
+        return;
+      }
+      docs.forEach(a => {
+        const el = document.createElement('div');
+        el.className = 'announce-card';
+        const title = document.createElement('div');
+        title.className = 'announce-title';
+        title.textContent = a.title || 'Announcement';
+        const body = document.createElement('div');
+        body.className = 'announce-body';
+        body.innerText = a.body || '';
+        const time = document.createElement('small');
+        time.className = 'time';
+        time.textContent = `Posted: ${formatDate(a.timestamp)}`;
+        el.appendChild(title);
+        el.appendChild(body);
+        el.appendChild(time);
+        announcementsContainer.appendChild(el);
+      });
+    }
+
+    // Render updates
+    function renderUpdates(docs) {
+      updatesContainer.innerHTML = '';
+      if (!docs.length) {
+        updatesContainer.innerHTML = '<div class="muted">No updates available.</div>';
+        return;
+      }
+      docs.forEach(u => {
+        const el = document.createElement('div');
+        el.className = 'update-card';
+        const title = document.createElement('div');
+        title.className = 'announce-title';
+        title.textContent = u.title || 'Update';
+        const body = document.createElement('div');
+        body.className = 'announce-body';
+        body.innerText = u.body || '';
+        const time = document.createElement('small');
+        time.className = 'time';
+        time.textContent = `Posted: ${formatDate(u.timestamp)}`;
+        el.appendChild(title);
+        el.appendChild(body);
+        el.appendChild(time);
+        updatesContainer.appendChild(el);
       });
     }
 
@@ -438,7 +552,25 @@
       }
     });
 
-    // Listen for auth and user's scripts
+    // Tab switching logic
+    function showSection(id) {
+      const sections = document.querySelectorAll('[data-section]');
+      sections.forEach(s => s.style.display = 'none');
+      const target = document.getElementById(id);
+      if (target) target.style.display = '';
+      // update active tab class
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      const tab = document.querySelector(`.tab[data-target="${id}"]`);
+      if (tab) tab.classList.add('active');
+    }
+    topTabs.addEventListener('click', (ev) => {
+      const tab = ev.target.closest('.tab');
+      if (!tab) return;
+      const target = tab.getAttribute('data-target');
+      if (target) showSection(target);
+    });
+
+    // Listen for auth and user's scripts + announcements + updates
     onAuthStateChanged(auth, user => {
       if (!user) {
         // redirect to signin if not signed in
@@ -448,8 +580,10 @@
       currentUser = user;
       userEmailEl.textContent = `Signed in as ${user.email || user.displayName || user.uid}`;
 
-      // unsubscribe previous listener if any
+      // unsubscribe previous listeners if any
       if (unsubscribe) unsubscribe();
+      if (annUnsub) annUnsub();
+      if (updatesUnsub) updatesUnsub();
 
       // query approved_scripts where submittedBy == uid
       const q = query(collection(db, 'approved_scripts'), where('submittedBy', '==', user.uid));
@@ -472,6 +606,66 @@
         console.error('snapshot error', err);
         scriptsContainer.innerHTML = '<div class="muted">Failed to load scripts. Check your Firestore rules.</div>';
       });
+
+      // Listen for global announcements (collection: announcements)
+      try {
+        const annCol = collection(db, 'announcements');
+        annUnsub = onSnapshot(annCol, snap => {
+          const items = [];
+          snap.forEach(d => {
+            const data = d.data();
+            items.push({
+              id: d.id,
+              title: data.title,
+              body: data.body,
+              timestamp: data.timestamp
+            });
+          });
+          // sort by timestamp desc if timestamp exists
+          items.sort((a,b) => {
+            const ta = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime()) : 0;
+            const tb = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime()) : 0;
+            return tb - ta;
+          });
+          renderAnnouncements(items);
+        }, err => {
+          console.warn('announcements snapshot failed', err);
+          announcementsContainer.innerHTML = '<div class="muted">Failed to load announcements.</div>';
+        });
+      } catch (err) {
+        console.warn('announcements listener error', err);
+        announcementsContainer.innerHTML = '<div class="muted">Announcements unavailable.</div>';
+      }
+
+      // Listen for updates (collection: updates)
+      try {
+        const updatesCol = collection(db, 'updates');
+        updatesUnsub = onSnapshot(updatesCol, snap => {
+          const items = [];
+          snap.forEach(d => {
+            const data = d.data();
+            items.push({
+              id: d.id,
+              title: data.title,
+              body: data.body,
+              timestamp: data.timestamp
+            });
+          });
+          // sort by timestamp desc
+          items.sort((a,b) => {
+            const ta = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime()) : 0;
+            const tb = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime()) : 0;
+            return tb - ta;
+          });
+          renderUpdates(items);
+        }, err => {
+          console.warn('updates snapshot failed', err);
+          updatesContainer.innerHTML = '<div class="muted">Failed to load updates.</div>';
+        });
+      } catch (err) {
+        console.warn('updates listener error', err);
+        updatesContainer.innerHTML = '<div class="muted">Updates unavailable.</div>';
+      }
     });
 
     // small helpers for optional navigation
@@ -485,6 +679,9 @@
         if (deleteBackdrop.style.display === 'flex') closeDelete();
       }
     });
+
+    // initialize: show scripts section by default
+    showSection('myScriptsSection');
 
   </script>
 </body>
