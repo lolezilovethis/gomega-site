@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Account Suspended — Gomega Watch</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root{
+      --bg:#0f0f10; --card:#141416; --muted:#a6a6a6; --accent:#00d4ff; --danger:#ff5252;
+      --glass: rgba(255,255,255,0.02);
+    }
+    html,body{height:100%; margin:0; font-family:Inter,Arial,Helvetica,sans-serif; background:linear-gradient(180deg,#0b0b0c,#0f0f10); color:#eef2f3;}
+    .wrap{max-width:960px;margin:36px auto;padding:20px;}
+    .card{background:var(--card); border-radius:12px; padding:20px; box-shadow:0 10px 40px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.02);}
+    h1{color:var(--accent); margin:0 0 6px 0;}
+    .sub{color:var(--muted); margin-bottom:16px;}
+    .ban-list{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+    .ban{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border-radius:8px; padding:12px; border:1px solid rgba(255,255,255,0.03);}
+    .ban.active{outline: 2px solid rgba(0,212,255,0.14); box-shadow: 0 8px 30px rgba(0,212,255,0.04) inset;}
+    .ban .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
+    .tag{font-weight:700; padding:6px 8px; border-radius:6px; font-size:0.85rem;}
+    .tag.duration{background:rgba(255,255,255,0.02);}
+    .left{flex:1;}
+    .meta{color:var(--muted); font-size:0.9rem; margin-top:8px;}
+    .reason{font-weight:700; color:#fff; margin-top:8px;}
+    .note{background:rgba(0,0,0,0.25); padding:10px; border-radius:6px; margin-top:8px; color:var(--muted); font-size:0.95rem;}
+    .actions{display:flex;gap:8px;margin-top:12px;}
+    .btn{background:linear-gradient(90deg,var(--accent),#0066ff); color:#001; padding:10px 12px; border-radius:8px; font-weight:700; border:none; cursor:pointer;}
+    .btn.ghost{background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.04);}
+    .btn.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040); color:#fff;}
+    .muted{color:var(--muted);}
+    .small{font-size:0.9rem;}
+    .center{display:flex; align-items:center; justify-content:center;}
+    .notice{background:linear-gradient(90deg, rgba(255,212,0,0.06), rgba(255,255,255,0.01)); border-left:4px solid rgba(255,212,0,0.25); padding:10px; border-radius:6px; color:#fff; margin-top:12px;}
+    .hidden{display:none;}
+    a.link{color:var(--accent); text-decoration:none; font-weight:700;}
+    pre.code{background:#0b0b0c;padding:10px;border-radius:6px;overflow:auto;color:#d3f6ff;font-size:0.92rem;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="mainCard">
+      <h1>Account Suspended</h1>
+      <div class="sub">Your account has been suspended due to one or more policy violations. This page lists your ban history and the current suspension details.</div>
+
+      <!-- Summary area -->
+      <div id="summary" class="card" style="margin-bottom:14px; padding:14px; background:var(--glass);">
+        <div id="summaryText" class="muted">Loading ban information…</div>
+      </div>
+
+      <!-- Ban list -->
+      <div>
+        <h3 style="margin:0 0 6px 0">Ban history</h3>
+        <p class="muted small">Multiple bans are shown below. Active/most recent ban is highlighted.</p>
+
+        <div id="banList" class="ban-list">
+          <!-- ban cards injected here -->
+        </div>
+      </div>
+
+      <div class="notice" id="appealNotice">
+        <strong>To request an appeal</strong>: visit <a class="link" href="/violations">Violations &amp; Appeals</a> and follow the instructions. Include any relevant details and dates.
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
+        <button id="goHome" class="btn ghost">Go to Homepage</button>
+        <button id="reactivateBtn" class="btn" disabled>Reactivate (when available)</button>
+      </div>
+
+      <p class="muted small" style="margin-top:10px;">If you believe this is a mistake contact <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a>.</p>
+    </div>
+  </div>
+
+  <script type="module">
+    // Redirect snippet for other pages (copy/paste):
+    // ------------------------------------------------
+    // import { auth, db } from './js/firebase.js';
+    // import { onAuthStateChanged, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    // import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // onAuthStateChanged(auth, async user => {
+    //   if (!user) return;
+    //   const udoc = await getDoc(doc(db, 'users', user.uid));
+    //   if (udoc.exists() && udoc.data().banned === true) {
+    //     location.href = '/not-approved';
+    //   }
+    // });
+    // ------------------------------------------------
+    // Paste the above into the top of any page where banned users should be forced to /not-approved.
+
+    import { auth, db } from './js/firebase.js';
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const summaryText = document.getElementById('summaryText');
+    const banListEl = document.getElementById('banList');
+    const goHomeBtn = document.getElementById('goHome');
+    const reactivateBtn = document.getElementById('reactivateBtn');
+
+    let currentUser = null;
+    let userDoc = null;
+
+    function fmtDate(ts) {
+      if (!ts) return '—';
+      try {
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        // show local time with timezone label
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch (e) {
+        return String(ts);
+      }
+    }
+
+    function makeBanCard(ban, idx, active) {
+      const el = document.createElement('div');
+      el.className = 'ban' + (active ? ' active' : '');
+      // header row
+      const header = document.createElement('div');
+      header.className = 'row';
+      const left = document.createElement('div');
+      left.className = 'left';
+      const title = document.createElement('div');
+      title.innerHTML = `<div style="font-weight:800">${ban.title || 'Suspension'}</div>`;
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.innerHTML = `
+        <span class="tag duration">${ban.lengthText || ban.length || '—'}</span>
+        &nbsp; • &nbsp; Reviewed: <strong>${fmtDate(ban.reviewedAt)}</strong>
+        &nbsp; • &nbsp; Start: <strong>${fmtDate(ban.start)}</strong>
+        &nbsp; • &nbsp; Reactivate: <strong>${fmtDate(ban.end)}</strong>
+      `;
+      left.appendChild(title);
+      left.appendChild(meta);
+
+      header.appendChild(left);
+      el.appendChild(header);
+
+      // reason
+      const reason = document.createElement('div');
+      reason.className = 'reason';
+      reason.textContent = `Reason: ${ban.reason || '—'}`;
+      el.appendChild(reason);
+
+      // offensive item / place
+      if (ban.offensiveItem) {
+        const off = document.createElement('div');
+        off.className = 'muted small';
+        off.textContent = `Offensive Item: ${ban.offensiveItem}`;
+        el.appendChild(off);
+      }
+
+      // moderator note
+      if (ban.moderatorNote) {
+        const note = document.createElement('div');
+        note.className = 'note';
+        note.innerHTML = `<strong>Moderator Note:</strong><br>${ban.moderatorNote}`;
+        el.appendChild(note);
+      }
+
+      return el;
+    }
+
+    async function attemptReactivate(uid) {
+      reactivateBtn.disabled = true;
+      reactivateBtn.textContent = 'Reactivating…';
+
+      try {
+        // Attempt client-side unban. This requires your Firestore rules to permit this for the user,
+        // otherwise this will throw a permission error. You can replace this with a Cloud Function
+        // call that performs admin-safe unban if you prefer server-side control.
+        const userRef = doc(db, 'users', uid);
+        // set banned:false and record reactivatedAt
+        await updateDoc(userRef, { banned: false, reactivatedAt: serverTimestamp() });
+
+        // Optionally, you may want to mark the last ban entry with reactivatedAt — this front-end does not modify nested arrays.
+        alert('Your account has been reactivated (client-sided change). If this failed server-side, contact support.');
+        location.href = '/';
+      } catch (err) {
+        console.error('reactivate failed', err);
+        // If permission denied or other error, show instructions
+        alert('Unable to automatically reactivate your account. Please contact support or file an appeal via Violations & Appeals.');
+        reactivateBtn.disabled = false;
+        reactivateBtn.textContent = 'Reactivate (when available)';
+      }
+    }
+
+    // When user clicks home
+    goHomeBtn.addEventListener('click', () => location.href = '/');
+
+    // Reactivate button
+    reactivateBtn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      // double-check expiry
+      const now = Date.now();
+      // find active bans where end <= now
+      const activeBans = (userDoc?.bans || []).filter(b => {
+        try {
+          const end = b.end && b.end.toDate ? b.end.toDate().getTime() : (new Date(b.end)).getTime();
+          return end && end <= now;
+        } catch (e) { return false; }
+      });
+      if (!activeBans.length) {
+        alert('Reactivation is not yet available for your account.');
+        return;
+      }
+      // Attempt reactivate
+      if (!confirm('Reactivate your account now? This will attempt to clear the suspension flag.')) return;
+      await attemptReactivate(currentUser.uid);
+    });
+
+    // Main: check auth and load ban info
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // If not signed in, show a generic message and link to sign in
+        summaryText.innerHTML = 'You are not signed in. <a class="link" href="/signin">Sign in</a> to view details about your account.';
+        document.getElementById('mainCard').scrollIntoView();
+        return;
+      }
+      currentUser = user;
+
+      try {
+        const uRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(uRef);
+        if (!snap.exists()) {
+          summaryText.innerHTML = 'No account information found. If you believe this is an error, contact support.';
+          return;
+        }
+        userDoc = snap.data();
+
+        // Expected structure:
+        // userDoc.banned === true/false
+        // userDoc.bans === [ { title, reason, moderatorNote, offensiveItem, reviewedAt: Timestamp, start: Timestamp, end: Timestamp, lengthText } , ... ]
+        const isBanned = !!userDoc.banned || (Array.isArray(userDoc.bans) && userDoc.bans.some(b => {
+          try {
+            const now = Date.now();
+            const end = b.end && b.end.toDate ? b.end.toDate().getTime() : (new Date(b.end)).getTime();
+            const start = b.start && b.start.toDate ? b.start.toDate().getTime() : (new Date(b.start)).getTime();
+            return (!end || end > now) && (!start || start <= now);
+          } catch { return false; }
+        }));
+
+        // If not banned, redirect away — this page is for suspended accounts only
+        if (!isBanned) {
+          // Optional: redirect to home so the user doesn't see this page
+          location.href = '/';
+          return;
+        }
+
+        // Build summary showing next reactivation if available
+        let nextReactivation = null;
+        const now = Date.now();
+        const bans = Array.isArray(userDoc.bans) ? userDoc.bans : [];
+
+        // Normalize timestamps (if using Firestore Timestamps)
+        const normalized = bans.map(b => {
+          const copy = {...b};
+          try {
+            if (b.reviewedAt && b.reviewedAt.toDate) copy.reviewedAt = b.reviewedAt.toDate();
+            else if (b.reviewedAt) copy.reviewedAt = new Date(b.reviewedAt);
+            if (b.start && b.start.toDate) copy.start = b.start.toDate();
+            else if (b.start) copy.start = new Date(b.start);
+            if (b.end && b.end.toDate) copy.end = b.end.toDate();
+            else if (b.end) copy.end = new Date(b.end);
+          } catch(e) {}
+          return copy;
+        });
+
+        // Determine active/most recent ban
+        const activeBans = normalized.filter(b => {
+          try {
+            if (!b.start && !b.end) return true;
+            const s = b.start ? b.start.getTime() : -Infinity;
+            const e = b.end ? b.end.getTime() : Infinity;
+            return s <= now && now <= e;
+          } catch { return false; }
+        });
+
+        // sort descending by reviewedAt or start
+        normalized.sort((A,B) => {
+          const a = (A.reviewedAt && A.reviewedAt.getTime()) || (A.start && A.start.getTime()) || 0;
+          const b = (B.reviewedAt && B.reviewedAt.getTime()) || (B.start && B.start.getTime()) || 0;
+          return b - a;
+        });
+
+        // show summary text
+        if (activeBans.length) {
+          const a = activeBans[0];
+          const reactivateStr = a.end ? a.end.toLocaleString() : 'Unknown';
+          summaryText.innerHTML = `
+            <strong class="small">Banned until</strong>
+            <div style="font-weight:800; font-size:1.05rem; margin-top:6px;">${reactivateStr}</div>
+            <div class="muted small" style="margin-top:6px;">Reason: ${a.reason || '—'}</div>
+          `;
+        } else {
+          // no active bans but banned flag true — show most recent
+          const recent = normalized[0];
+          const expiry = recent && recent.end ? recent.end.toLocaleString() : 'Unknown';
+          summaryText.innerHTML = `
+            <div class="muted small">Your account is suspended (recent ban ended ${expiry}). You may be eligible to reactivate.</div>
+          `;
+        }
+
+        // Render ban list
+        banListEl.innerHTML = '';
+        normalized.forEach((b, i) => {
+          const isActive = (activeBans.findIndex(x => x === b) >= 0) || false;
+          const card = makeBanCard({
+            title: b.title || `Suspension #${i+1}`,
+            reviewedAt: b.reviewedAt || b.reviewed || b.timestamp || b.start || null,
+            start: b.start || b.reviewedAt || null,
+            end: b.end || null,
+            lengthText: b.lengthText || b.duration || b.length || 'Temporary',
+            reason: b.reason || 'Violation of Terms of Use',
+            moderatorNote: b.moderatorNote || b.note || '',
+            offensiveItem: b.offensiveItem || b.offensive || ''
+          }, i, isActive);
+          banListEl.appendChild(card);
+        });
+
+        // Enable reactivate button only if at least one ban's end <= now
+        const reactivatables = normalized.filter(b => b.end && (b.end.getTime() <= now));
+        if (reactivatables.length) {
+          reactivateBtn.disabled = false;
+          reactivateBtn.textContent = 'Reactivate (available)';
+        } else {
+          reactivateBtn.disabled = true;
+          reactivateBtn.textContent = 'Reactivate (when available)';
+        }
+      } catch (err) {
+        console.error('Failed to load user/ban info', err);
+        summaryText.innerHTML = 'Failed to load ban information. If this persists, contact support.';
+      }
+    });
+  </script>
+</body>
+</html>
