@@ -52,9 +52,7 @@
     .modal h3{margin-top:0;color:var(--accent);font-size:1.1rem}
     .modal .warn{background:rgba(255,82,82,0.06);border-left:4px solid rgba(255,82,82,0.18);padding:12px;border-radius:8px;color:#ffdede;margin-top:12px}
     .modal .controls{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-    /* ensure hidden modal never flashes */
     .modal-backdrop.hidden{display:none !important;pointer-events:none}
-    /* improved layout on small screens */
     @media (max-width:780px){ .two{grid-template-columns:1fr} header.page-header{flex-direction:column;align-items:flex-start;gap:6px} }
   </style>
 </head>
@@ -198,8 +196,7 @@
     </div>
   </div>
 
-  <!-- Permanent ban confirmation modal (hidden by default) -->
-  <!-- NOTE: we explicitly set inline style display:none to avoid modal flashing -->
+  <!-- Permanent ban modal -->
   <div id="permModal" class="modal-backdrop hidden" aria-hidden="true" style="display:none;">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="permModalTitle">
       <h3 id="permModalTitle">Permanent ban — confirmation</h3>
@@ -222,7 +219,7 @@
     import { auth, db } from '/js/firebase.js';
     import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs, serverTimestamp
+      doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs, serverTimestamp, getDocFromServer
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // UI refs
@@ -331,7 +328,7 @@
       }
     }
 
-    // normalize & render bans (improved so unban logs won't look like active bans)
+    // normalize & render bans (so unban logs won't look like active bans)
     function renderBans(bansArray) {
       if (!Array.isArray(bansArray) || bansArray.length === 0) {
         banHistory.innerHTML = '<div class="small muted">No bans recorded for this user.</div>';
@@ -462,46 +459,54 @@
       try {
         const nowIso = new Date().toISOString();
         const uref = doc(db, 'users', uid);
-        const snap = await getDoc(uref);
-        if (!snap.exists()) throw new Error('User document does not exist.');
+
+        // Try to fetch fresh server copy first, fallback to cached getDoc
+        let snap = null;
+        try {
+          if (typeof getDocFromServer === 'function') {
+            snap = await getDocFromServer(uref);
+          } else {
+            throw new Error('getDocFromServer not available');
+          }
+        } catch (e) {
+          // fallback
+          snap = await getDoc(uref);
+        }
+
+        if (!snap || !snap.exists()) throw new Error('User document does not exist.');
         const data = snap.data();
         const bans = Array.isArray(data.bans) ? data.bans.slice() : [];
 
         let modified = false;
         for (let i = 0; i < bans.length; i++) {
           const b = bans[i];
-          const sMs = b.start ? new Date(b.start).getTime() : -Infinity;
-          const eMs = b.end ? new Date(b.end).getTime() : Infinity;
-          if ((b.action === 'ban' || b.action === 'ban-permanent' || !b.action) && (!b.end || eMs > Date.now())) {
-            bans[i] = {
-              ...b,
-              end: b.end ? b.end : nowIso,
-              reactivatedAt: nowIso,
-              moderatorNote: (b.moderatorNote ? b.moderatorNote + ' | ' : '') + (moderatorNote || 'Unbanned by admin'),
-              action: (b.action === 'ban-permanent' ? 'ban-permanent-closed' : 'ban-closed')
-            };
-            modified = true;
+          try {
+            const sMs = b.start ? (b.start.toDate ? b.start.toDate().getTime() : new Date(b.start).getTime()) : -Infinity;
+            const eMs = b.end ? (b.end.toDate ? b.end.toDate().getTime() : new Date(b.end).getTime()) : Infinity;
+            // If this is a ban-like entry and it's active (no end or end in future) -> close it
+            if ((b.action === 'ban' || b.action === 'ban-permanent' || !b.action) && (!b.end || eMs > Date.now())) {
+              bans[i] = {
+                ...b,
+                end: nowIso,
+                reactivatedAt: nowIso,
+                moderatorNote: (b.moderatorNote ? b.moderatorNote + ' | ' : '') + (moderatorNote || 'Unbanned by admin'),
+                action: (b.action === 'ban-permanent' ? 'ban-permanent-closed' : 'ban-closed')
+              };
+              modified = true;
+            }
+          } catch (e) {
+            // ignore per-item errors and continue
+            appendDebug('unbanUserClient: item parse error', e);
           }
         }
 
-        if (!modified) {
-          const audit = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-            action: 'unban',
-            moderatorNote: moderatorNote || 'Unbanned by admin',
-            moderatorUid: currentAdmin.uid,
-            start: nowIso,
-            end: nowIso,
-            reviewedAt: nowIso
-          };
-          bans.push(audit);
-        }
-
-        await updateDoc(uref, {
+        const updateObj = {
           banned: false,
-          bans: bans,
           lastUnbannedAt: serverTimestamp()
-        });
+        };
+        if (modified) updateObj.bans = bans;
+
+        await updateDoc(uref, updateObj);
 
         return { success: true, modified };
       } catch (err) {
@@ -574,6 +579,7 @@
             searchStatus.textContent = 'No user doc found.';
           }
         } catch (e) {
+          u_name.textContent = '(error)';
           searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
         }
       } catch (err) {
@@ -635,13 +641,13 @@
     unbanBtn.addEventListener('click', async () => {
       clearActionMessages();
       if (!loadedUid) { showActionError('No user loaded.'); return; }
-      if (!confirm('Confirm unban for this user?')) return;
+      if (!confirm('Confirm unban for this user? This will mark active bans as closed but keep the history visible.')) return;
       banBtn.disabled = true; unbanBtn.disabled = true; permBanBtn.disabled = true;
       actionStatus.textContent = 'Unbanning…';
       const moderatorNote = banNote.value.trim() || 'Unbanned by admin';
       try {
-        await unbanUserClient(loadedUid, { moderatorNote });
-        showActionSuccess('Unban recorded (client write).');
+        const res = await unbanUserClient(loadedUid, { moderatorNote });
+        showActionSuccess('Unban recorded (active bans closed).');
         actionStatus.textContent = '';
         try { await loadUserDocByUid(loadedUid); } catch(e){}
       } catch (err) {
@@ -662,17 +668,14 @@
       permStep = 1;
       permStepNum.textContent = permStep;
       permWarnText.textContent = 'Your response will be recorded and if you do this without permission you might be sued';
-      // ensure modal is visible (both class and inline style toggled for robustness)
       permModal.classList.remove('hidden');
       permModal.style.display = 'flex';
       permModal.setAttribute('aria-hidden','false');
     }
     function closePermModal() {
-      // hide modal in both ways to avoid flashing
       permModal.classList.add('hidden');
       permModal.style.display = 'none';
       permModal.setAttribute('aria-hidden','true');
-      // reset step so next open starts from 1
       permStep = 0;
       permStepNum.textContent = '1';
     }
@@ -682,23 +685,17 @@
     });
 
     permConfirm.addEventListener('click', async () => {
-      // If not at final step, increment and change message
       if (permStep < 3) {
         permStep++;
         permStepNum.textContent = permStep;
-        // keep the same warning text for each step (per your requirement)
-        permWarnText.textContent = 'Your response will be recorded and if you do this without permission you might be sued';
-        // subtle variation to emphasize seriousness
         if (permStep === 2) {
           permWarnText.textContent += ' — THIS IS A SERIOUS ACTION.';
         } else if (permStep === 3) {
           permWarnText.textContent += ' — FINAL CONFIRMATION. THIS ACTION IS IRREVERSIBLE FROM THE CLIENT.';
         }
-        // if not final step, bail out and wait for next click
         if (permStep < 3) return;
       }
 
-      // Step 3 confirmed: perform permanent ban
       if (!loadedUid) { showActionError('No user loaded.'); closePermModal(); return; }
       permConfirm.disabled = true;
       permCancel.disabled = true;
@@ -725,12 +722,6 @@
         permCancel.disabled = false;
         closePermModal();
       }
-    });
-
-    permBanBtn.addEventListener('click', () => {
-      // show modal with 3-step confirmation
-      if (!loadedUid) { showActionError('Load a user first'); return; }
-      openPermModal();
     });
 
     refreshUserBtn.addEventListener('click', async () => {
