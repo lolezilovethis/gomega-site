@@ -1,143 +1,93 @@
-// functions/index.js
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const functions = require("firebase-functions");
+const nodemailer = require("nodemailer");
+const express = require("express");
+const cors = require("cors");
+const crypto = require("crypto");
 
-admin.initializeApp();
+const app = express();
+app.use(express.json());
 
-const ADMIN_EMAIL = 'gomegaassist@gmail.com';
+// Allow requests only from your site
+const corsHandler = cors({
+  origin: "https://gomega.watch",
+});
 
-// Helpers for callable functions
-function requireAuth(context) {
-  if (!context || !context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
+// ---------------- EMAIL SYSTEM (optional) ----------------
+
+const GMAIL_USER = "your-email@gmail.com"; // replace with your Gmail
+const GMAIL_PASS = "your-app-password"; // use App Password, not your real password
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_PASS,
+  },
+});
+
+exports.sendEmail = functions.https.onRequest(async (req, res) => {
+  const {type, email, school} = req.body;
+
+  if (!email || !school || !type) {
+    return res.status(400).send("Missing required fields.");
   }
+
+  let subject = "";
+  let text = "";
+
+  switch (type) {
+    case "submitted":
+      subject = "Opt-Out Request Submitted";
+      text = `Your request to opt-out "${school}" has been received and is pending review.`;
+      break;
+    case "approved":
+      subject = "Opt-Out Request Approved";
+      text = `Your request for "${school}" has been approved.\n\nIt may take up to 7 days to delete and IP-ban all users from this school. Please be patient.`;
+      break;
+    case "declined":
+      subject = "Opt-Out Request Declined";
+      text = `Your request to opt-out "${school}" has been declined. Contact support for help.`;
+      break;
+    default:
+      return res.status(400).send("Invalid email type.");
+  }
+
+  try {
+    await transporter.sendMail({
+      from: `"Gomega Admin" <${GMAIL_USER}>`,
+      to: email,
+      subject,
+      text,
+    });
+
+    return res.status(200).send("Email sent.");
+  } catch (err) {
+    console.error("Email send error:", err);
+    return res.status(500).send("Failed to send email.");
+  }
+});
+
+// ---------------- KEY SYSTEM ----------------
+
+// Generate a key that changes every 12 hours
+function getCurrentKey() {
+  const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
+  const raw = "gomega-secret-salt" + interval;
+  return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12);
 }
-function requireAdminEmail(context) {
-  requireAuth(context);
-  const email = (context.auth.token && context.auth.token.email) || '';
-  if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-    throw new functions.https.HttpsError('permission-denied', 'Only the designated admin may perform this action.');
-  }
-}
 
-// getUserByEmail — callable. Returns auth info + Firestore users/{uid} doc (if present)
-exports.getUserByEmail = functions.region('us-central1').https.onCall(async (data, context) => {
-  requireAdminEmail(context);
-
-  const email = (data && data.email || '').toLowerCase().trim();
-  if (!email) {
-    throw new functions.https.HttpsError('invalid-argument', 'Email is required.');
-  }
-
-  try {
-    const userRecord = await admin.auth().getUserByEmail(email);
-    const uid = userRecord.uid;
-
-    // fetch users/{uid} doc (admin server-side read)
-    let docData = null;
-    try {
-      const snap = await admin.firestore().doc(`users/${uid}`).get();
-      docData = snap.exists ? snap.data() : null;
-    } catch (e) {
-      console.error('Warning: failed to read users/{uid} doc for', uid, e);
-      docData = null;
-    }
-
-    return {
-      uid,
-      email: userRecord.email || null,
-      displayName: userRecord.displayName || null,
-      doc: docData
-    };
-  } catch (err) {
-    console.error('getUserByEmail error', err);
-    if (err.code && err.code.includes('auth/user-not-found')) {
-      throw new functions.https.HttpsError('not-found', 'User not found.');
-    }
-    throw new functions.https.HttpsError('internal', err.message || 'Failed to get user.');
-  }
+// Route: GET /key
+app.get("/key", corsHandler, (req, res) => {
+  const key = getCurrentKey();
+  res.json({key});
 });
 
-// banUser — callable. Appends ban record and sets banned flag in users/{uid}
-exports.banUser = functions.region('us-central1').https.onCall(async (data, context) => {
-  requireAdminEmail(context);
-
-  const { uid, lengthDays, reason, moderatorNote, offensiveItem, title } = (data || {});
-  if (!uid) throw new functions.https.HttpsError('invalid-argument', 'uid required');
-
-  try {
-    const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
-
-    let endTimestamp = null;
-    if (typeof lengthDays === 'number' && isFinite(lengthDays) && lengthDays > 0) {
-      endTimestamp = admin.firestore.Timestamp.fromMillis(Date.now() + (lengthDays * 24 * 60 * 60 * 1000));
-    }
-
-    const banEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-      title: title || `Ban by ${context.auth.uid}`,
-      reason: reason || 'Violation of Terms',
-      moderatorNote: moderatorNote || '',
-      offensiveItem: offensiveItem || '',
-      start: now,
-      end: endTimestamp,
-      reviewedAt: now,
-      action: 'ban',
-      moderatorUid: context.auth.uid
-    };
-
-    const userRef = db.doc(`users/${uid}`);
-    await userRef.set({
-      banned: true,
-      bans: admin.firestore.FieldValue.arrayUnion(banEntry)
-    }, { merge: true });
-
-    // Optionally, set a banned custom claim too (not required for this flow)
-    // const existing = (await admin.auth().getUser(uid)).customClaims || {};
-    // await admin.auth().setCustomUserClaims(uid, Object.assign({}, existing, { banned: true }));
-
-    return { success: true, banEntry };
-  } catch (err) {
-    console.error('banUser error', err);
-    throw new functions.https.HttpsError('internal', err.message || 'Failed to ban user');
-  }
+// Route: POST /verify-key
+app.post("/verify-key", corsHandler, (req, res) => {
+  const {key} = req.body;
+  const isValid = key === getCurrentKey();
+  res.json({valid: isValid});
 });
 
-// unbanUser — callable. Appends unban audit entry and clears banned flag in users/{uid}
-exports.unbanUser = functions.region('us-central1').https.onCall(async (data, context) => {
-  requireAdminEmail(context);
-
-  const { uid, moderatorNote } = (data || {});
-  if (!uid) throw new functions.https.HttpsError('invalid-argument', 'uid required');
-
-  try {
-    const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
-
-    const unbanEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-      action: 'unban',
-      moderatorNote: moderatorNote || '',
-      moderatorUid: context.auth.uid,
-      at: now
-    };
-
-    const userRef = db.doc(`users/${uid}`);
-    await userRef.set({
-      banned: false,
-      bans: admin.firestore.FieldValue.arrayUnion(unbanEntry)
-    }, { merge: true });
-
-    // Optionally remove banned custom claim
-    // const userRecord = await admin.auth().getUser(uid);
-    // const existing = userRecord.customClaims || {};
-    // const { banned, ...rest } = existing;
-    // await admin.auth().setCustomUserClaims(uid, rest);
-
-    return { success: true, unbanEntry };
-  } catch (err) {
-    console.error('unbanUser error', err);
-    throw new functions.https.HttpsError('internal', err.message || 'Failed to unban user');
-  }
-});
+// Export Express API
+exports.api = functions.https.onRequest(app);
