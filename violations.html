@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Violations & Appeals — Gomega Watch</title>
+  <title>Violations & Support — Gomega Watch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/style.css">
   <style>
@@ -16,39 +16,37 @@
     h1{margin:0 0 8px 0; color:var(--accent);}
     p.muted{color:var(--muted); margin:0 0 12px 0;}
     .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
-    label{display:block; font-size:0.9rem; color:var(--muted); margin-bottom:6px;}
-    input[type="text"], input[type="url"], textarea, select { width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); background:rgba(255,255,255,0.02); color:#eef2f3; box-sizing:border-box; }
-    textarea{min-height:120px; resize:vertical;}
+    .small{font-size:0.9rem; color:var(--muted);}
     .btn{background:linear-gradient(90deg,var(--accent),#0066ff); color:#001; padding:10px 12px; border-radius:8px; font-weight:700; border:none; cursor:pointer;}
     .btn.ghost{background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.04);}
     .btn.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040); color:#fff;}
-    .small{font-size:0.9rem; color:var(--muted);}
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .muted-note{background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; color:var(--muted); margin-top:8px;}
     .ban-list{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
     .ban{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border-radius:8px; padding:12px; border:1px solid rgba(255,255,255,0.03);}
     .ban.active{outline: 2px solid rgba(0,212,255,0.12);}
     .meta{color:var(--muted); font-size:0.9rem; margin-top:8px;}
-    .muted-note{background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; color:var(--muted); margin-top:8px;}
-    .admin-panel{margin-top:12px;}
+    .why-list{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:12px;}
+    .why-item{background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; color:var(--muted); font-size:0.95rem;}
+    .checklist{background:rgba(255,255,255,0.015); padding:12px; border-radius:8px; margin-top:10px;}
+    .hidden{display:none;}
     table { width:100%; border-collapse:collapse; margin-top:12px; }
     th,td { padding:8px 10px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.02); font-size:0.9rem; color:#dfeef0; }
     .tag { padding:4px 8px; border-radius:6px; font-weight:700; font-size:0.85rem; display:inline-block; }
     .tag.pending{ background:rgba(255,212,0,0.08); color: #ffd54f; }
     .tag.approved{ background:rgba(64,216,138,0.08); color:var(--success); }
     .tag.denied{ background:rgba(255,82,82,0.06); color:var(--danger); }
-    .flex-between{display:flex; justify-content:space-between; align-items:center;}
-    .note-small{font-size:0.85rem; color:var(--muted);}
     a.link{color:var(--accent); text-decoration:none;}
-    .hidden{display:none;}
-    @media (max-width:700px) { .row{flex-direction:column; align-items:stretch;} }
+    @media (max-width:700px) { .row{flex-direction:column; align-items:stretch;} .controls { justify-content:flex-start; } }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="flex-between">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
-          <h1>Violations & Appeals</h1>
-          <p class="muted">View your ban history and submit an appeal. Appeals are reviewed by staff — please include any relevant evidence and a clear explanation.</p>
+          <h1>Violations & Support</h1>
+          <p class="muted">View your ban history, download a ban report, and find instructions if you think a decision is unfair.</p>
         </div>
         <div class="small">
           <a class="link" href="/not-approved">Why am I here?</a> · <a class="link" href="/help">Help</a>
@@ -62,29 +60,65 @@
       <div id="banSummary" class="muted-note">Loading account info…</div>
 
       <div id="banList" class="ban-list" style="margin-top:12px;"></div>
+
+      <div class="controls" style="margin-top:12px;">
+        <button id="downloadReport" class="btn">📥 Download ban report</button>
+        <button id="copyTemplate" class="btn ghost">📋 Copy appeal template</button>
+        <button id="emailSupport" class="btn">✉️ Email Support</button>
+        <button id="openDiscord" class="btn">💬 Appeal on Discord</button>
+        <button id="prepareChecklist" class="btn ghost">🧾 Prepare appeal checklist</button>
+      </div>
+
+      <div id="supportNote" class="muted-note" style="margin-top:12px;">
+        If you believe this decision is unfair, please email us at
+        <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a>
+        or appeal in our Discord server: <a id="discordInvite" class="link" href="#" target="_blank">Join Discord</a>.
+        Include your UID (displayed below) and any relevant evidence (screenshots, timestamps, links).
+      </div>
     </div>
 
-    <!-- APPEAL FORM -->
-    <div class="card" id="appealCard">
-      <h2 style="margin-top:0">Submit an appeal</h2>
-      <p class="small">Filing an appeal will create a pending ticket for moderators. Do not submit duplicate appeals for the same suspension — update your appeal instead.</p>
+    <!-- WHY USERS GET BANNED -->
+    <div class="card" id="whyCard">
+      <h2 style="margin-top:0">Why users commonly get banned</h2>
+      <p class="small">Most bans are caused by a small number of rule violations. Below are the most frequent reasons and tips to avoid them.</p>
 
-      <form id="appealForm">
-        <label for="appealSubject">Subject</label>
-        <input id="appealSubject" name="subject" type="text" placeholder="e.g. Mistaken ban for DMCA violation" required>
-
-        <label for="appealMessage" style="margin-top:10px">Message / Explanation</label>
-        <textarea id="appealMessage" name="message" placeholder="Explain why you think the ban is incorrect, include dates, usernames, and context..." required></textarea>
-
-        <label for="evidenceUrl" style="margin-top:10px">Evidence URL (optional)</label>
-        <input id="evidenceUrl" name="evidence" type="url" placeholder="Direct link to screenshot or other evidence (optional)">
-
-        <div style="display:flex; gap:8px; margin-top:12px; align-items:center;">
-          <button class="btn" type="submit">Submit Appeal</button>
-          <button id="cancelAppeal" type="button" class="btn ghost">Clear</button>
-          <div id="appealStatus" class="small" style="margin-left:auto"></div>
+      <div class="why-list">
+        <div class="why-item">
+          <strong>Harassment / Hate Speech</strong>
+          <div class="small" style="margin-top:6px;">Abusive language, threats, or targeted harassment of other users. Tip: be respectful — delete aggressive messages and apologize if needed.</div>
         </div>
-      </form>
+        <div class="why-item">
+          <strong>Cheating / Exploits</strong>
+          <div class="small" style="margin-top:6px;">Using cheats, exploits, or tools that provide unfair advantage. Tip: stop using/existing cheat tools and provide proof you no longer use them.</div>
+        </div>
+        <div class="why-item">
+          <strong>Spam & Scams</strong>
+          <div class="small" style="margin-top:6px;">Mass messaging, phishing, or posting scam links. Tip: remove scam content and provide evidence of cleanup.</div>
+        </div>
+        <div class="why-item">
+          <strong>Impersonation</strong>
+          <div class="small" style="margin-top:6px;">Pretending to be staff, other users, or brands. Tip: keep accurate display names and avoid misleading claims.</div>
+        </div>
+        <div class="why-item">
+          <strong>Copyright / DMCA</strong>
+          <div class="small" style="margin-top:6px;">Sharing copyrighted material without permission. Tip: remove infringing content and provide proof of rights/permission.</div>
+        </div>
+        <div class="why-item">
+          <strong>Evading a Ban</strong>
+          <div class="small" style="margin-top:6px;">Creating alternate accounts to bypass previous bans. Tip: stop evasion and contact staff from the original account if possible.</div>
+        </div>
+      </div>
+
+      <div class="checklist" id="appealChecklist" style="display:none; margin-top:12px;">
+        <strong>Appeal checklist — what to include</strong>
+        <ol style="margin-top:8px;">
+          <li>Clear description of what happened and why you think the ban is wrong.</li>
+          <li>Timestamps and links (if referring to specific messages or posts).</li>
+          <li>Screenshots or recordings as evidence.</li>
+          <li>Your account UID (below) and any alt accounts you may have used.</li>
+          <li>Steps you took to fix the issue (removed content, uninstalled tools, etc.).</li>
+        </ol>
+      </div>
     </div>
 
     <!-- ADMIN PANEL (hidden unless admin) -->
@@ -101,26 +135,34 @@
     </div>
 
     <div class="small muted-note">
-      <strong>Note:</strong> For security, it's best to perform any permanent ban/unban actions using an admin-only server-side endpoint (Cloud Functions) rather than client-side updates. This page attempts client-side updates for convenience, but if your Firestore rules block those updates you'll need a server admin function.
+      <strong>Note:</strong> For security, it's best to perform any permanent ban/unban actions using an admin-only server-side endpoint (Cloud Functions) rather than client-side updates. This page provides convenience tools for preparing an appeal and contacting support.
     </div>
   </div>
 
   <script type="module">
-    // Violations & Appeals page
-    // Expects /js/firebase.js to export `auth` and `db` (named exports).
+    // Violations & Support page (updated — no client-side appeal submission)
     import { auth, db } from '/js/firebase.js';
     import { onAuthStateChanged, getIdTokenResult } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, updateDoc, getDocs
+      doc, getDoc, collection, query, orderBy, onSnapshot, updateDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const banSummary = document.getElementById('banSummary');
     const banListEl = document.getElementById('banList');
-    const appealForm = document.getElementById('appealForm');
-    const appealStatus = document.getElementById('appealStatus');
-    const cancelAppeal = document.getElementById('cancelAppeal');
+    const downloadReportBtn = document.getElementById('downloadReport');
+    const copyTemplateBtn = document.getElementById('copyTemplate');
+    const emailSupportBtn = document.getElementById('emailSupport');
+    const openDiscordBtn = document.getElementById('openDiscord');
+    const prepareChecklistBtn = document.getElementById('prepareChecklist');
+    const appealChecklist = document.getElementById('appealChecklist');
+    const discordInviteLink = document.getElementById('discordInvite');
+
     const adminPanel = document.getElementById('adminPanel');
     const appealsTbody = document.getElementById('appealsTbody');
+
+    // replace with your actual invite (or keep an endpoint that redirects to invite)
+    const DISCORD_INVITE = 'https://discord.gg/kZtW4y2Q7u';
+    discordInviteLink.href = DISCORD_INVITE;
 
     let currentUser = null;
     let currentUserDoc = null;
@@ -136,7 +178,6 @@
       }
     }
 
-    // make a ban card
     function makeBanCard(b, idx, active) {
       const el = document.createElement('div');
       el.className = 'ban' + (active ? ' active' : '');
@@ -183,9 +224,9 @@
         const bans = Array.isArray(data.bans) ? data.bans.slice().reverse() : [];
 
         if (bannedFlag || bans.length) {
-          banSummary.innerHTML = bannedFlag ? 'Your account is currently flagged as <strong>banned</strong>.' : 'Your account has suspension records.';
+          banSummary.innerHTML = bannedFlag ? `Your account is currently flagged as <strong>banned</strong> (UID: <code>${uid}</code>).` : 'Your account has suspension records.';
         } else {
-          banSummary.textContent = 'No active suspensions found on your account.';
+          banSummary.textContent = `No active suspensions found on your account (UID: ${uid}).`;
         }
 
         banListEl.innerHTML = '';
@@ -213,85 +254,104 @@
       }
     }
 
-    // Submit appeal
-    appealForm.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      appealStatus.textContent = '';
-      if (!currentUser) {
-        appealStatus.textContent = 'You must be signed in to submit an appeal.';
-        return;
-      }
-      const subject = document.getElementById('appealSubject').value.trim();
-      const message = document.getElementById('appealMessage').value.trim();
-      const evidence = document.getElementById('evidenceUrl').value.trim() || null;
-      if (!subject || !message) {
-        appealStatus.textContent = 'Subject and message are required.';
-        return;
-      }
+    // Build a ban report and trigger download
+    function downloadBanReport() {
+      if (!currentUser) return alert('Sign in to download your ban report.');
+      const payload = {
+        uid: currentUser.uid,
+        email: currentUser.email || null,
+        fetchedAt: new Date().toISOString(),
+        bans: currentUserDoc && currentUserDoc.bans ? currentUserDoc.bans : [],
+        bannedFlag: !!(currentUserDoc && currentUserDoc.banned)
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gomega-ban-report-${currentUser.uid}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
 
-      appealStatus.textContent = 'Submitting…';
+    // Copy a prefilled appeal template to clipboard
+    async function copyAppealTemplate() {
+      if (!currentUser) return alert('Sign in to copy an appeal template.');
+      const template = [
+        `Appeal for account: ${currentUser.uid}`,
+        `Email: ${currentUser.email || '(none)'}`,
+        '',
+        'Brief summary of the issue (what happened):',
+        '- ',
+        '',
+        'Why this ban is incorrect / mitigation steps taken:',
+        '- ',
+        '',
+        'Evidence links (screenshots, timestamps):',
+        '- ',
+        '',
+        'Anything else staff should know:',
+        '- '
+      ].join('\n');
       try {
-        const payload = {
-          uid: currentUser.uid,
-          email: currentUser.email || null,
-          subject,
-          message,
-          evidence,
-          status: 'pending',
-          createdAt: serverTimestamp(),
-        };
-        const docRef = await addDoc(collection(db, 'appeals'), payload);
-        appealStatus.textContent = 'Appeal submitted. Ticket ID: ' + docRef.id;
-        appealForm.reset();
-
-        // Optional: send a notification to a moderator webhook (server-side recommended)
-        // If you want client-side webhook calls, make sure webhook is protected server-side.
-        // Uncomment and replace WEBHOOK_URL if you have a protected endpoint that posts to Discord.
-        /*
-        try {
-          await fetch('/api/notify-moderators', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'appeal', id: docRef.id, uid: currentUser.uid, subject })
-          });
-        } catch (e) { console.warn('notify failed', e); }
-        */
-      } catch (err) {
-        console.error('submit appeal err', err);
-        appealStatus.textContent = 'Failed to submit appeal. Please try again later or contact support.';
+        await navigator.clipboard.writeText(template);
+        alert('Appeal template copied to clipboard. Paste it into an email or your Discord appeal message.');
+      } catch (e) {
+        console.error('copy failed', e);
+        alert('Unable to copy automatically. Please select and copy the following template manually:\n\n' + template);
       }
-    });
+    }
 
-    cancelAppeal.addEventListener('click', () => {
-      appealForm.reset();
-      appealStatus.textContent = '';
-    });
+    // Compose an email using mailto with prefilled subject/body
+    function openEmailSupport() {
+      if (!currentUser) return location.href = 'mailto:gomegaassist@gmail.com';
+      const subject = encodeURIComponent(`Appeal request — UID ${currentUser.uid}`);
+      const body = encodeURIComponent([
+        `Account UID: ${currentUser.uid}`,
+        `Registered email: ${currentUser.email || '(none)'}`,
+        '',
+        'Brief explanation (replace this text):',
+        '- '
+      ].join('\n'));
+      location.href = `mailto:gomegaassist@gmail.com?subject=${subject}&body=${body}`;
+    }
 
-    // ADMIN: render appeals table
+    // Open Discord invite
+    function openDiscord() {
+      window.open(DISCORD_INVITE, '_blank');
+    }
+
+    // Toggle checklist
+    function toggleChecklist() {
+      const show = appealChecklist.style.display !== 'block';
+      appealChecklist.style.display = show ? 'block' : 'none';
+    }
+
+    // ADMIN: render appeals row (if you still collect appeals server-side)
     function renderAppealsRow(docId, data) {
       const tr = document.createElement('tr');
       const created = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() : (data.createdAt ? String(data.createdAt) : '—');
-      const userCell = `<td><a class="link" href="/profile?uid=${data.uid}" target="_blank">${data.uid}</a><div class="note-small">${data.email || ''}</div></td>`;
+      const userCell = `<td><a class="link" href="/profile?uid=${data.uid}" target="_blank">${data.uid}</a><div class="small">${data.email || ''}</div></td>`;
       const subjectCell = `<td>${escapeHtml(data.subject || '')}</td>`;
-      const messageCell = `<td style="max-width:400px; white-space:pre-wrap;">${escapeHtml(data.message || '')}${data.evidence ? '<div class="note-small" style="margin-top:6px;"><a class="link" href="'+escapeAttr(data.evidence)+'" target="_blank">Evidence</a></div>' : ''}</td>`;
+      const messageCell = `<td style="max-width:400px; white-space:pre-wrap;">${escapeHtml(data.message || '')}${data.evidence ? '<div class="small" style="margin-top:6px;"><a class="link" href="'+escapeAttr(data.evidence)+'" target="_blank">Evidence</a></div>' : ''}</td>`;
       const statusCell = `<td><span class="tag ${data.status === 'pending' ? 'pending' : data.status === 'approved' ? 'approved' : 'denied'}">${escapeHtml(data.status||'pending')}</span></td>`;
       tr.innerHTML = `<td style="white-space:nowrap">${escapeHtml(created)}</td>${userCell}${subjectCell}${messageCell}${statusCell}<td></td>`;
-      // actions
+
       const actionsTd = tr.querySelector('td:last-child');
+
       const approveBtn = document.createElement('button');
       approveBtn.className = 'btn';
       approveBtn.textContent = 'Approve';
       approveBtn.addEventListener('click', async () => {
-        if (!confirm('Approve this appeal? Approving will mark appeal approved. Optionally ban/unban users below.')) return;
+        if (!confirm('Approve this appeal?')) return;
         try {
           await updateDoc(doc(db, 'appeals', docId), { status: 'approved', moderatedAt: serverTimestamp() });
-          // Optionally: update user's banned flag using admin action — recommend server-side
-          // Example of client-side update (requires appropriate Firestore rules):
-          // await updateDoc(doc(db,'users', data.uid), { banned: false });
         } catch (e) {
           alert('Failed to approve: ' + e.message);
         }
       });
+
       const denyBtn = document.createElement('button');
       denyBtn.className = 'btn danger';
       denyBtn.textContent = 'Deny';
@@ -310,9 +370,8 @@
       banToggle.style.marginLeft = '6px';
       banToggle.textContent = 'Toggle Ban';
       banToggle.addEventListener('click', async () => {
-        if (!confirm('Toggle banned flag for this user? This will flip the users/{uid}.banned boolean. Server-side recommended.')) return;
+        if (!confirm('Toggle banned flag for this user? Server-side recommended.')) return;
         try {
-          // fetch user doc current
           const uref = doc(db, 'users', data.uid);
           const usnap = await getDoc(uref);
           const udata = usnap.exists() ? usnap.data() : {};
@@ -320,7 +379,7 @@
           await updateDoc(uref, { banned: next, lastBanToggledAt: serverTimestamp() });
           alert('Updated banned flag to ' + String(next));
         } catch (e) {
-          alert('Failed to toggle ban: ' + e.message + '\nIf permission denied, implement a server admin function.');
+          alert('Failed to toggle ban: ' + e.message);
         }
       });
 
@@ -331,18 +390,22 @@
       return tr;
     }
 
-    // Load appeals for admin (real-time)
+    // Load appeals for admin if available
     function loadAdminAppeals() {
-      const q = query(collection(db, 'appeals'), orderBy('createdAt', 'desc'));
-      onSnapshot(q, snap => {
-        appealsTbody.innerHTML = '';
-        snap.docs.forEach(d => {
-          const row = renderAppealsRow(d.id, d.data());
-          appealsTbody.appendChild(row);
+      try {
+        const q = query(collection(db, 'appeals'), orderBy('createdAt', 'desc'));
+        onSnapshot(q, snap => {
+          appealsTbody.innerHTML = '';
+          snap.docs.forEach(d => {
+            const row = renderAppealsRow(d.id, d.data());
+            appealsTbody.appendChild(row);
+          });
+        }, err => {
+          console.error('appeals onSnapshot err', err);
         });
-      }, err => {
-        console.error('appeals onSnapshot err', err);
-      });
+      } catch (e) {
+        console.warn('Admin appeals load failed', e);
+      }
     }
 
     // Utilities
@@ -352,43 +415,38 @@
     }
     function escapeAttr(s){ return escapeHtml(s).replace(/"/g, '&quot;'); }
 
+    // Attach UI handlers
+    downloadReportBtn.addEventListener('click', downloadBanReport);
+    copyTemplateBtn.addEventListener('click', copyAppealTemplate);
+    emailSupportBtn.addEventListener('click', openEmailSupport);
+    openDiscordBtn.addEventListener('click', openDiscord);
+    prepareChecklistBtn.addEventListener('click', toggleChecklist);
+
     // Auth state
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        // Redirect to home or signin (we require sign-in)
-        // comment the next line if you want anonymous access
         location.href = '/signin';
         return;
       }
       currentUser = user;
-      // load user doc and bans
       await loadUserInfo(user.uid);
 
-      // determine admin privileges:
-      // 1) check users/{uid}.isAdmin
-      // 2) check custom claims admin via getIdTokenResult
+      // determine admin privileges: check users/{uid}.isAdmin and token claims
       try {
-        // check user doc for isAdmin
         const uref = doc(db, 'users', user.uid);
         const snap = await getDoc(uref);
         const src = snap.exists() ? snap.data() : {};
         if (src && src.isAdmin) {
           isAdmin = true;
         } else {
-          // check token claims
           try {
-            const token = await getIdTokenResult(user, /* forceRefresh */ false);
+            const token = await getIdTokenResult(user, false);
             if (token && token.claims && (token.claims.admin || token.claims.moderator || token.claims.staff)) {
               isAdmin = true;
             }
-          } catch (e) {
-            // ignore token read errors
-            console.warn('getIdTokenResult error', e);
-          }
+          } catch (e) { console.warn('getIdTokenResult error', e); }
         }
-      } catch (err) {
-        console.warn('admin check failed', err);
-      }
+      } catch (err) { console.warn('admin check failed', err); }
 
       if (isAdmin) {
         adminPanel.classList.remove('hidden');
