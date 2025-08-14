@@ -73,22 +73,8 @@
   </div>
 
   <script type="module">
-    // Redirect snippet for other pages (copy/paste):
-    // ------------------------------------------------
-    // import { auth, db } from './js/firebase.js';
-    // import { onAuthStateChanged, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    // import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    // onAuthStateChanged(auth, async user => {
-    //   if (!user) return;
-    //   const udoc = await getDoc(doc(db, 'users', user.uid));
-    //   if (udoc.exists() && udoc.data().banned === true) {
-    //     location.href = '/not-approved';
-    //   }
-    // });
-    // ------------------------------------------------
-    // Paste the above into the top of any page where banned users should be forced to /not-approved.
-
-    import { auth, db } from './js/firebase.js';
+    // IMPORTANT: This file expects /js/firebase.js to export named `auth` and `db`.
+    import { auth, db } from '/js/firebase.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -104,7 +90,6 @@
       if (!ts) return '—';
       try {
         const d = ts.toDate ? ts.toDate() : new Date(ts);
-        // show local time with timezone label
         return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
       } catch (e) {
         return String(ts);
@@ -114,7 +99,6 @@
     function makeBanCard(ban, idx, active) {
       const el = document.createElement('div');
       el.className = 'ban' + (active ? ' active' : '');
-      // header row
       const header = document.createElement('div');
       header.className = 'row';
       const left = document.createElement('div');
@@ -135,13 +119,11 @@
       header.appendChild(left);
       el.appendChild(header);
 
-      // reason
       const reason = document.createElement('div');
       reason.className = 'reason';
       reason.textContent = `Reason: ${ban.reason || '—'}`;
       el.appendChild(reason);
 
-      // offensive item / place
       if (ban.offensiveItem) {
         const off = document.createElement('div');
         off.className = 'muted small';
@@ -149,7 +131,6 @@
         el.appendChild(off);
       }
 
-      // moderator note
       if (ban.moderatorNote) {
         const note = document.createElement('div');
         note.className = 'note';
@@ -165,34 +146,24 @@
       reactivateBtn.textContent = 'Reactivating…';
 
       try {
-        // Attempt client-side unban. This requires your Firestore rules to permit this for the user,
-        // otherwise this will throw a permission error. You can replace this with a Cloud Function
-        // call that performs admin-safe unban if you prefer server-side control.
         const userRef = doc(db, 'users', uid);
-        // set banned:false and record reactivatedAt
         await updateDoc(userRef, { banned: false, reactivatedAt: serverTimestamp() });
 
-        // Optionally, you may want to mark the last ban entry with reactivatedAt — this front-end does not modify nested arrays.
         alert('Your account has been reactivated (client-sided change). If this failed server-side, contact support.');
         location.href = '/';
       } catch (err) {
         console.error('reactivate failed', err);
-        // If permission denied or other error, show instructions
         alert('Unable to automatically reactivate your account. Please contact support or file an appeal via Violations & Appeals.');
         reactivateBtn.disabled = false;
         reactivateBtn.textContent = 'Reactivate (when available)';
       }
     }
 
-    // When user clicks home
     goHomeBtn.addEventListener('click', () => location.href = '/');
 
-    // Reactivate button
     reactivateBtn.addEventListener('click', async () => {
       if (!currentUser) return;
-      // double-check expiry
       const now = Date.now();
-      // find active bans where end <= now
       const activeBans = (userDoc?.bans || []).filter(b => {
         try {
           const end = b.end && b.end.toDate ? b.end.toDate().getTime() : (new Date(b.end)).getTime();
@@ -203,15 +174,12 @@
         alert('Reactivation is not yet available for your account.');
         return;
       }
-      // Attempt reactivate
       if (!confirm('Reactivate your account now? This will attempt to clear the suspension flag.')) return;
       await attemptReactivate(currentUser.uid);
     });
 
-    // Main: check auth and load ban info
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        // If not signed in, show a generic message and link to sign in
         summaryText.innerHTML = 'You are not signed in. <a class="link" href="/signin">Sign in</a> to view details about your account.';
         document.getElementById('mainCard').scrollIntoView();
         return;
@@ -227,32 +195,25 @@
         }
         userDoc = snap.data();
 
-        // Expected structure:
-        // userDoc.banned === true/false
-        // userDoc.bans === [ { title, reason, moderatorNote, offensiveItem, reviewedAt: Timestamp, start: Timestamp, end: Timestamp, lengthText } , ... ]
-        const isBanned = !!userDoc.banned || (Array.isArray(userDoc.bans) && userDoc.bans.some(b => {
+        // determine if banned: flagged OR any active ban in installs
+        const now = Date.now();
+        const bansArray = Array.isArray(userDoc.bans) ? userDoc.bans : [];
+        const hasActiveBan = !!userDoc.banned || bansArray.some(b => {
           try {
-            const now = Date.now();
-            const end = b.end && b.end.toDate ? b.end.toDate().getTime() : (new Date(b.end)).getTime();
-            const start = b.start && b.start.toDate ? b.start.toDate().getTime() : (new Date(b.start)).getTime();
-            return (!end || end > now) && (!start || start <= now);
-          } catch { return false; }
-        }));
+            const s = b.start && b.start.toDate ? b.start.toDate().getTime() : (b.start ? new Date(b.start).getTime() : -Infinity);
+            const e = b.end   && b.end.toDate   ? b.end.toDate().getTime()   : (b.end   ? new Date(b.end).getTime()   : Infinity);
+            return s <= now && now <= e;
+          } catch (e) { return false; }
+        });
 
-        // If not banned, redirect away — this page is for suspended accounts only
-        if (!isBanned) {
-          // Optional: redirect to home so the user doesn't see this page
-          location.href = '/';
+        if (!hasActiveBan) {
+          // not banned — redirect away to home (prevents non-banned users from seeing not-approved page)
+          location.replace('/');
           return;
         }
 
-        // Build summary showing next reactivation if available
-        let nextReactivation = null;
-        const now = Date.now();
-        const bans = Array.isArray(userDoc.bans) ? userDoc.bans : [];
-
-        // Normalize timestamps (if using Firestore Timestamps)
-        const normalized = bans.map(b => {
+        // normalize for display
+        const normalized = bansArray.map(b => {
           const copy = {...b};
           try {
             if (b.reviewedAt && b.reviewedAt.toDate) copy.reviewedAt = b.reviewedAt.toDate();
@@ -265,24 +226,22 @@
           return copy;
         });
 
-        // Determine active/most recent ban
+        // find active bans
         const activeBans = normalized.filter(b => {
           try {
-            if (!b.start && !b.end) return true;
             const s = b.start ? b.start.getTime() : -Infinity;
             const e = b.end ? b.end.getTime() : Infinity;
             return s <= now && now <= e;
           } catch { return false; }
         });
 
-        // sort descending by reviewedAt or start
+        // sort most recent first
         normalized.sort((A,B) => {
           const a = (A.reviewedAt && A.reviewedAt.getTime()) || (A.start && A.start.getTime()) || 0;
           const b = (B.reviewedAt && B.reviewedAt.getTime()) || (B.start && B.start.getTime()) || 0;
           return b - a;
         });
 
-        // show summary text
         if (activeBans.length) {
           const a = activeBans[0];
           const reactivateStr = a.end ? a.end.toLocaleString() : 'Unknown';
@@ -292,7 +251,6 @@
             <div class="muted small" style="margin-top:6px;">Reason: ${a.reason || '—'}</div>
           `;
         } else {
-          // no active bans but banned flag true — show most recent
           const recent = normalized[0];
           const expiry = recent && recent.end ? recent.end.toLocaleString() : 'Unknown';
           summaryText.innerHTML = `
@@ -300,7 +258,6 @@
           `;
         }
 
-        // Render ban list
         banListEl.innerHTML = '';
         normalized.forEach((b, i) => {
           const isActive = (activeBans.findIndex(x => x === b) >= 0) || false;
@@ -317,7 +274,6 @@
           banListEl.appendChild(card);
         });
 
-        // Enable reactivate button only if at least one ban's end <= now
         const reactivatables = normalized.filter(b => b.end && (b.end.getTime() <= now));
         if (reactivatables.length) {
           reactivateBtn.disabled = false;
