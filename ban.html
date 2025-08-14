@@ -58,7 +58,7 @@
           <button class="btn" id="loadUidBtn">Load</button>
         </div>
         <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
-        <div id="hint" class="note-line">Tip: Add a `usersByEmail/{encodedEmail}` mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
+        <div id="hint" class="note-line">Tip: Add a `usersByEmail/{encodedEmail}` mapping doc to allow serverless lookup without relaxing rules. If permission errors occur, paste the UID manually.</div>
       </div>
 
       <hr />
@@ -144,7 +144,7 @@
         <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
           <ul>
             <li>Set the admin custom claim for your admin user (`admin:true`) using the service account script I gave you earlier, or</li>
-            <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read (encode email safely: see code), or</li>
+            <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read, or</li>
             <li>Temporarily relax your rules for your admin email (not recommended long-term).</li>
           </ul>
         </li>
@@ -154,12 +154,12 @@
   </div>
 
   <script type="module">
-    // This file expects ./js/firebase.js to export `auth` and `db`:
+    // Expects ./js/firebase.js to export auth and db:
     // export { auth, db };
     import { auth, db } from './js/firebase.js';
     import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp,
+      doc, getDoc, updateDoc, arrayUnion,
       collection, query, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -236,13 +236,10 @@
 
     // Encode email -> safe doc id for usersByEmail mapping
     function encodeEmailForId(email) {
-      // replace characters not allowed in docIDs (just be safe)
-      // e.g. "user.name+tag@example.com" -> base64 URL-safe
       try {
-        const b = btoa(email); // base64
+        const b = btoa(email);
         return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
       } catch (e) {
-        // fallback: simple replace
         return email.replace(/\./g,',');
       }
     }
@@ -256,9 +253,9 @@
       bansArray.slice().reverse().forEach((b, i) => {
         const div = document.createElement('div');
         div.className = 'small muted';
-        const reviewed = b.reviewedAt && b.reviewedAt.toDate ? b.reviewedAt.toDate().toLocaleString() : (b.reviewedAt || '');
-        const start = b.start && b.start.toDate ? b.start.toDate().toLocaleString() : (b.start || '');
-        const end = b.end && b.end.toDate ? b.end.toDate().toLocaleString() : (b.end || '');
+        const reviewed = b.reviewedAt && (typeof b.reviewedAt === 'string' ? new Date(b.reviewedAt).toLocaleString() : (b.reviewedAt.toDate ? b.reviewedAt.toDate().toLocaleString() : b.reviewedAt));
+        const start = b.start && (typeof b.start === 'string' ? new Date(b.start).toLocaleString() : (b.start.toDate ? b.start.toDate().toLocaleString() : b.start));
+        const end = b.end && (typeof b.end === 'string' ? new Date(b.end).toLocaleString() : (b.end.toDate ? b.end.toDate().toLocaleString() : b.end));
         div.innerHTML = `<strong>${b.title || 'Suspension #' + (i+1)}</strong><br/>
           Reason: ${b.reason || '—'}<br/>
           Moderator Note: ${b.moderatorNote || '—'}<br/>
@@ -270,23 +267,29 @@
     }
 
     // ===== Firestore access (client-only) =====
-    // Try to resolve an email -> uid using three methods:
-    // 1) usersByEmail/{encodedEmail} doc (recommended mapping you create on signup)
-    // 2) query users collection for email == <email> (requires rules to allow)
+    // Try to resolve an email -> uid using:
+    // 1) usersByEmail/{encodedEmail} doc (recommended)
+    // 2) query users collection for email == <email> (requires rules)
     // 3) return null (fallback to manual UID)
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
+
       // method 1: usersByEmail mapping
       try {
-        const mapped = await getDoc(doc(db, 'usersByEmail', enc));
-        if (mapped.exists()) {
-          const d = mapped.data();
+        const mappedSnap = await getDoc(doc(db, 'usersByEmail', enc));
+        if (mappedSnap.exists()) {
+          const d = mappedSnap.data();
           if (d && d.uid) return d.uid;
         }
       } catch (e) {
-        // permission or missing collection - continue
-        console.warn('usersByEmail lookup failed', e);
+        // If permission denied, suppress noisy console spam and return to fallback
+        if (e && e.code && e.code === 'permission-denied') {
+          // inform UI (but not console)
+          console.debug('usersByEmail mapping blocked by rules (permission-denied).');
+        } else {
+          console.error('usersByEmail lookup failed', e);
+        }
       }
 
       // method 2: query users where email == email
@@ -294,19 +297,21 @@
         const q = query(collection(db, 'users'), where('email', '==', email));
         const snaps = await getDocs(q);
         if (!snaps.empty) {
-          // return first matched doc's id (uid)
-          const first = snaps.docs[0];
-          return first.id;
+          return snaps.docs[0].id;
         }
       } catch (e) {
-        console.warn('users collection query failed', e);
+        if (e && e.code && e.code === 'permission-denied') {
+          console.debug('users collection query blocked by rules (permission-denied).');
+        } else {
+          console.error('users collection query failed', e);
+        }
       }
 
       // not found
       return null;
     }
 
-    // Load users/{uid} doc and render bans (throws on permission errors)
+    // Load users/{uid} doc and render bans; returns data or null on permission-denied / missing doc
     async function loadUserDocByUid(uid) {
       banHistory.textContent = 'Loading…';
       try {
@@ -319,40 +324,38 @@
         renderBans(Array.isArray(data.bans) ? data.bans : []);
         return data;
       } catch (err) {
-        console.error('loadUserDoc failed', err);
-        if (err && err.code === 'permission-denied') {
-          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin or create usersByEmail mapping for serverless lookup.</div>';
-        } else {
-          banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for details.</div>';
+        if (err && err.code && err.code === 'permission-denied') {
+          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim or add usersByEmail mapping; otherwise paste UID manually.</div>';
+          return null;
         }
-        throw err;
+        console.error('loadUserDoc failed', err);
+        banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for details.</div>';
+        return null;
       }
     }
 
-    // Ban user: client writes directly to users/{uid}. Requires Firestore permission per rules.
+    // Ban user: client writes directly to users/{uid}. Uses ISO timestamps (no serverTimestamp)
     async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
       try {
-        const now = serverTimestamp();
-        let end = null;
+        const nowIso = new Date().toISOString();
+        let endIso = null;
         if (Number.isFinite(lengthDays) && lengthDays > 0) {
-          // compute as ISO string (client timestamp cannot create Firestore Timestamp directly)
-          const ms = Date.now() + (lengthDays * 24 * 60 * 60 * 1000);
-          end = new Date(ms).toISOString();
+          endIso = new Date(Date.now() + (lengthDays * 24 * 60 * 60 * 1000)).toISOString();
         }
         const banEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-          title: title || `Ban by ${currentAdmin.uid}`,
+          title: title || `Ban by ${currentAdmin.uid || 'admin'}`,
           reason: reason || 'Violation of Terms',
           moderatorNote: moderatorNote || '',
           offensiveItem: offensiveItem || '',
-          start: now,
-          end: end,
-          reviewedAt: now,
+          start: nowIso,
+          end: endIso,
+          reviewedAt: nowIso,
           action: 'ban',
-          moderatorUid: currentAdmin.uid
+          moderatorUid: currentAdmin.uid || null
         };
 
-        // Firestore client: use set with merge to append ban & set banned:true
+        // updateDoc with arrayUnion of plain object (no serverTimestamp sentinel)
         await updateDoc(doc(db, 'users', uid), {
           banned: true,
           bans: arrayUnion(banEntry)
@@ -360,21 +363,24 @@
 
         return { success: true, banEntry };
       } catch (err) {
-        console.error('banUserClient failed', err);
+        // rethrow for caller to handle; but avoid noisy console spam for permission-denied
+        if (err && err.code && err.code === 'permission-denied') {
+          throw { code: 'permission-denied', message: 'Permission denied writing users/{uid}' };
+        }
         throw err;
       }
     }
 
-    // Unban client
+    // Unban client (adds audit entry)
     async function unbanUserClient(uid, { moderatorNote }) {
       try {
-        const now = serverTimestamp();
+        const nowIso = new Date().toISOString();
         const unbanEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
           action: 'unban',
           moderatorNote: moderatorNote || '',
-          moderatorUid: currentAdmin.uid,
-          at: now
+          moderatorUid: currentAdmin.uid || null,
+          at: nowIso
         };
         await updateDoc(doc(db, 'users', uid), {
           banned: false,
@@ -382,54 +388,37 @@
         });
         return { success: true, unbanEntry };
       } catch (err) {
-        console.error('unbanUserClient failed', err);
+        if (err && err.code && err.code === 'permission-denied') {
+          throw { code: 'permission-denied', message: 'Permission denied writing users/{uid}' };
+        }
         throw err;
       }
     }
 
     // ===== UI wiring =====
-    signOutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-    });
-
+    signOutBtn.addEventListener('click', async () => { await signOut(auth); });
     lengthPreset.addEventListener('change', () => { banDays.value = lengthPreset.value; });
 
-    // Search by email (client-only)
+    // Search by email
     searchEmailBtn.addEventListener('click', async () => {
       clearActionMessages();
       const email = (searchEmail.value || '').trim();
-      if (!email) {
-        searchStatus.textContent = 'Enter an email to search.';
-        return;
-      }
+      if (!email) { searchStatus.textContent = 'Enter an email to search.'; return; }
       searchStatus.textContent = 'Searching for uid…';
       try {
         const uid = await findUidByEmail(email);
         if (!uid) {
-          searchStatus.textContent = 'No mapping found for that email. Paste UID manually as fallback.';
+          searchStatus.textContent = 'No mapping found for that email. Paste UID manually or create usersByEmail mapping.';
           return;
         }
         searchStatus.textContent = 'Found UID: ' + uid + ' — loading user doc…';
-        loadedUid = uid;
-        loadedEmail = email;
-        u_uid.textContent = uid;
-        u_email.textContent = email;
-        u_name.textContent = '(loading…)';
+        loadedUid = uid; loadedEmail = email;
+        u_uid.textContent = uid; u_email.textContent = email; u_name.textContent = '(loading…)';
         userInfo.classList.remove('hidden');
 
-        // try to load doc
-        try {
-          const data = await loadUserDocByUid(uid);
-          if (data) {
-            u_name.textContent = data.displayName || '(unknown)';
-            searchStatus.textContent = 'Loaded user document.';
-          } else {
-            u_name.textContent = '(no doc)';
-            searchStatus.textContent = 'No user doc found.';
-          }
-        } catch (e) {
-          searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
-        }
+        const data = await loadUserDocByUid(uid);
+        if (data) { u_name.textContent = data.displayName || '(unknown)'; searchStatus.textContent = 'Loaded user document.'; }
+        else { u_name.textContent = '(no doc or permission)'; searchStatus.textContent = 'Could not read users/{uid} (permission?).'; }
       } catch (err) {
         console.error('Search failed', err);
         searchStatus.textContent = 'Search failed — check console.';
@@ -440,32 +429,17 @@
     loadUidBtn.addEventListener('click', async () => {
       clearActionMessages();
       const uid = (manualUid.value || '').trim();
-      if (!uid) {
-        searchStatus.textContent = 'Paste a UID to load.';
-        return;
-      }
+      if (!uid) { searchStatus.textContent = 'Paste a UID to load.'; return; }
       searchStatus.textContent = 'Loading user doc…';
-      loadedUid = uid;
-      loadedEmail = null;
-      u_uid.textContent = uid;
-      u_email.textContent = '(unknown)';
-      u_name.textContent = '(loading…)';
+      loadedUid = uid; loadedEmail = null;
+      u_uid.textContent = uid; u_email.textContent = '(unknown)'; u_name.textContent = '(loading…)';
       userInfo.classList.remove('hidden');
-      try {
-        const data = await loadUserDocByUid(uid);
-        if (data) {
-          u_name.textContent = data.displayName || '(unknown)';
-          searchStatus.textContent = 'Loaded user document.';
-        } else {
-          u_name.textContent = '(no doc)';
-          searchStatus.textContent = 'No user doc found.';
-        }
-      } catch (err) {
-        searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
-      }
+      const data = await loadUserDocByUid(uid);
+      if (data) { u_name.textContent = data.displayName || '(unknown)'; searchStatus.textContent = 'Loaded user document.'; }
+      else { u_name.textContent = '(no doc or permission)'; searchStatus.textContent = 'Could not read users/{uid} (permission?).'; }
     });
 
-    // Ban button: client-only ban (direct Firestore write)
+    // Ban button
     banBtn.addEventListener('click', async () => {
       clearActionMessages();
       if (!loadedUid) { showActionError('No user loaded.'); return; }
@@ -481,13 +455,13 @@
         const res = await banUserClient(loadedUid, { title, lengthDays, reason, moderatorNote, offensiveItem });
         showActionSuccess('Ban recorded (client write).');
         actionStatus.textContent = '';
-        // refresh
-        try { await loadUserDocByUid(loadedUid); } catch(e){}
+        await loadUserDocByUid(loadedUid);
       } catch (err) {
         if (err && err.code === 'permission-denied') {
-          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim or add usersByEmail mapping / adjust rules.');
         } else {
-          showActionError('Ban failed — check console for details.');
+          console.error('banUserClient failed', err);
+          showActionError('Ban failed — check console.');
         }
       } finally {
         banBtn.disabled = false; unbanBtn.disabled = false;
@@ -506,12 +480,13 @@
         await unbanUserClient(loadedUid, { moderatorNote });
         showActionSuccess('Unban recorded (client write).');
         actionStatus.textContent = '';
-        try { await loadUserDocByUid(loadedUid); } catch(e){}
+        await loadUserDocByUid(loadedUid);
       } catch (err) {
         if (err && err.code === 'permission-denied') {
-          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim or add usersByEmail mapping / adjust rules.');
         } else {
-          showActionError('Unban failed — check console for details.');
+          console.error('unbanUserClient failed', err);
+          showActionError('Unban failed — check console.');
         }
       } finally {
         banBtn.disabled = false; unbanBtn.disabled = false;
@@ -523,12 +498,8 @@
       clearActionMessages();
       if (!loadedUid) { actionStatus.textContent = 'No user loaded.'; return; }
       actionStatus.textContent = 'Refreshing…';
-      try {
-        await loadUserDocByUid(loadedUid);
-        actionStatus.textContent = 'Refreshed.';
-      } catch (e) {
-        actionStatus.textContent = 'Refresh failed (permission?).';
-      }
+      const data = await loadUserDocByUid(loadedUid);
+      if (data) actionStatus.textContent = 'Refreshed.'; else actionStatus.textContent = 'Refresh failed (permission?).';
     });
 
     // Enter key UX
@@ -543,16 +514,11 @@
         return;
       }
       currentAdmin = user;
-      // Refresh token so custom claims (if any) are present
-      try { await user.getIdToken(true); } catch (e) { console.warn('token refresh failed', e); }
+      try { await user.getIdToken(true); } catch (e) { console.debug('token refresh failed', e); }
       const emailOk = (user.email && user.email.toLowerCase() === ADMIN_EMAIL);
-      if (emailOk) {
-        showMain();
-      } else {
-        showUnauthorized('Signed in as wrong account. Sign in as gomegaassist@gmail.com.');
-      }
+      if (emailOk) showMain();
+      else showUnauthorized('Signed in as wrong account. Sign in as gomegaassist@gmail.com.');
     });
-
   </script>
 </body>
 </html>
