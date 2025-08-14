@@ -259,6 +259,72 @@
 </style>
 </head>
 <body>
+  <!-- Top Navbar -->
+<div id="navbar-container"></div>
+
+<script>
+(async () => {
+  const container = document.getElementById('navbar-container');
+  const url = 'navbar.html?_=' + Date.now(); // cache-bust during dev
+
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
+    const text = await res.text();
+
+    // Parse the HTML string into a DocumentFragment
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+
+    // Move non-script nodes into the container (styles + markup will apply)
+    // Use a document fragment to avoid reflows
+    const frag = document.createDocumentFragment();
+    Array.from(doc.body.childNodes).forEach(node => {
+      // don't append <script> tags here — we'll handle them separately
+      if (node.tagName && node.tagName.toLowerCase() === 'script') return;
+      frag.appendChild(document.importNode(node, true));
+    });
+    container.innerHTML = ''; // clear
+    container.appendChild(frag);
+
+    // Execute scripts from fetched HTML
+    const scripts = Array.from(doc.querySelectorAll('script'));
+    for (const oldScript of scripts) {
+      const newScript = document.createElement('script');
+
+      // Copy attributes (type, module, src, async, defer)
+      for (const attr of oldScript.attributes) {
+        newScript.setAttribute(attr.name, attr.value);
+      }
+
+      // Resolve external script src relative to navbar.html location
+      if (oldScript.src) {
+        // make absolute so it loads correctly even if page is nested
+        const resolved = new URL(oldScript.getAttribute('src'), location.href); 
+        // If navbar.html is in another folder and you need relative to navbar.html:
+        // const resolved = new URL(oldScript.getAttribute('src'), url);
+        newScript.src = resolved.href;
+        // Append to document head so module imports resolve normally
+        document.head.appendChild(newScript);
+        // await script load for deterministic behavior when needed
+        await new Promise((ok, fail) => {
+          newScript.onload = ok; newScript.onerror = () => fail(new Error('Script load error: ' + newScript.src));
+        });
+      } else {
+        // Inline script: copy text content.
+        // For type="module" with relative imports inside, imports will be resolved relative to the document,
+        // not relative to navbar.html. If your inline module imports './js/firebase.js' relative to navbar.html,
+        // consider moving it to an external module (recommended).
+        newScript.textContent = oldScript.textContent;
+        document.head.appendChild(newScript); // executes it
+      }
+    }
+
+  } catch (err) {
+    console.error("Failed to load navbar:", err);
+  }
+})();
+</script>
 
 <header>
   <h1>Premium <span>Executors</span></h1>
