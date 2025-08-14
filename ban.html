@@ -164,8 +164,7 @@
   </div>
 
   <script type="module">
-    // ---------- uses ./js/firebase.js for auth & db (you asked) ----------
-    // ./js/firebase.js must export `auth` and `db` (e.g. "export { auth, db }")
+    // ---------- uses ./js/firebase.js for auth & db ----------
     import { auth, db } from './js/firebase.js';
 
     // CDN imports for helpers we need
@@ -291,7 +290,6 @@
     }
 
     // ===== Firestore access (client-side) =====
-    // Try mapping by usersByEmail (recommended), else query users collection
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
@@ -321,7 +319,6 @@
       return null;
     }
 
-    // Load users/{uid} (client-only). If permission-denied, show friendly message.
     async function loadUserDocByUid(uid) {
       banHistory.textContent = 'Loading…';
       try {
@@ -344,7 +341,6 @@
       }
     }
 
-    // Safer ban writing: use ISO timestamps and setDoc(..., {merge:true}) so doc can be created if missing
     async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
       try {
         const nowIso = new Date().toISOString();
@@ -365,7 +361,6 @@
           moderatorUid: currentAdmin.uid
         };
 
-        // setDoc with merge: true (creates doc if missing) and append to bans array
         await setDoc(doc(db, 'users', uid), {
           banned: true,
           bans: arrayUnion(banEntry)
@@ -378,7 +373,6 @@
       }
     }
 
-    // Safer unban
     async function unbanUserClient(uid, { moderatorNote }) {
       try {
         const nowIso = new Date().toISOString();
@@ -402,7 +396,7 @@
       }
     }
 
-    // ===== UI wiring (unchanged) =====
+    // ===== UI wiring =====
     signInBtn.addEventListener('click', async () => {
       appendDebug('Sign-in clicked');
       try {
@@ -595,7 +589,6 @@
         showUnauthorized(`Signed in as wrong account (${userEmail}). Sign in as ${ADMIN_EMAIL}.`);
       }
     });
-
   </script>
 </body>
 </html>
