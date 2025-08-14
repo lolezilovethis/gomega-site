@@ -101,7 +101,8 @@
     // IMPORTANT: This file expects /js/firebase.js to export named `auth` and `db`.
     import { auth, db } from '/js/firebase.js';
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // Added getDocFromServer import for fresher reads on reactivation; keep serverTimestamp for timestamping.
+    import { doc, getDoc, updateDoc, serverTimestamp, getDocFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const summaryText = document.getElementById('summaryText');
     const banListEl = document.getElementById('banList');
@@ -174,6 +175,8 @@
       return el;
     }
 
+    // Updated attemptReactivate: closes active ban entries (if client has permission)
+    // and waits for a fresh server confirmation that banned:false before redirecting.
     async function attemptReactivate(uid) {
       reactivateBtn.disabled = true;
       const origText = reactivateBtn.textContent;
@@ -181,34 +184,123 @@
 
       try {
         const userRef = doc(db, 'users', uid);
-        // check server to avoid overwriting current state
-        const snap = await getDoc(userRef);
-        if (!snap.exists()) {
+
+        // Try to get the freshest server copy first, fallback to getDoc if unavailable
+        let snap = null;
+        try {
+          if (typeof getDocFromServer === 'function') {
+            snap = await getDocFromServer(userRef);
+          } else {
+            throw new Error('getDocFromServer unavailable');
+          }
+        } catch (e) {
+          // fallback to cached getDoc
+          try {
+            snap = await getDoc(userRef);
+          } catch (e2) {
+            console.error('attemptReactivate: failed to read user doc', e2);
+            alert('Account record could not be read from server. Contact support.');
+            reactivateBtn.disabled = false;
+            reactivateBtn.textContent = origText;
+            return;
+          }
+        }
+
+        if (!snap || !snap.exists()) {
           alert('Account record not found on server. Contact support.');
           reactivateBtn.disabled = false;
           reactivateBtn.textContent = origText;
           return;
         }
+
         const serverData = snap.data();
-        // If already not banned, simply acknowledge and redirect
+
+        // If already not banned, just redirect
         if (!serverData.banned) {
           alert('Your account is already unbanned. Redirecting to homepage.');
           location.href = '/';
           return;
         }
 
-        // attempt to clear banned flag and record reactivatedAt
-        await updateDoc(userRef, { banned: false, reactivatedAt: serverTimestamp() });
+        // Prepare to close any active bans in the bans array (if present and writable)
+        const serverBans = Array.isArray(serverData.bans) ? serverData.bans.slice() : [];
+        const nowIso = new Date().toISOString();
+        let modified = false;
+        const closedBans = serverBans.map(b => {
+          const copy = { ...b };
+          try {
+            const sMs = b.start ? (b.start.toDate ? b.start.toDate().getTime() : new Date(b.start).getTime()) : -Infinity;
+            const eMs = b.end ? (b.end.toDate ? b.end.toDate().getTime() : new Date(b.end).getTime()) : Infinity;
+            // If ban appears active (no end or end in future), close it
+            if ((copy.action === 'ban' || !copy.action) && (!copy.end || eMs > Date.now())) {
+              copy.end = nowIso;
+              copy.reactivatedAt = nowIso;
+              copy.moderatorNote = (copy.moderatorNote ? copy.moderatorNote + ' | ' : '') + 'Reactivated by user request';
+              copy.action = (copy.action === 'ban-permanent' ? 'ban-permanent-closed' : 'ban-closed');
+              modified = true;
+            }
+          } catch (e) {
+            // ignore per-item parse errors
+          }
+          return copy;
+        });
 
-        // success
-        alert('Your account has been reactivated. Redirecting to homepage…');
-        location.href = '/';
+        // Build update payload: always set banned:false + reactivatedAt (serverTimestamp),
+        // and only write new bans array if we've modified it (to avoid stomping if no permission).
+        const updatePayload = {
+          banned: false,
+          reactivatedAt: serverTimestamp()
+        };
+        if (modified) {
+          updatePayload.bans = closedBans;
+        }
+
+        // Try the update. This may fail if client rules prevent writing bans array — still we'll try.
+        try {
+          await updateDoc(userRef, updatePayload);
+        } catch (writeErr) {
+          console.warn('attemptReactivate: updateDoc failed (maybe permission denied)', writeErr);
+          // If we couldn't write bans but we did set banned:false previously via other means, we should still try to confirm.
+          // Fall through to confirmation step.
+        }
+
+        // Confirm server shows banned:false — try a fresh server snapshot
+        let confirmSnap = null;
+        try {
+          if (typeof getDocFromServer === 'function') {
+            confirmSnap = await getDocFromServer(userRef);
+          } else {
+            confirmSnap = await getDoc(userRef);
+          }
+        } catch (e) {
+          console.warn('attemptReactivate: confirm read failed, falling back to cached read', e);
+          try {
+            confirmSnap = await getDoc(userRef);
+          } catch (e2) {
+            console.error('attemptReactivate: final confirm read failed', e2);
+            confirmSnap = null;
+          }
+        }
+
+        const fresh = confirmSnap && confirmSnap.exists() ? confirmSnap.data() : null;
+        if (fresh && fresh.banned === false) {
+          // confirmed — redirect
+          alert('Your account has been reactivated. Redirecting to homepage…');
+          location.href = '/';
+          return;
+        } else {
+          // server didn't show banned:false yet — show helpful message
+          alert('Your request was saved but the server has not yet confirmed reactivation. Please try "Go to Homepage" or sign out and sign back in once a moment has passed. If this persists, contact support.');
+          reactivateBtn.disabled = false;
+          reactivateBtn.textContent = origText;
+          return;
+        }
       } catch (err) {
         console.error('reactivate failed', err);
-        // show helpful failure message
         alert('Unable to automatically reactivate your account. If this persists, please contact support or file an appeal via Violations & Appeals.');
         reactivateBtn.disabled = false;
         reactivateBtn.textContent = origText;
+        return;
       }
     }
 
