@@ -26,6 +26,7 @@
     .success { color: #a8ffdf; font-weight:700; margin-top:8px}
     hr{border:none;border-top:1px solid rgba(255,255,255,0.04);margin:12px 0}
     .top-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .mono{font-family:monospace; font-size:0.9rem}
   </style>
 </head>
 <body>
@@ -42,7 +43,7 @@
         <button class="ghost" id="forceRefreshBtn" title="Force refresh token/claims">Force token refresh</button>
       </div>
 
-      <div id="debugConsole" class="small muted" style="margin-top:8px;white-space:pre-wrap;font-family:monospace;"></div>
+      <div id="debugConsole" class="small muted mono" style="margin-top:8px;white-space:pre-wrap;"></div>
     </div>
 
     <div class="card hidden" id="mainCard" aria-hidden="true">
@@ -152,7 +153,7 @@
       <ul class="small muted">
         <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
           <ul>
-            <li>Set the admin custom claim for your admin user (`admin:true`) using the service account script I gave you earlier, or</li>
+            <li>Set the admin custom claim for your admin user (`admin:true`) using the service account script, or</li>
             <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read (encode email safely: see code), or</li>
             <li>Temporarily relax your rules for your admin email (not recommended long-term).</li>
           </ul>
@@ -163,32 +164,27 @@
   </div>
 
   <script type="module">
-    // ---------- FIREBASE (fill with YOUR project config) ----------
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    // ---- This page expects ./js/firebase.js to export "auth" and "db" ----
+    // Example minimal ./js/firebase.js:
+    // import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    // import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    // import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // const app = initializeApp({...});
+    // const auth = getAuth(app);
+    // const db = getFirestore(app);
+    // export { auth, db };
+
+    // Import auth/db from your local module
+    import { auth, db } from './js/firebase.js';
+
+    // Import auth/firestore helpers from CDN
     import {
-      getAuth, onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider
+      onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, doc, getDoc, updateDoc, arrayUnion, serverTimestamp,
+      doc, getDoc, updateDoc, arrayUnion, serverTimestamp,
       collection, query, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    // Replace these values with your Firebase project's actual config
-    const firebaseConfig = {
-      apiKey: "REPLACE_WITH_YOUR_APIKEY",
-      authDomain: "REPLACE_WITH_YOUR_AUTHDOMAIN",
-      projectId: "REPLACE_WITH_YOUR_PROJECTID",
-      // appId, storageBucket, messagingSenderId optional
-    };
-
-    if (!firebaseConfig || !firebaseConfig.projectId) {
-      console.error('Please fill firebaseConfig with your Firebase project values.');
-    }
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
 
     // UI refs
     const accessMsg = document.getElementById('accessMsg');
@@ -227,6 +223,8 @@
     const actionSuccess = document.getElementById('actionSuccess');
 
     const ADMIN_EMAIL = 'gomegaassist@gmail.com';
+
+    const provider = new GoogleAuthProvider();
 
     let currentAdmin = null;
     let loadedUid = null;
@@ -316,7 +314,6 @@
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
-      // method 1: usersByEmail mapping
       try {
         const mapped = await getDoc(doc(db, 'usersByEmail', enc));
         if (mapped.exists()) {
@@ -327,7 +324,6 @@
         appendDebug('usersByEmail lookup failed', e);
       }
 
-      // method 2: query users where email == email
       try {
         const q = query(collection(db, 'users'), where('email', '==', email));
         const snaps = await getDocs(q);
@@ -441,16 +437,14 @@
     signOutBtn2.addEventListener('click', doSignOut);
 
     forceRefreshBtn.addEventListener('click', async () => {
-      if (!auth.currentUser) {
+      if (!auth || !auth.currentUser) {
         appendDebug('No current user to refresh token for.');
         return;
       }
       appendDebug('Forcing id token refresh...');
       try {
         await auth.currentUser.getIdToken(true);
-        appendDebug('Token refresh requested. onAuthStateChanged will update claims if they changed.');
-        // Optionally re-run the check manually:
-        // onAuthStateChanged callback will run automatically when token changes, but we also call it again by reading tokenResult:
+        appendDebug('Token refresh requested.');
         try {
           const tr = await auth.currentUser.getIdTokenResult(true);
           appendDebug('New claims:', tr.claims);
@@ -625,7 +619,6 @@
       const emailOk = userEmail === adminEmail;
       const hasAdminClaim = !!(tokenResult && tokenResult.claims && (tokenResult.claims.admin === true || tokenResult.claims.admin == 'true'));
 
-      // Show clear message so you can tell why it's failing
       accessMsg.textContent = `Signed in as: ${userEmail} — emailOk: ${emailOk} — adminClaim: ${hasAdminClaim}`;
 
       if (emailOk || hasAdminClaim) {
