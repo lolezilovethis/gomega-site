@@ -1,20 +1,17 @@
 // /js/ban-guard.js
 // Place <script type="module" src="/js/ban-guard.js"></script> at the very top of every page (in <head>).
 //
-// Purpose:
-// - Prevent signed-in users with active bans from using the site.
-// - Treat an explicit `banned: false` as authoritative (do not redirect).
-// - Avoid redirect loop when already on the ban page.
-// - Fail-open on errors (don't block users if guard errors).
+// Production guard:
+// - Prevents signed-in users with active bans from using the site.
+// - Treats explicit `banned: false` as authoritative (avoids bouncing when bans array still contains stale entries).
+// - Avoids redirect loop when already on the ban page.
+// - Fails-open on read errors (won't block users if guard fails).
 
 import { auth, db } from '/js/firebase.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/*
-  Edit this if your not-approved page is served at a different public path.
-  Use '/not-approved.html' if your host requires the file name.
-*/
+/* Adjust if your ban page path differs (e.g. /not-approved.html) */
 const BAN_REDIRECT = '/not-approved';
 const BAN_PAGE_PATHS = [BAN_REDIRECT, '/not-approved.html'];
 
@@ -24,7 +21,7 @@ function isOnBanPage() {
   return BAN_PAGE_PATHS.some(sp => p === sp || p.endsWith(sp));
 }
 
-// helper: parse possible timestamp values (Firestore Timestamp, Date, ISO string)
+// parse possible timestamp values (Firestore Timestamp, Date, ISO string, millis)
 function toMillis(ts) {
   if (ts === undefined || ts === null) return null;
   try {
@@ -39,7 +36,7 @@ function toMillis(ts) {
   }
 }
 
-// helper: checks whether a ban entry is currently active
+// checks whether a ban entry is currently active
 function banIsActive(b) {
   try {
     const now = Date.now();
@@ -53,7 +50,7 @@ function banIsActive(b) {
   }
 }
 
-// small tolerance to avoid immediately redirecting right after a reactivation write
+// small tolerance to avoid redirecting immediately after a reactivation write
 function recentlyReactivated(data, windowMs = 5000) {
   try {
     if (!data) return false;
@@ -70,21 +67,20 @@ function recentlyReactivated(data, windowMs = 5000) {
 // main guard
 onAuthStateChanged(auth, async (user) => {
   try {
-    // if not signed in, don't block (signed-out users should not be redirected)
+    // not signed in => do nothing
     if (!user) return;
 
-    // avoid infinite loop when already viewing the ban page
+    // already on ban page => avoid loop
     if (isOnBanPage()) return;
 
     const uref = doc(db, 'users', user.uid);
 
-    // read user doc (simple approach using getDoc)
+    // Try to read user doc. If read fails, fail-open (do not block).
     let snap;
     try {
       snap = await getDoc(uref);
     } catch (e) {
       console.error('ban-guard: failed to read user doc', e);
-      // fail open: don't block users if we can't read the doc
       return;
     }
 
@@ -95,29 +91,24 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = snap.data();
 
-    // If admin/client explicitly cleared banned flag, treat that as authoritative: do not redirect.
+    // If explicit banned:false — treat authoritative and allow
     if (data && data.banned === false) {
-      // allow user even if bans array contains stale/active entries
-      console.debug('ban-guard: banned === false — allowing user');
       return;
     }
 
-    // If recently reactivated, avoid immediate redirect (helps race conditions).
+    // allow brief window after reactivation write to avoid races
     if (recentlyReactivated(data)) {
-      console.debug('ban-guard: recent reactivation detected — allowing user briefly');
       return;
     }
 
-    // Otherwise, check bans array for any active entries
+    // check bans array for active entry
     const arrayBanned = Array.isArray(data.bans) && data.bans.some(banIsActive);
 
     if (data.banned || arrayBanned) {
-      // block: redirect to ban page (replace so back button won't return to a page that immediately redirects)
-      console.warn('ban-guard: redirecting user to ban page', { uid: user.uid, banned: !!data.banned, activeBanCount: Array.isArray(data.bans) ? data.bans.filter(banIsActive).length : 0 });
+      // redirect to ban page (replace so back button doesn't go back to redirecting page)
       location.replace(BAN_REDIRECT);
     } else {
-      // allowed
-      console.debug('ban-guard: no active ban found; user allowed');
+      // allowed — nothing to do
     }
   } catch (err) {
     // Fail open — do not block users if guard errors. Log for debugging.
