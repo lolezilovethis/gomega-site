@@ -54,13 +54,13 @@
       <h1>Profile</h1>
       <p class="muted" id="userEmail">Signed in as —</p>
       <div style="margin-top:12px;">
-        <a class="btn" id="addNewBtn" href="add-script.html">➕ Add New Script</a>
+        <a class="btn" id="addNewBtn" href="add-script">➕ Add New Script</a>
       </div>
 
       <hr style="margin:14px 0; border-color:#222" />
 
       <div style="display:flex; gap:8px; flex-direction:column;">
-        <a class="btn ghost" href="scripts.html">All Scripts</a>
+        <a class="btn ghost" href="scripts">All Scripts</a>
         <a class="btn ghost" id="goToClaims">My Claims</a>
         <a class="btn ghost" id="goToSettings">Settings</a>
       </div>
@@ -475,8 +475,8 @@
     });
 
     // small helpers for optional navigation
-    document.getElementById('goToClaims').addEventListener('click', () => location.href = '/claims.html');
-    document.getElementById('goToSettings').addEventListener('click', () => location.href = '/settings.html');
+    document.getElementById('goToClaims').addEventListener('click', () => location.href = '/claims');
+    document.getElementById('goToSettings').addEventListener('click', () => location.href = '/settings');
 
     // close modals on ESC
     window.addEventListener('keydown', (e) => {
