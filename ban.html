@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>Admin — Ban Users | Gomega Watch</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="/style.css">
   <style>
     :root{--bg:#0f0f10;--card:#141416;--muted:#9aa0a6;--accent:#00d4ff;--accent2:#0066ff;--danger:#ff5252}
     body{background:var(--bg);color:#eef2f3;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:24px}
@@ -13,11 +12,11 @@
     h1{margin:0 0 6px;color:var(--accent)}
     .muted{color:var(--muted)}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    input[type="text"], textarea, select {width:100%;padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0c;color:#eef2f3}
+    input[type="text"], textarea, select, input[type="number"] {width:100%;padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0c;color:#eef2f3}
     .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     button.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;padding:10px 12px;border-radius:8px;color:#001;font-weight:700;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent)}
-    button.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040);color:#fff}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent);padding:8px 10px;border-radius:8px;cursor:pointer}
+    button.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040);color:#fff;padding:8px 10px;border-radius:8px;cursor:pointer}
     .small{font-size:0.9rem;color:var(--muted)}
     .hidden{display:none}
     pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff}
@@ -25,6 +24,8 @@
     .note-line{font-size:0.85rem;color:var(--muted); margin-top:8px}
     .error { color: #ffb3b3; font-weight:700; margin-top:8px}
     .success { color: #a8ffdf; font-weight:700; margin-top:8px}
+    hr{border:none;border-top:1px solid rgba(255,255,255,0.04);margin:12px 0}
+    .top-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -34,6 +35,14 @@
       <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong>.</p>
       <div id="accessMsg" class="small muted">Checking authentication…</div>
       <div id="accessErr" class="error hidden"></div>
+
+      <div style="margin-top:12px" class="top-controls">
+        <button class="btn" id="signInBtn">Sign in with Google</button>
+        <button class="ghost hidden" id="signOutBtn">Sign out</button>
+        <button class="ghost" id="forceRefreshBtn" title="Force refresh token/claims">Force token refresh</button>
+      </div>
+
+      <div id="debugConsole" class="small muted" style="margin-top:8px;white-space:pre-wrap;font-family:monospace;"></div>
     </div>
 
     <div class="card hidden" id="mainCard" aria-hidden="true">
@@ -43,7 +52,7 @@
           <div class="small muted">Search by email (recommended) or paste UID.</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="ghost" id="signOutBtn">Sign out</button>
+          <button class="ghost" id="signOutBtn2">Sign out</button>
         </div>
       </div>
 
@@ -154,41 +163,43 @@
   </div>
 
   <script type="module">
-    // --------- FIREBASE INIT (fill your config) ----------
+    // ---------- FIREBASE (fill with YOUR project config) ----------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp,
+      getAuth, onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, arrayUnion, serverTimestamp,
       collection, query, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Put your Firebase project config here:
-    // You can copy this from the Firebase console -> Project settings.
+    // Replace these values with your Firebase project's actual config
     const firebaseConfig = {
       apiKey: "REPLACE_WITH_YOUR_APIKEY",
       authDomain: "REPLACE_WITH_YOUR_AUTHDOMAIN",
       projectId: "REPLACE_WITH_YOUR_PROJECTID",
-      // optional:
-      // storageBucket: "...",
-      // messagingSenderId: "...",
-      // appId: "..."
+      // appId, storageBucket, messagingSenderId optional
     };
 
-    // Basic guard to avoid hard-to-debug "missing config" errors
     if (!firebaseConfig || !firebaseConfig.projectId) {
-      console.error('Please fill firebaseConfig in the page with your project values.');
-      // The page will still load so you can see the message in console.
+      console.error('Please fill firebaseConfig with your Firebase project values.');
     }
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
 
     // UI refs
     const accessMsg = document.getElementById('accessMsg');
     const accessErr = document.getElementById('accessErr');
     const mainCard = document.getElementById('mainCard');
+    const signInBtn = document.getElementById('signInBtn');
     const signOutBtn = document.getElementById('signOutBtn');
+    const signOutBtn2 = document.getElementById('signOutBtn2');
+    const forceRefreshBtn = document.getElementById('forceRefreshBtn');
+    const debugConsole = document.getElementById('debugConsole');
+
     const searchEmail = document.getElementById('searchEmail');
     const searchEmailBtn = document.getElementById('searchEmailBtn');
     const manualUid = document.getElementById('manualUid');
@@ -222,18 +233,33 @@
     let loadedEmail = null;
 
     // ===== helpers =====
+    function appendDebug(...args) {
+      try {
+        const s = args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' ');
+        console.log('DEBUG:', ...args);
+        debugConsole.textContent = (debugConsole.textContent ? debugConsole.textContent + '\n' : '') + s;
+      } catch (e) { console.log('DEBUG append failed', e); }
+    }
+
     function showUnauthorized(msg) {
       accessMsg.textContent = msg || 'Unauthorized. Sign in as admin.';
       accessErr.classList.remove('hidden');
       accessErr.textContent = msg || 'Unauthorized';
       mainCard.classList.add('hidden');
       mainCard.setAttribute('aria-hidden','true');
+      // show sign-in button
+      signInBtn.classList.remove('hidden');
+      signOutBtn.classList.add('hidden');
+      signOutBtn2.classList.add('hidden');
     }
     function showMain() {
       accessErr.classList.add('hidden');
       accessMsg.textContent = 'Signed in as admin: ' + (currentAdmin.email || '');
       mainCard.classList.remove('hidden');
       mainCard.setAttribute('aria-hidden','false');
+      signInBtn.classList.add('hidden');
+      signOutBtn.classList.remove('hidden');
+      signOutBtn2.classList.remove('hidden');
     }
     function fmtDate(ts) {
       if (!ts) return '—';
@@ -255,10 +281,9 @@
       actionError.classList.add('hidden');
     }
 
-    // Encode email -> safe doc id for usersByEmail mapping
     function encodeEmailForId(email) {
       try {
-        const b = btoa(email); // base64
+        const b = btoa(email);
         return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
       } catch (e) {
         return email.replace(/\./g,',');
@@ -287,7 +312,7 @@
       });
     }
 
-    // ===== Firestore access (client-only) =====
+    // ===== Firestore access =====
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
@@ -299,7 +324,7 @@
           if (d && d.uid) return d.uid;
         }
       } catch (e) {
-        console.warn('usersByEmail lookup failed', e);
+        appendDebug('usersByEmail lookup failed', e);
       }
 
       // method 2: query users where email == email
@@ -311,7 +336,7 @@
           return first.id;
         }
       } catch (e) {
-        console.warn('users collection query failed', e);
+        appendDebug('users collection query failed', e);
       }
 
       return null;
@@ -329,7 +354,7 @@
         renderBans(Array.isArray(data.bans) ? data.bans : []);
         return data;
       } catch (err) {
-        console.error('loadUserDoc failed', err);
+        appendDebug('loadUserDoc failed', err);
         if (err && err.code === 'permission-denied') {
           banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin or create usersByEmail mapping for serverless lookup.</div>';
         } else {
@@ -367,7 +392,7 @@
 
         return { success: true, banEntry };
       } catch (err) {
-        console.error('banUserClient failed', err);
+        appendDebug('banUserClient failed', err);
         throw err;
       }
     }
@@ -388,14 +413,51 @@
         });
         return { success: true, unbanEntry };
       } catch (err) {
-        console.error('unbanUserClient failed', err);
+        appendDebug('unbanUserClient failed', err);
         throw err;
       }
     }
 
     // ===== UI wiring =====
-    signOutBtn.addEventListener('click', async () => {
-      await signOut(auth);
+    signInBtn.addEventListener('click', async () => {
+      appendDebug('Sign-in clicked');
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        appendDebug('Sign-in error', e);
+        accessErr.classList.remove('hidden');
+        accessErr.textContent = 'Sign-in failed: ' + (e && e.message ? e.message : String(e));
+      }
+    });
+
+    async function doSignOut() {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        appendDebug('Sign-out failed', e);
+      }
+    }
+    signOutBtn.addEventListener('click', doSignOut);
+    signOutBtn2.addEventListener('click', doSignOut);
+
+    forceRefreshBtn.addEventListener('click', async () => {
+      if (!auth.currentUser) {
+        appendDebug('No current user to refresh token for.');
+        return;
+      }
+      appendDebug('Forcing id token refresh...');
+      try {
+        await auth.currentUser.getIdToken(true);
+        appendDebug('Token refresh requested. onAuthStateChanged will update claims if they changed.');
+        // Optionally re-run the check manually:
+        // onAuthStateChanged callback will run automatically when token changes, but we also call it again by reading tokenResult:
+        try {
+          const tr = await auth.currentUser.getIdTokenResult(true);
+          appendDebug('New claims:', tr.claims);
+        } catch (e) { appendDebug('getIdTokenResult failed after refresh', e); }
+      } catch (e) {
+        appendDebug('Token refresh error', e);
+      }
     });
 
     lengthPreset.addEventListener('change', () => { banDays.value = lengthPreset.value; });
@@ -435,7 +497,7 @@
           searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
         }
       } catch (err) {
-        console.error('Search failed', err);
+        appendDebug('Search failed', err);
         searchStatus.textContent = 'Search failed — check console.';
       }
     });
@@ -485,6 +547,7 @@
         actionStatus.textContent = '';
         try { await loadUserDocByUid(loadedUid); } catch(e){}
       } catch (err) {
+        appendDebug('ban error', err);
         if (err && err.code === 'permission-denied') {
           showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
         } else {
@@ -508,6 +571,7 @@
         actionStatus.textContent = '';
         try { await loadUserDocByUid(loadedUid); } catch(e){}
       } catch (err) {
+        appendDebug('unban error', err);
         if (err && err.code === 'permission-denied') {
           showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
         } else {
@@ -533,20 +597,43 @@
     searchEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchEmailBtn.click(); });
     manualUid.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUidBtn.click(); });
 
-    // Auth guard (single-email admin)
+    // --- Debug-friendly auth guard ---
     onAuthStateChanged(auth, async (user) => {
+      appendDebug('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
+      accessMsg.textContent = 'Auth state changed — checking...';
+
       if (!user) {
         accessMsg.textContent = 'Not signed in. Please sign in with the admin account.';
-        showUnauthorized('Please sign in as gomegaassist@gmail.com.');
+        showUnauthorized('Please sign in as ' + ADMIN_EMAIL + '.');
         return;
       }
+
       currentAdmin = user;
-      try { await user.getIdToken(true); } catch (e) { console.warn('token refresh failed', e); }
-      const emailOk = (user.email && user.email.toLowerCase() === ADMIN_EMAIL);
-      if (emailOk) {
+
+      // force token refresh to pick up any new custom claims, if possible
+      let tokenResult = null;
+      try {
+        tokenResult = await user.getIdTokenResult(true);
+        appendDebug('idTokenResult.claims =', tokenResult.claims);
+      } catch (e) {
+        appendDebug('getIdTokenResult failed', e);
+      }
+
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const adminEmail = (ADMIN_EMAIL || '').toLowerCase().trim();
+
+      const emailOk = userEmail === adminEmail;
+      const hasAdminClaim = !!(tokenResult && tokenResult.claims && (tokenResult.claims.admin === true || tokenResult.claims.admin == 'true'));
+
+      // Show clear message so you can tell why it's failing
+      accessMsg.textContent = `Signed in as: ${userEmail} — emailOk: ${emailOk} — adminClaim: ${hasAdminClaim}`;
+
+      if (emailOk || hasAdminClaim) {
+        appendDebug('admin check passed', { emailOk, hasAdminClaim });
         showMain();
       } else {
-        showUnauthorized('Signed in as wrong account. Sign in as gomegaassist@gmail.com.');
+        appendDebug('admin check failed', { userEmail, ADMIN_EMAIL, claims: tokenResult && tokenResult.claims });
+        showUnauthorized(`Signed in as wrong account (${userEmail}). Sign in as ${ADMIN_EMAIL}.`);
       }
     });
 
