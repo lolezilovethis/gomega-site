@@ -153,38 +153,24 @@
       <ul class="small muted">
         <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
           <ul>
-            <li>Set the admin custom claim for your admin user (`admin:true`) using the service account script, or</li>
-            <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read (encode email safely: see code), or</li>
+            <li>Set the admin custom claim for your admin user (`admin:true`) using the Firebase Admin SDK (see snippet below), or</li>
+            <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read, or</li>
             <li>Temporarily relax your rules for your admin email (not recommended long-term).</li>
           </ul>
         </li>
-        <li>This page intentionally does not use Cloud Functions. If you want server-side validation & audit logs that can't be forged by clients, use callable functions instead.</li>
+        <li>This page intentionally does client-side writes. For tamper-proof audit logs and server-side validation use Cloud Functions / admin server calls.</li>
       </ul>
     </div>
   </div>
 
   <script type="module">
-    // ---- This page expects ./js/firebase.js to export "auth" and "db" ----
-    // Example minimal ./js/firebase.js:
-    // import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    // import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    // import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    // const app = initializeApp({...});
-    // const auth = getAuth(app);
-    // const db = getFirestore(app);
-    // export { auth, db };
-
-    // Import auth/db from your local module
+    // ---------- uses ./js/firebase.js for auth & db (you asked) ----------
+    // ./js/firebase.js must export `auth` and `db` (e.g. "export { auth, db }")
     import { auth, db } from './js/firebase.js';
 
-    // Import auth/firestore helpers from CDN
-    import {
-      onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      doc, getDoc, updateDoc, arrayUnion, serverTimestamp,
-      collection, query, where, getDocs
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // CDN imports for helpers we need
+    import { onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, getDoc, setDoc, arrayUnion, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // UI refs
     const accessMsg = document.getElementById('accessMsg');
@@ -223,7 +209,6 @@
     const actionSuccess = document.getElementById('actionSuccess');
 
     const ADMIN_EMAIL = 'gomegaassist@gmail.com';
-
     const provider = new GoogleAuthProvider();
 
     let currentAdmin = null;
@@ -245,7 +230,6 @@
       accessErr.textContent = msg || 'Unauthorized';
       mainCard.classList.add('hidden');
       mainCard.setAttribute('aria-hidden','true');
-      // show sign-in button
       signInBtn.classList.remove('hidden');
       signOutBtn.classList.add('hidden');
       signOutBtn2.classList.add('hidden');
@@ -258,10 +242,6 @@
       signInBtn.classList.add('hidden');
       signOutBtn.classList.remove('hidden');
       signOutBtn2.classList.remove('hidden');
-    }
-    function fmtDate(ts) {
-      if (!ts) return '—';
-      try { if (ts.toDate) return ts.toDate().toLocaleString(); return new Date(ts).toLocaleString(); } catch { return String(ts); }
     }
     function clearActionMessages() {
       actionStatus.textContent = '';
@@ -297,9 +277,9 @@
       bansArray.slice().reverse().forEach((b, i) => {
         const div = document.createElement('div');
         div.className = 'small muted';
-        const reviewed = b.reviewedAt && b.reviewedAt.toDate ? b.reviewedAt.toDate().toLocaleString() : (b.reviewedAt || '');
-        const start = b.start && b.start.toDate ? b.start.toDate().toLocaleString() : (b.start || '');
-        const end = b.end && b.end.toDate ? b.end.toDate().toLocaleString() : (b.end || '');
+        const reviewed = b.reviewedAt || '';
+        const start = b.start || '';
+        const end = b.end || '';
         div.innerHTML = `<strong>${b.title || 'Suspension #' + (i+1)}</strong><br/>
           Reason: ${b.reason || '—'}<br/>
           Moderator Note: ${b.moderatorNote || '—'}<br/>
@@ -310,10 +290,12 @@
       });
     }
 
-    // ===== Firestore access =====
+    // ===== Firestore access (client-side) =====
+    // Try mapping by usersByEmail (recommended), else query users collection
     async function findUidByEmail(email) {
       if (!email) return null;
       const enc = encodeEmailForId(email);
+      // method 1: usersByEmail mapping
       try {
         const mapped = await getDoc(doc(db, 'usersByEmail', enc));
         if (mapped.exists()) {
@@ -324,6 +306,7 @@
         appendDebug('usersByEmail lookup failed', e);
       }
 
+      // method 2: query users where email == email
       try {
         const q = query(collection(db, 'users'), where('email', '==', email));
         const snaps = await getDocs(q);
@@ -338,6 +321,7 @@
       return null;
     }
 
+    // Load users/{uid} (client-only). If permission-denied, show friendly message.
     async function loadUserDocByUid(uid) {
       banHistory.textContent = 'Loading…';
       try {
@@ -352,7 +336,7 @@
       } catch (err) {
         appendDebug('loadUserDoc failed', err);
         if (err && err.code === 'permission-denied') {
-          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin or create usersByEmail mapping for serverless lookup.</div>';
+          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin OR create a usersByEmail mapping doc that the client can read.</div>';
         } else {
           banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for details.</div>';
         }
@@ -360,13 +344,13 @@
       }
     }
 
+    // Safer ban writing: use ISO timestamps and setDoc(..., {merge:true}) so doc can be created if missing
     async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
       try {
-        const now = serverTimestamp();
-        let end = null;
+        const nowIso = new Date().toISOString();
+        let endIso = null;
         if (Number.isFinite(lengthDays) && lengthDays > 0) {
-          const ms = Date.now() + (lengthDays * 24 * 60 * 60 * 1000);
-          end = new Date(ms).toISOString();
+          endIso = new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000).toISOString();
         }
         const banEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
@@ -374,17 +358,18 @@
           reason: reason || 'Violation of Terms',
           moderatorNote: moderatorNote || '',
           offensiveItem: offensiveItem || '',
-          start: now,
-          end: end,
-          reviewedAt: now,
+          start: nowIso,
+          end: endIso,
+          reviewedAt: nowIso,
           action: 'ban',
           moderatorUid: currentAdmin.uid
         };
 
-        await updateDoc(doc(db, 'users', uid), {
+        // setDoc with merge: true (creates doc if missing) and append to bans array
+        await setDoc(doc(db, 'users', uid), {
           banned: true,
           bans: arrayUnion(banEntry)
-        });
+        }, { merge: true });
 
         return { success: true, banEntry };
       } catch (err) {
@@ -393,20 +378,23 @@
       }
     }
 
+    // Safer unban
     async function unbanUserClient(uid, { moderatorNote }) {
       try {
-        const now = serverTimestamp();
+        const nowIso = new Date().toISOString();
         const unbanEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
           action: 'unban',
           moderatorNote: moderatorNote || '',
           moderatorUid: currentAdmin.uid,
-          at: now
+          at: nowIso
         };
-        await updateDoc(doc(db, 'users', uid), {
+
+        await setDoc(doc(db, 'users', uid), {
           banned: false,
           bans: arrayUnion(unbanEntry)
-        });
+        }, { merge: true });
+
         return { success: true, unbanEntry };
       } catch (err) {
         appendDebug('unbanUserClient failed', err);
@@ -414,7 +402,7 @@
       }
     }
 
-    // ===== UI wiring =====
+    // ===== UI wiring (unchanged) =====
     signInBtn.addEventListener('click', async () => {
       appendDebug('Sign-in clicked');
       try {
@@ -427,20 +415,13 @@
     });
 
     async function doSignOut() {
-      try {
-        await signOut(auth);
-      } catch (e) {
-        appendDebug('Sign-out failed', e);
-      }
+      try { await signOut(auth); } catch (e) { appendDebug('Sign-out failed', e); }
     }
     signOutBtn.addEventListener('click', doSignOut);
     signOutBtn2.addEventListener('click', doSignOut);
 
     forceRefreshBtn.addEventListener('click', async () => {
-      if (!auth || !auth.currentUser) {
-        appendDebug('No current user to refresh token for.');
-        return;
-      }
+      if (!auth || !auth.currentUser) { appendDebug('No current user to refresh token for.'); return; }
       appendDebug('Forcing id token refresh...');
       try {
         await auth.currentUser.getIdToken(true);
@@ -449,9 +430,7 @@
           const tr = await auth.currentUser.getIdTokenResult(true);
           appendDebug('New claims:', tr.claims);
         } catch (e) { appendDebug('getIdTokenResult failed after refresh', e); }
-      } catch (e) {
-        appendDebug('Token refresh error', e);
-      }
+      } catch (e) { appendDebug('Token refresh error', e); }
     });
 
     lengthPreset.addEventListener('change', () => { banDays.value = lengthPreset.value; });
@@ -459,23 +438,17 @@
     searchEmailBtn.addEventListener('click', async () => {
       clearActionMessages();
       const email = (searchEmail.value || '').trim();
-      if (!email) {
-        searchStatus.textContent = 'Enter an email to search.';
-        return;
-      }
+      if (!email) { searchStatus.textContent = 'Enter an email to search.'; return; }
       searchStatus.textContent = 'Searching for uid…';
       try {
         const uid = await findUidByEmail(email);
         if (!uid) {
-          searchStatus.textContent = 'No mapping found for that email. Paste UID manually as fallback.';
+          searchStatus.textContent = 'No mapping found for that email. Paste UID manually as fallback or create usersByEmail mapping.';
           return;
         }
         searchStatus.textContent = 'Found UID: ' + uid + ' — loading user doc…';
-        loadedUid = uid;
-        loadedEmail = email;
-        u_uid.textContent = uid;
-        u_email.textContent = email;
-        u_name.textContent = '(loading…)';
+        loadedUid = uid; loadedEmail = email;
+        u_uid.textContent = uid; u_email.textContent = email; u_name.textContent = '(loading…)';
         userInfo.classList.remove('hidden');
 
         try {
@@ -499,16 +472,10 @@
     loadUidBtn.addEventListener('click', async () => {
       clearActionMessages();
       const uid = (manualUid.value || '').trim();
-      if (!uid) {
-        searchStatus.textContent = 'Paste a UID to load.';
-        return;
-      }
+      if (!uid) { searchStatus.textContent = 'Paste a UID to load.'; return; }
       searchStatus.textContent = 'Loading user doc…';
-      loadedUid = uid;
-      loadedEmail = null;
-      u_uid.textContent = uid;
-      u_email.textContent = '(unknown)';
-      u_name.textContent = '(loading…)';
+      loadedUid = uid; loadedEmail = null;
+      u_uid.textContent = uid; u_email.textContent = '(unknown)'; u_name.textContent = '(loading…)';
       userInfo.classList.remove('hidden');
       try {
         const data = await loadUserDocByUid(uid);
@@ -543,7 +510,7 @@
       } catch (err) {
         appendDebug('ban error', err);
         if (err && err.code === 'permission-denied') {
-          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim OR change rules.');
         } else {
           showActionError('Ban failed — check console for details.');
         }
@@ -567,7 +534,7 @@
       } catch (err) {
         appendDebug('unban error', err);
         if (err && err.code === 'permission-denied') {
-          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim OR change rules.');
         } else {
           showActionError('Unban failed — check console for details.');
         }
@@ -591,7 +558,7 @@
     searchEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchEmailBtn.click(); });
     manualUid.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUidBtn.click(); });
 
-    // --- Debug-friendly auth guard ---
+    // --- Auth guard (debug-friendly) ---
     onAuthStateChanged(auth, async (user) => {
       appendDebug('onAuthStateChanged -> user:', user ? { uid: user.uid, email: user.email } : null);
       accessMsg.textContent = 'Auth state changed — checking...';
@@ -604,7 +571,7 @@
 
       currentAdmin = user;
 
-      // force token refresh to pick up any new custom claims, if possible
+      // force token refresh to pick up custom claims when possible
       let tokenResult = null;
       try {
         tokenResult = await user.getIdTokenResult(true);
@@ -615,7 +582,6 @@
 
       const userEmail = (user.email || '').toLowerCase().trim();
       const adminEmail = (ADMIN_EMAIL || '').toLowerCase().trim();
-
       const emailOk = userEmail === adminEmail;
       const hasAdminClaim = !!(tokenResult && tokenResult.claims && (tokenResult.claims.admin === true || tokenResult.claims.admin == 'true'));
 
