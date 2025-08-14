@@ -23,6 +23,8 @@
     pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff}
     .status{margin-top:8px;font-weight:700}
     .note-line{font-size:0.85rem;color:var(--muted); margin-top:8px}
+    .error { color: #ffb3b3; font-weight:700; margin-top:8px}
+    .success { color: #a8ffdf; font-weight:700; margin-top:8px}
   </style>
 </head>
 <body>
@@ -31,6 +33,7 @@
       <h1>Admin — Ban Management</h1>
       <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong>.</p>
       <div id="accessMsg" class="small muted">Checking authentication…</div>
+      <div id="accessErr" class="error hidden"></div>
     </div>
 
     <div class="card hidden" id="mainCard" aria-hidden="true">
@@ -55,7 +58,7 @@
           <button class="btn" id="loadUidBtn">Load</button>
         </div>
         <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
-        <div id="hint" class="note-line">Tip: If server functions aren't deployed, paste a UID manually and the page will attempt a Firestore read (requires proper rules/claims).</div>
+        <div id="hint" class="note-line">Tip: Add a `usersByEmail/{encodedEmail}` mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
       </div>
 
       <hr />
@@ -86,7 +89,7 @@
         <hr style="margin:12px 0" />
 
         <h3 style="margin:0 0 8px 0">Ban user</h3>
-        <div class="small muted">Fill the form and press <strong>Ban</strong>. The server (callable function) will perform the ban and set claims. If not present, the UI will try a client-side Firestore write as fallback (may be denied).</div>
+        <div class="small muted">Fill the form and press <strong>Ban</strong>. This page performs Firestore writes directly — your signed-in account must have permission (per rules) to write to <code>users/{uid}</code>.</div>
 
         <div style="margin-top:8px">
           <label class="small muted">Title (shown to user)</label>
@@ -129,27 +132,40 @@
           </div>
 
           <div id="actionStatus" class="status small muted"></div>
+          <div id="actionError" class="error hidden"></div>
+          <div id="actionSuccess" class="success hidden"></div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h3>Notes</h3>
+      <h3>Notes & troubleshooting</h3>
       <ul class="small muted">
-        <li>This page enforces client-side that the signed-in email is <code>gomegaassist@gmail.com</code>. Server-side functions must still verify the caller (this file assumes server will verify).</li>
-        <li>Recommended callable Cloud Functions: <code>getUserByEmail</code>, <code>banUser</code>, <code>unbanUser</code>. Deploy them as <code>https.onCall</code> in <code>us-central1</code>.</li>
+        <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
+          <ul>
+            <li>Set the admin custom claim for your admin user (`admin:true`) using the service account script I gave you earlier, or</li>
+            <li>Add a Firestore mapping collection <code>usersByEmail/{encodedEmail} → { uid, email }</code> that the client can read (encode email safely: see code), or</li>
+            <li>Temporarily relax your rules for your admin email (not recommended long-term).</li>
+          </ul>
+        </li>
+        <li>This page intentionally does not use Cloud Functions. If you want server-side validation & audit logs that can't be forged by clients, use callable functions instead.</li>
       </ul>
     </div>
   </div>
 
   <script type="module">
+    // This file expects ./js/firebase.js to export `auth` and `db`:
+    // export { auth, db };
     import { auth, db } from './js/firebase.js';
-    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
     import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp,
+      collection, query, where, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // UI elements
+    // UI refs
     const accessMsg = document.getElementById('accessMsg');
+    const accessErr = document.getElementById('accessErr');
     const mainCard = document.getElementById('mainCard');
     const signOutBtn = document.getElementById('signOutBtn');
     const searchEmail = document.getElementById('searchEmail');
@@ -175,48 +191,62 @@
     const unbanBtn = document.getElementById('unbanBtn');
     const refreshUserBtn = document.getElementById('refreshUserBtn');
     const actionStatus = document.getElementById('actionStatus');
+    const actionError = document.getElementById('actionError');
+    const actionSuccess = document.getElementById('actionSuccess');
 
-    // Try to get functions targeting us-central1; fallback to default
-    let functions;
-    try {
-      functions = getFunctions(undefined, 'us-central1');
-    } catch (e) {
-      functions = getFunctions();
-    }
-
-    const getUserByEmailFn = httpsCallable(functions, 'getUserByEmail');
-    const banUserFn = httpsCallable(functions, 'banUser');
-    const unbanUserFn = httpsCallable(functions, 'unbanUser');
+    const ADMIN_EMAIL = 'gomegaassist@gmail.com';
 
     let currentAdmin = null;
-    let loadedUser = null; // { uid, email, displayName, doc? }
+    let loadedUid = null;
+    let loadedEmail = null;
 
-    // Utilities
-    function fmtDate(ts) {
-      if (!ts) return '—';
-      try {
-        if (ts.toDate) return ts.toDate().toLocaleString();
-        return new Date(ts).toLocaleString();
-      } catch { return String(ts); }
-    }
-
+    // ===== helpers =====
     function showUnauthorized(msg) {
-      accessMsg.textContent = msg || 'Unauthorized. Only designated admin can use this page.';
+      accessMsg.textContent = msg || 'Unauthorized. Sign in as admin.';
+      accessErr.classList.remove('hidden');
+      accessErr.textContent = msg || 'Unauthorized';
       mainCard.classList.add('hidden');
       mainCard.setAttribute('aria-hidden','true');
     }
-
     function showMain() {
+      accessErr.classList.add('hidden');
       accessMsg.textContent = 'Signed in as admin: ' + (currentAdmin.email || '');
       mainCard.classList.remove('hidden');
       mainCard.setAttribute('aria-hidden','false');
     }
+    function fmtDate(ts) {
+      if (!ts) return '—';
+      try { if (ts.toDate) return ts.toDate().toLocaleString(); return new Date(ts).toLocaleString(); } catch { return String(ts); }
+    }
+    function clearActionMessages() {
+      actionStatus.textContent = '';
+      actionError.classList.add('hidden');
+      actionSuccess.classList.add('hidden');
+    }
+    function showActionError(txt) {
+      actionError.textContent = txt;
+      actionError.classList.remove('hidden');
+      actionSuccess.classList.add('hidden');
+    }
+    function showActionSuccess(txt) {
+      actionSuccess.textContent = txt;
+      actionSuccess.classList.remove('hidden');
+      actionError.classList.add('hidden');
+    }
 
-    signOutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-    });
+    // Encode email -> safe doc id for usersByEmail mapping
+    function encodeEmailForId(email) {
+      // replace characters not allowed in docIDs (just be safe)
+      // e.g. "user.name+tag@example.com" -> base64 URL-safe
+      try {
+        const b = btoa(email); // base64
+        return b.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      } catch (e) {
+        // fallback: simple replace
+        return email.replace(/\./g,',');
+      }
+    }
 
-    // Render ban array into banHistory element
     function renderBans(bansArray) {
       if (!Array.isArray(bansArray) || bansArray.length === 0) {
         banHistory.innerHTML = '<div class="small muted">No bans recorded for this user.</div>';
@@ -239,176 +269,250 @@
       });
     }
 
-    // Attempt to load user's users/{uid} doc from Firestore (may be blocked by rules)
-    async function loadUserDoc(uid) {
+    // ===== Firestore access (client-only) =====
+    // Try to resolve an email -> uid using three methods:
+    // 1) usersByEmail/{encodedEmail} doc (recommended mapping you create on signup)
+    // 2) query users collection for email == <email> (requires rules to allow)
+    // 3) return null (fallback to manual UID)
+    async function findUidByEmail(email) {
+      if (!email) return null;
+      const enc = encodeEmailForId(email);
+      // method 1: usersByEmail mapping
+      try {
+        const mapped = await getDoc(doc(db, 'usersByEmail', enc));
+        if (mapped.exists()) {
+          const d = mapped.data();
+          if (d && d.uid) return d.uid;
+        }
+      } catch (e) {
+        // permission or missing collection - continue
+        console.warn('usersByEmail lookup failed', e);
+      }
+
+      // method 2: query users where email == email
+      try {
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const snaps = await getDocs(q);
+        if (!snaps.empty) {
+          // return first matched doc's id (uid)
+          const first = snaps.docs[0];
+          return first.id;
+        }
+      } catch (e) {
+        console.warn('users collection query failed', e);
+      }
+
+      // not found
+      return null;
+    }
+
+    // Load users/{uid} doc and render bans (throws on permission errors)
+    async function loadUserDocByUid(uid) {
       banHistory.textContent = 'Loading…';
       try {
         const snap = await getDoc(doc(db, 'users', uid));
         if (!snap.exists()) {
           banHistory.innerHTML = '<div class="small muted">No user doc found in Firestore (users/{uid}).</div>';
-          return;
+          return null;
         }
         const data = snap.data();
-        const bans = Array.isArray(data.bans) ? data.bans : [];
-        renderBans(bans);
+        renderBans(Array.isArray(data.bans) ? data.bans : []);
+        return data;
       } catch (err) {
         console.error('loadUserDoc failed', err);
         if (err && err.code === 'permission-denied') {
-          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. If you want the admin UI to read ban history directly, ensure this account has admin claims or use the server function. Otherwise paste UID manually.</div>';
+          banHistory.innerHTML = '<div class="small muted">Permission denied reading user doc. To fix: set admin custom claim for the admin or create usersByEmail mapping for serverless lookup.</div>';
         } else {
-          banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for errors.</div>';
+          banHistory.innerHTML = '<div class="small muted">Failed to load user document. Check console for details.</div>';
         }
+        throw err;
       }
     }
 
-    // Helper: populate UI with loadedUser data. accepts {uid,email,displayName,doc?}
-    async function populateUser(u) {
-      loadedUser = u || null;
-      if (!loadedUser) return;
-      u_uid.textContent = loadedUser.uid || '(unknown)';
-      u_email.textContent = loadedUser.email || '(unknown)';
-      u_name.textContent = loadedUser.displayName || '—';
-      userInfo.classList.remove('hidden');
+    // Ban user: client writes directly to users/{uid}. Requires Firestore permission per rules.
+    async function banUserClient(uid, { title, lengthDays, reason, moderatorNote, offensiveItem }) {
+      try {
+        const now = serverTimestamp();
+        let end = null;
+        if (Number.isFinite(lengthDays) && lengthDays > 0) {
+          // compute as ISO string (client timestamp cannot create Firestore Timestamp directly)
+          const ms = Date.now() + (lengthDays * 24 * 60 * 60 * 1000);
+          end = new Date(ms).toISOString();
+        }
+        const banEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          title: title || `Ban by ${currentAdmin.uid}`,
+          reason: reason || 'Violation of Terms',
+          moderatorNote: moderatorNote || '',
+          offensiveItem: offensiveItem || '',
+          start: now,
+          end: end,
+          reviewedAt: now,
+          action: 'ban',
+          moderatorUid: currentAdmin.uid
+        };
 
-      // If server returned doc as part of getUserByEmail, use it (avoids Firestore client read)
-      if (loadedUser.doc) {
-        renderBans(loadedUser.doc.bans || []);
-      } else {
-        // otherwise attempt client read (may be permission denied)
-        await loadUserDoc(loadedUser.uid);
+        // Firestore client: use set with merge to append ban & set banned:true
+        await updateDoc(doc(db, 'users', uid), {
+          banned: true,
+          bans: arrayUnion(banEntry)
+        });
+
+        return { success: true, banEntry };
+      } catch (err) {
+        console.error('banUserClient failed', err);
+        throw err;
       }
     }
 
-    // Search by email (calls getUserByEmail callable function). If function missing or fails, user can paste UID.
+    // Unban client
+    async function unbanUserClient(uid, { moderatorNote }) {
+      try {
+        const now = serverTimestamp();
+        const unbanEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+          action: 'unban',
+          moderatorNote: moderatorNote || '',
+          moderatorUid: currentAdmin.uid,
+          at: now
+        };
+        await updateDoc(doc(db, 'users', uid), {
+          banned: false,
+          bans: arrayUnion(unbanEntry)
+        });
+        return { success: true, unbanEntry };
+      } catch (err) {
+        console.error('unbanUserClient failed', err);
+        throw err;
+      }
+    }
+
+    // ===== UI wiring =====
+    signOutBtn.addEventListener('click', async () => {
+      await signOut(auth);
+    });
+
+    lengthPreset.addEventListener('change', () => { banDays.value = lengthPreset.value; });
+
+    // Search by email (client-only)
     searchEmailBtn.addEventListener('click', async () => {
+      clearActionMessages();
       const email = (searchEmail.value || '').trim();
       if (!email) {
         searchStatus.textContent = 'Enter an email to search.';
         return;
       }
-      searchStatus.textContent = 'Searching…';
+      searchStatus.textContent = 'Searching for uid…';
       try {
-        // call the callable function
-        const res = await getUserByEmailFn({ email });
-        if (!res || !res.data || !res.data.uid) {
-          searchStatus.textContent = 'User not found. You can paste a UID manually.';
+        const uid = await findUidByEmail(email);
+        if (!uid) {
+          searchStatus.textContent = 'No mapping found for that email. Paste UID manually as fallback.';
           return;
         }
-        const u = res.data;
-        await populateUser(u);
-        searchStatus.textContent = 'Loaded user.';
-      } catch (err) {
-        console.error('getUserByEmail failed', err);
-        // Provide helpful messages for common failures
-        if (err && (err.code === 'functions/unavailable' || (err && err.message && err.message.includes('Unable to find callable function')))) {
-          searchStatus.textContent = 'Server function unreachable. Deploy getUserByEmail or paste UID manually.';
-        } else if (err && err.code === 'permission-denied') {
-          searchStatus.textContent = 'Permission denied calling getUserByEmail — ensure you are signed in as gomegaassist@gmail.com and server verifies the email.';
-        } else {
-          searchStatus.textContent = 'Search failed. Check console.';
+        searchStatus.textContent = 'Found UID: ' + uid + ' — loading user doc…';
+        loadedUid = uid;
+        loadedEmail = email;
+        u_uid.textContent = uid;
+        u_email.textContent = email;
+        u_name.textContent = '(loading…)';
+        userInfo.classList.remove('hidden');
+
+        // try to load doc
+        try {
+          const data = await loadUserDocByUid(uid);
+          if (data) {
+            u_name.textContent = data.displayName || '(unknown)';
+            searchStatus.textContent = 'Loaded user document.';
+          } else {
+            u_name.textContent = '(no doc)';
+            searchStatus.textContent = 'No user doc found.';
+          }
+        } catch (e) {
+          searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
         }
+      } catch (err) {
+        console.error('Search failed', err);
+        searchStatus.textContent = 'Search failed — check console.';
       }
     });
 
     // Load by UID fallback
     loadUidBtn.addEventListener('click', async () => {
+      clearActionMessages();
       const uid = (manualUid.value || '').trim();
       if (!uid) {
         searchStatus.textContent = 'Paste a UID to load.';
         return;
       }
-      searchStatus.textContent = 'Loaded UID; fetching Firestore user doc…';
-      await populateUser({ uid, email: '(unknown)', displayName: '(unknown)' });
-      searchStatus.textContent = 'Loaded user (by UID).';
-    });
-
-    // preset dropdown
-    lengthPreset.addEventListener('change', () => {
-      banDays.value = lengthPreset.value;
-    });
-
-    // Ban action
-    banBtn.addEventListener('click', async () => {
-      if (!loadedUser || !loadedUser.uid) {
-        actionStatus.textContent = 'No user loaded.';
-        return;
+      searchStatus.textContent = 'Loading user doc…';
+      loadedUid = uid;
+      loadedEmail = null;
+      u_uid.textContent = uid;
+      u_email.textContent = '(unknown)';
+      u_name.textContent = '(loading…)';
+      userInfo.classList.remove('hidden');
+      try {
+        const data = await loadUserDocByUid(uid);
+        if (data) {
+          u_name.textContent = data.displayName || '(unknown)';
+          searchStatus.textContent = 'Loaded user document.';
+        } else {
+          u_name.textContent = '(no doc)';
+          searchStatus.textContent = 'No user doc found.';
+        }
+      } catch (err) {
+        searchStatus.textContent = 'Could not read users/{uid} (permission issue?).';
       }
-      const uid = loadedUser.uid;
+    });
+
+    // Ban button: client-only ban (direct Firestore write)
+    banBtn.addEventListener('click', async () => {
+      clearActionMessages();
+      if (!loadedUid) { showActionError('No user loaded.'); return; }
+      banBtn.disabled = true; unbanBtn.disabled = true;
+      actionStatus.textContent = 'Banning…';
       const title = banTitle.value.trim() || null;
       const lengthDays = banDays.value ? parseInt(banDays.value, 10) : null;
       const reason = banReason.value.trim() || 'Violation of Terms';
       const offensiveItem = banOffensive.value.trim() || '';
       const moderatorNote = banNote.value.trim() || '';
 
-      actionStatus.textContent = 'Banning…';
-      banBtn.disabled = true; unbanBtn.disabled = true;
-
       try {
-        // Try server callable first (recommended)
-        try {
-          const res = await banUserFn({ uid, lengthDays, reason, moderatorNote, offensiveItem, title });
-          actionStatus.textContent = 'Ban request sent — server returned: ' + JSON.stringify(res.data || res);
-        } catch (fnErr) {
-          console.warn('banUser callable failed:', fnErr);
-          actionStatus.textContent = 'Server function failed — attempted client-side Firestore update (may fail due to rules).';
-        }
-
-        // Refresh user info: prefer server returned doc
-        try {
-          const res2 = await getUserByEmailFn({ email: loadedUser.email || '' }).catch(()=>null);
-          if (res2 && res2.data && res2.data.uid) {
-            await populateUser(res2.data);
-          } else {
-            await loadUserDoc(uid);
-          }
-        } catch (rerr) {
-          console.warn('refresh after ban: getUserByEmail failed', rerr);
-          await loadUserDoc(uid);
-        }
+        const res = await banUserClient(loadedUid, { title, lengthDays, reason, moderatorNote, offensiveItem });
+        showActionSuccess('Ban recorded (client write).');
+        actionStatus.textContent = '';
+        // refresh
+        try { await loadUserDocByUid(loadedUid); } catch(e){}
       } catch (err) {
-        console.error('banUser error', err);
-        actionStatus.textContent = 'Ban failed. See console for details.';
+        if (err && err.code === 'permission-denied') {
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+        } else {
+          showActionError('Ban failed — check console for details.');
+        }
       } finally {
         banBtn.disabled = false; unbanBtn.disabled = false;
       }
     });
 
-    // Unban action
+    // Unban button
     unbanBtn.addEventListener('click', async () => {
-      if (!loadedUser || !loadedUser.uid) {
-        actionStatus.textContent = 'No user loaded.';
-        return;
-      }
+      clearActionMessages();
+      if (!loadedUid) { showActionError('No user loaded.'); return; }
       if (!confirm('Confirm unban for this user?')) return;
-      const uid = loadedUser.uid;
-      const moderatorNote = banNote.value.trim() || 'Unbanned by admin';
-      actionStatus.textContent = 'Unbanning…';
       banBtn.disabled = true; unbanBtn.disabled = true;
-
+      actionStatus.textContent = 'Unbanning…';
+      const moderatorNote = banNote.value.trim() || 'Unbanned by admin';
       try {
-        try {
-          const res = await unbanUserFn({ uid, moderatorNote });
-          actionStatus.textContent = 'Unban request sent — server returned: ' + JSON.stringify(res.data || res);
-        } catch (fnErr) {
-          console.warn('unbanUser callable failed:', fnErr);
-          actionStatus.textContent = 'Server function failed — attempted client-side Firestore update (may fail due to rules).';
-        }
-
-        // Refresh display (prefer server callable)
-        try {
-          const res2 = await getUserByEmailFn({ email: loadedUser.email || '' }).catch(()=>null);
-          if (res2 && res2.data && res2.data.uid) {
-            await populateUser(res2.data);
-          } else {
-            await loadUserDoc(uid);
-          }
-        } catch (rerr) {
-          console.warn('refresh after unban: getUserByEmail failed', rerr);
-          await loadUserDoc(uid);
-        }
+        await unbanUserClient(loadedUid, { moderatorNote });
+        showActionSuccess('Unban recorded (client write).');
+        actionStatus.textContent = '';
+        try { await loadUserDocByUid(loadedUid); } catch(e){}
       } catch (err) {
-        console.error('unbanUser error', err);
-        actionStatus.textContent = 'Unban failed. See console for details.';
+        if (err && err.code === 'permission-denied') {
+          showActionError('Permission denied writing to users/{uid}. Fix: set admin custom claim for your account OR change rules to allow this admin to write.');
+        } else {
+          showActionError('Unban failed — check console for details.');
+        }
       } finally {
         banBtn.disabled = false; unbanBtn.disabled = false;
       }
@@ -416,25 +520,15 @@
 
     // Refresh user doc
     refreshUserBtn.addEventListener('click', async () => {
-      if (!loadedUser || !loadedUser.uid) {
-        actionStatus.textContent = 'No user loaded.';
-        return;
-      }
+      clearActionMessages();
+      if (!loadedUid) { actionStatus.textContent = 'No user loaded.'; return; }
       actionStatus.textContent = 'Refreshing…';
-      // Prefer server call to avoid permission issues
       try {
-        const res = await getUserByEmailFn({ email: loadedUser.email || '' }).catch(()=>null);
-        if (res && res.data && res.data.uid) {
-          await populateUser(res.data);
-          actionStatus.textContent = 'Refreshed (server).';
-          return;
-        }
-      } catch (err) {
-        // ignore and fallback
+        await loadUserDocByUid(loadedUid);
+        actionStatus.textContent = 'Refreshed.';
+      } catch (e) {
+        actionStatus.textContent = 'Refresh failed (permission?).';
       }
-      // fallback to client Firestore read
-      await loadUserDoc(loadedUser.uid);
-      actionStatus.textContent = 'Refreshed (client).';
     });
 
     // Enter key UX
@@ -448,11 +542,10 @@
         showUnauthorized('Please sign in as gomegaassist@gmail.com.');
         return;
       }
-      // Force refresh token (so custom claims become available immediately if set)
-      try { await user.getIdToken(true); } catch (e) { console.warn('Token refresh failed', e); }
-
       currentAdmin = user;
-      const emailOk = (user.email && user.email.toLowerCase() === 'gomegaassist@gmail.com');
+      // Refresh token so custom claims (if any) are present
+      try { await user.getIdToken(true); } catch (e) { console.warn('token refresh failed', e); }
+      const emailOk = (user.email && user.email.toLowerCase() === ADMIN_EMAIL);
       if (emailOk) {
         showMain();
       } else {
