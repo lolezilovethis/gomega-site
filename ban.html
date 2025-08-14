@@ -28,7 +28,7 @@
   <div class="wrap">
     <div class="card" id="accessCard">
       <h1>Admin — Ban Management</h1>
-      <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong> and have the admin claim.</p>
+      <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong>.</p>
       <div id="accessMsg" class="small muted">Checking authentication…</div>
     </div>
 
@@ -84,7 +84,7 @@
         <hr style="margin:12px 0" />
 
         <h3 style="margin:0 0 8px 0">Ban user</h3>
-        <div class="small muted">Fill the form and press <strong>Ban</strong>. The server will perform the ban and set claims (admin-only).</div>
+        <div class="small muted">Fill the form and press <strong>Ban</strong>. The server will perform the ban and set claims (server-side authorization REQUIRED).</div>
 
         <div style="margin-top:8px">
           <label class="small muted">Title (shown to user)</label>
@@ -134,15 +134,14 @@
     <div class="card">
       <h3>Notes</h3>
       <ul class="small muted">
-        <li>The server functions must enforce admin-only execution. This page checks for <code>gomegaassist@gmail.com</code> and the <code>admin</code> claim before enabling UI.</li>
+        <li>This page checks only that you're signed in as <code>gomegaassist@gmail.com</code>. Server-side functions must still verify caller authorization (recommended). Do not rely solely on the client's email check for security.</li>
         <li>Required callable Cloud Functions:
           <ul>
-            <li><code>getUserByEmail</code> — returns basic auth user record `{ uid, email, displayName }` for a given email.</li>
-            <li><code>banUser</code> — accepts `{ uid, lengthDays, reason, moderatorNote, offensiveItem, title }` and performs ban operations server-side.</li>
-            <li><code>unbanUser</code> — accepts `{ uid, moderatorNote }` and removes ban server-side.</li>
+            <li><code>getUserByEmail</code> — returns `{ uid, email, displayName }` for a given email.</li>
+            <li><code>banUser</code> — accepts `{ uid, lengthDays, reason, moderatorNote, offensiveItem, title }` and performs ban operations server-side (must verify caller).</li>
+            <li><code>unbanUser</code> — accepts `{ uid, moderatorNote }` and removes ban server-side (must verify caller).</li>
           </ul>
         </li>
-        <li>If <code>getUserByEmail</code> is not available, use UID fallback by pasting UID into the UID field and pressing Load.</li>
       </ul>
     </div>
   </div>
@@ -191,7 +190,6 @@
     const unbanUserFn = httpsCallable(functions, 'unbanUser');
 
     let currentAdmin = null;
-    let currentTokenClaims = null;
     let loadedUser = null; // { uid, email, displayName }
 
     // Helper: format date(s)
@@ -210,7 +208,7 @@
     }
 
     function showMain() {
-      accessMsg.textContent = 'Authorized admin: ' + (currentAdmin.email || '');
+      accessMsg.textContent = 'Signed in as admin: ' + (currentAdmin.email || '');
       mainCard.classList.remove('hidden');
       mainCard.setAttribute('aria-hidden','false');
     }
@@ -220,7 +218,7 @@
       await signOut(auth);
     });
 
-    // Auth guard: only allow gomegaassist@gmail.com + admin claim
+    // Auth guard: ONLY checks email match (no custom claim)
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         accessMsg.textContent = 'Not signed in. Please sign in with the admin account.';
@@ -228,26 +226,12 @@
         return;
       }
       currentAdmin = user;
-      // quick check for email equality
       const emailOk = (user.email && user.email.toLowerCase() === 'gomegaassist@gmail.com');
-      // need to inspect claims
-      try {
-        const idt = await user.getIdTokenResult(true); // force refresh
-        currentTokenClaims = idt.claims || {};
-        const isAdminClaim = !!currentTokenClaims.admin;
-        if (emailOk && isAdminClaim) {
-          showMain();
-        } else {
-          // if email matches but admin claim missing, show helpful message
-          if (!emailOk) {
-            await showUnauthorized('Signed in as wrong account. Sign in as gomegaassist@gmail.com.');
-          } else {
-            await showUnauthorized('Account lacks admin privileges. Ensure the user has the custom claim `admin`.');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to get token claims', err);
-        showUnauthorized('Failed to verify admin status. Check console for details.');
+      if (emailOk) {
+        // Good — allow access. (Server functions MUST still validate on their side)
+        showMain();
+      } else {
+        showUnauthorized('Signed in as wrong account. Sign in as gomegaassist@gmail.com.');
       }
     });
 
