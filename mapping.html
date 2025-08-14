@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Admin — Create usersByEmail mapping</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body{font-family:Inter,Arial,Helvetica,sans-serif;background:#0f0f10;color:#eef2f3;padding:24px}
+    .card{background:#141416;padding:16px;border-radius:10px;max-width:720px;margin:16px auto;border:1px solid rgba(255,255,255,0.02)}
+    input,button{padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0c;color:#eef2f3}
+    button{cursor:pointer}
+    .muted{color:#9aa0a6}
+    label{display:block;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>usersByEmail mapping creator</h2>
+    <div class="muted">Sign in as <strong>gomegaassist@gmail.com</strong> and add email → uid mappings for the admin UI.</div>
+
+    <label>Email to map
+      <input type="text" id="email" placeholder="user@example.com" style="width:100%"/>
+    </label>
+    <label>UID
+      <input type="text" id="uid" placeholder="USER_UID" style="width:100%"/>
+    </label>
+
+    <div style="margin-top:12px">
+      <button id="create">Create mapping</button>
+      <button id="encode">Show encoded ID</button>
+    </div>
+
+    <pre id="out" style="margin-top:12px;background:#0a0a0a;padding:10px;border-radius:8px;color:#d3f6ff"></pre>
+  </div>
+
+  <script type="module">
+    import * as fb from './js/firebase.js';
+    import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const auth = fb.auth;
+    const db = fb.db;
+    const provider = fb.provider ? fb.provider : new (await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js")).GoogleAuthProvider();
+
+    const emailEl = document.getElementById('email');
+    const uidEl = document.getElementById('uid');
+    const out = document.getElementById('out');
+    const createBtn = document.getElementById('create');
+    const encodeBtn = document.getElementById('encode');
+
+    function encodeEmailForId(email) {
+      return btoa(email).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    }
+
+    createBtn.addEventListener('click', async () => {
+      const email = (emailEl.value||'').trim();
+      const uid = (uidEl.value||'').trim();
+      if (!email || !uid) { out.textContent = 'Enter email and uid'; return; }
+
+      try {
+        const enc = encodeEmailForId(email);
+        await setDoc(doc(db, 'usersByEmail', enc), { uid, email });
+        out.textContent = `WROTE mapping: ${email} → ${uid}\nDocument ID: ${enc}`;
+      } catch (err) {
+        out.textContent = 'ERROR: ' + (err && err.message ? err.message : String(err));
+        console.error(err);
+      }
+    });
+
+    encodeBtn.addEventListener('click', () => {
+      const email = (emailEl.value||'').trim();
+      if (!email) { out.textContent = 'Enter email first'; return; }
+      out.textContent = encodeEmailForId(email);
+    });
+
+    // If not signed in, offer popup signin
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        out.textContent = 'Not signed in. Click below to sign in as admin.';
+        createBtn.disabled = true;
+        (async () => {
+          try {
+            await signInWithPopup(auth, provider);
+          } catch(e) { console.error(e); out.textContent = 'Sign-in failed: '+ e.message; }
+        })();
+        return;
+      }
+      out.textContent = `Signed in as ${user.email}. You can now create mappings.`;
+      createBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
