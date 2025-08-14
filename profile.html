@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Profile – Gomega Watch</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Dark theme (matches add-script) */
+    :root { --bg: #121212; --card: #1e1e1e; --muted: #999; --accent: #00d4ff; --accent-2: #0066ff; --danger: #ff5252; }
+    body { background: var(--bg); color: #f5f5f5; font-family: Arial, sans-serif; margin:0; padding:20px; }
+    .wrap { max-width:1000px; margin:0 auto; display: grid; grid-template-columns: 300px 1fr; gap:20px; }
+    .sidebar { background: var(--card); padding:16px; border-radius:10px; box-shadow: 0 6px 24px rgba(0,0,0,0.6); }
+    .main { background: transparent; }
+    h1 { color: var(--accent); margin:0 0 10px 0; }
+    .section { background: var(--card); padding:16px; border-radius:10px; margin-bottom:16px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+    .section h2 { margin:0 0 12px 0; font-size:1.1rem; color: #eafcff; }
+    .btn { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:white; border:none; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+    .btn.ghost { background:transparent; color:var(--accent); border:1px solid rgba(255,255,255,0.06); }
+    .btn.danger { background: linear-gradient(90deg,#ff6b6b,#ff2e2e); }
+    .muted { color: var(--muted); font-size:0.95rem; }
+    .script-list { display:flex; flex-direction:column; gap:12px; }
+    .script-card { background:#161616; padding:12px; border-radius:8px; display:flex; gap:12px; align-items:flex-start; }
+    .script-meta { flex:1; }
+    .script-title { font-weight:700; font-size:1rem; margin-bottom:6px; color:#fff; }
+    .script-desc { color:var(--muted); margin-bottom:6px; white-space:pre-wrap; max-height:4.5rem; overflow:auto; }
+    .script-actions { display:flex; gap:8px; align-items:center; }
+    small.time { color:var(--muted); display:block; margin-top:6px; font-size:0.85rem; }
+
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:60; }
+    .modal { background: #111; width: min(900px,95%); max-height:90vh; overflow:auto; border-radius:10px; padding:16px; box-shadow:0 12px 50px rgba(0,0,0,0.8); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .form-row { display:flex; gap:12px; margin-bottom:8px; }
+    .form-row .col { flex:1; }
+    label { display:block; font-size:0.9rem; color:#ccc; margin-bottom:6px; }
+    input[type="text"], input[type="number"], textarea { width:100%; padding:10px; border-radius:6px; border:1px solid #333; background:#222; color:#f1f1f1; }
+    textarea { min-height:180px; resize:vertical; }
+    .hint { color:var(--muted); font-size:0.9rem; margin-top:6px; }
+
+    /* small responsive */
+    @media (max-width:900px) {
+      .wrap { grid-template-columns: 1fr; }
+      .sidebar { order:2; }
+      .main { order:1; }
+    }
+
+    .disabled { opacity:0.5; pointer-events:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="sidebar section">
+      <h1>Profile</h1>
+      <p class="muted" id="userEmail">Signed in as —</p>
+      <div style="margin-top:12px;">
+        <a class="btn" id="addNewBtn" href="add-script.html">➕ Add New Script</a>
+      </div>
+
+      <hr style="margin:14px 0; border-color:#222" />
+
+      <div style="display:flex; gap:8px; flex-direction:column;">
+        <a class="btn ghost" href="scripts.html">All Scripts</a>
+        <a class="btn ghost" id="goToClaims">My Claims</a>
+        <a class="btn ghost" id="goToSettings">Settings</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- My Scripts Section -->
+      <section class="section" id="myScriptsSection">
+        <h2>My Scripts</h2>
+        <p class="hint">You can edit each script once every 30 days. You can delete any time. Brand names are locked after publishing.</p>
+
+        <div id="scriptsContainer" class="script-list">
+          <!-- script cards inserted here -->
+        </div>
+
+        <p id="noScriptsMsg" class="muted" style="display:none;">You haven't published any scripts yet. Click "Add New Script" to publish.</p>
+      </section>
+
+      <!-- Placeholder: add more profile sections here -->
+      <section class="section" id="otherSections">
+        <h2>Other sections</h2>
+        <p class="muted">Copy the "My Scripts" block to add more sections like "My Claims", "My Announcements", etc.</p>
+      </section>
+    </main>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModalBackdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" role="document" aria-modal="true">
+      <div class="modal-header">
+        <strong id="modalTitle">Edit Script</strong>
+        <div>
+          <button class="btn ghost" id="closeModalBtn">Close</button>
+        </div>
+      </div>
+
+      <form id="editForm">
+        <div class="form-row">
+          <div class="col">
+            <label for="editTitle">Title</label>
+            <input id="editTitle" type="text" required />
+          </div>
+          <div class="col">
+            <label for="editBrand">Brand (locked)</label>
+            <input id="editBrand" type="text" disabled />
+          </div>
+        </div>
+
+        <label for="editDescription">Description</label>
+        <input id="editDescription" type="text" />
+
+        <label for="editCode">Script Code</label>
+        <textarea id="editCode" required></textarea>
+
+        <div class="form-row" style="margin-top:8px;">
+          <div class="col">
+            <label><input id="editIncludeAds" type="checkbox" /> Include Ads?</label>
+          </div>
+          <div style="width:110px;">
+            <label for="editNumAds">Num Ads</label>
+            <input id="editNumAds" type="number" min="1" max="15" />
+          </div>
+          <div style="width:120px;">
+            <label><input id="editGetPaid" type="checkbox" /> Get Paid</label>
+          </div>
+        </div>
+
+        <p id="editHint" class="hint"></p>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button type="submit" class="btn" id="saveEditBtn">Save changes</button>
+          <button type="button" class="btn ghost" id="cancelEdit">Cancel</button>
+        </div>
+
+        <p id="editError" class="muted" style="color:var(--danger)"></p>
+        <p id="editSuccess" class="muted" style="color:#4caf50"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" role="document" aria-modal="true">
+      <div class="modal-header">
+        <strong>Are you sure?</strong>
+        <button class="btn ghost" id="closeDeleteModal">Close</button>
+      </div>
+      <p class="muted">This will permanently delete the script. This cannot be undone.</p>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button id="confirmDeleteBtn" class="btn danger">Yes — Delete</button>
+        <button id="cancelDeleteBtn" class="btn ghost">Cancel</button>
+      </div>
+      <p id="deleteMsg" class="muted" style="color:var(--danger)"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from './js/firebase.js';
+    import {
+      collection, query, where, onSnapshot, doc, deleteDoc, updateDoc,
+      serverTimestamp, getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    // DOM
+    const userEmailEl = document.getElementById('userEmail');
+    const scriptsContainer = document.getElementById('scriptsContainer');
+    const noScriptsMsg = document.getElementById('noScriptsMsg');
+
+    // Modals & form
+    const editBackdrop = document.getElementById('editModalBackdrop');
+    const editForm = document.getElementById('editForm');
+    const editTitle = document.getElementById('editTitle');
+    const editBrand = document.getElementById('editBrand');
+    const editDescription = document.getElementById('editDescription');
+    const editCode = document.getElementById('editCode');
+    const editIncludeAds = document.getElementById('editIncludeAds');
+    const editNumAds = document.getElementById('editNumAds');
+    const editGetPaid = document.getElementById('editGetPaid');
+    const editHint = document.getElementById('editHint');
+    const editError = document.getElementById('editError');
+    const editSuccess = document.getElementById('editSuccess');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelEdit = document.getElementById('cancelEdit');
+
+    const deleteBackdrop = document.getElementById('deleteModal');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const closeDeleteModal = document.getElementById('closeDeleteModal');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    const deleteMsg = document.getElementById('deleteMsg');
+
+    let currentUser = null;
+    let unsubscribe = null;
+    let editingScriptId = null;
+    let deletingScriptId = null;
+
+    // Utility: format date
+    function formatDate(ts) {
+      if (!ts) return '—';
+      try {
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        return d.toLocaleString();
+      } catch {
+        return String(ts);
+      }
+    }
+
+    // return ms until allowed edit; uses 30 days window
+    function msUntilNextEdit(script) {
+      // prefer lastEditedAt, else timestamp (created)
+      const base = script.lastEditedAt || script.timestamp;
+      if (!base) return 0;
+      const baseDate = base.toDate ? base.toDate() : new Date(base);
+      const allowDate = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+      return allowDate.getTime() - Date.now();
+    }
+    function humanTime(ms) {
+      if (ms <= 0) return 'now';
+      const days = Math.floor(ms / (24*60*60*1000));
+      const hours = Math.floor((ms % (24*60*60*1000)) / (60*60*1000));
+      const mins = Math.floor((ms % (60*60*1000)) / (60*1000));
+      if (days > 0) return `${days} day${days>1?'s':''} ${hours}h`;
+      if (hours > 0) return `${hours} hour${hours>1?'s':''} ${mins}m`;
+      return `${mins} min`;
+    }
+
+    // Build card DOM
+    function createScriptCard(id, data) {
+      const card = document.createElement('div');
+      card.className = 'script-card';
+      card.setAttribute('data-id', id);
+
+      const meta = document.createElement('div');
+      meta.className = 'script-meta';
+
+      const title = document.createElement('div');
+      title.className = 'script-title';
+      title.textContent = data.title || '(untitled)';
+
+      const desc = document.createElement('div');
+      desc.className = 'script-desc';
+      desc.textContent = data.description || '';
+
+      const info = document.createElement('div');
+      info.className = 'muted';
+      info.innerHTML = `Brand: <strong style="color:#fff">${data.brandName || '—'}</strong> • Submitted: ${formatDate(data.timestamp)} `;
+
+      const times = document.createElement('small');
+      times.className = 'time';
+      times.textContent = `Last edited: ${data.lastEditedAt ? formatDate(data.lastEditedAt) : 'Never'}`;
+
+      meta.appendChild(title);
+      meta.appendChild(desc);
+      meta.appendChild(info);
+      meta.appendChild(times);
+
+      const actions = document.createElement('div');
+      actions.className = 'script-actions';
+
+      // Edit button
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn';
+      editBtn.textContent = 'Edit';
+      // check edit allowed
+      const msLeft = msUntilNextEdit(data);
+      if (msLeft > 0) {
+        editBtn.disabled = true;
+        editBtn.classList.add('disabled');
+        editBtn.title = `Next edit in ${humanTime(msLeft)}`;
+        const wait = document.createElement('div');
+        wait.className = 'muted';
+        wait.style.fontSize = '0.9rem';
+        wait.textContent = `Can edit in ${humanTime(msLeft)}`;
+        meta.appendChild(wait);
+      } else {
+        editBtn.addEventListener('click', () => openEditModal(id, data));
+      }
+
+      // Delete button
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn ghost';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => openDeleteModal(id, data.title));
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+
+      card.appendChild(meta);
+      card.appendChild(actions);
+      return card;
+    }
+
+    // Render list
+    function renderScripts(scripts) {
+      scriptsContainer.innerHTML = '';
+      if (!scripts.length) {
+        noScriptsMsg.style.display = 'block';
+        return;
+      } else {
+        noScriptsMsg.style.display = 'none';
+      }
+      scripts.forEach(s => {
+        const card = createScriptCard(s.id, s);
+        scriptsContainer.appendChild(card);
+      });
+    }
+
+    // Open edit modal
+    function openEditModal(id, data) {
+      editingScriptId = id;
+      editError.textContent = '';
+      editSuccess.textContent = '';
+
+      editTitle.value = data.title || '';
+      editBrand.value = data.brandName || '';
+      editDescription.value = data.description || '';
+      editCode.value = data.code || '';
+      editIncludeAds.checked = !!data.includeAds;
+      editNumAds.value = data.numAds || 0;
+      editGetPaid.checked = !!data.getPaid;
+
+      // show next allowed edit info if any
+      const msLeft = msUntilNextEdit(data);
+      if (msLeft > 0) {
+        editHint.textContent = `You can edit this script in ${humanTime(msLeft)}.`;
+        // disable save
+        document.getElementById('saveEditBtn').disabled = true;
+      } else {
+        editHint.textContent = 'You may edit this script. Brand is locked.';
+        document.getElementById('saveEditBtn').disabled = false;
+      }
+
+      editBackdrop.style.display = 'flex';
+      editBackdrop.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeEditModal() {
+      editingScriptId = null;
+      editBackdrop.style.display = 'none';
+      editBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    // Open delete modal
+    function openDeleteModal(id, title) {
+      deletingScriptId = id;
+      deleteMsg.textContent = `Deleting "${title || 'script'}" — this cannot be undone.`;
+      deleteBackdrop.style.display = 'flex';
+      deleteBackdrop.setAttribute('aria-hidden', 'false');
+    }
+    function closeDelete() {
+      deletingScriptId = null;
+      deleteBackdrop.style.display = 'none';
+      deleteBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    // Wire modal buttons
+    closeModalBtn.addEventListener('click', closeEditModal);
+    cancelEdit.addEventListener('click', closeEditModal);
+    closeDeleteModal.addEventListener('click', closeDelete);
+    cancelDeleteBtn.addEventListener('click', closeDelete);
+
+    // Save edits
+    editForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (!editingScriptId || !currentUser) return;
+      editError.textContent = '';
+      editSuccess.textContent = '';
+      document.getElementById('saveEditBtn').disabled = true;
+
+      // Check edit lock again before saving
+      try {
+        const docRef = doc(db, 'approved_scripts', editingScriptId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          editError.textContent = 'Script not found.';
+          document.getElementById('saveEditBtn').disabled = false;
+          return;
+        }
+        const s = snap.data();
+        const msLeft = msUntilNextEdit(s);
+        if (msLeft > 0) {
+          editError.textContent = `You can only edit this script in ${humanTime(msLeft)}.`;
+          document.getElementById('saveEditBtn').disabled = false;
+          return;
+        }
+
+        // collect values (do not allow brand change)
+        const newTitle = editTitle.value.trim();
+        const newDescription = editDescription.value.trim();
+        const newCode = editCode.value;
+        const newIncludeAds = editIncludeAds.checked;
+        const newNumAds = newIncludeAds ? parseInt(editNumAds.value || 0) : 0;
+        const newGetPaid = editGetPaid.checked;
+
+        if (!newTitle || !newCode) {
+          editError.textContent = 'Title and code cannot be empty.';
+          document.getElementById('saveEditBtn').disabled = false;
+          return;
+        }
+
+        await updateDoc(docRef, {
+          title: newTitle,
+          description: newDescription,
+          code: newCode,
+          includeAds: newIncludeAds,
+          numAds: newNumAds,
+          getPaid: newGetPaid,
+          lastEditedAt: serverTimestamp()
+        });
+
+        editSuccess.textContent = 'Saved successfully! Next edit available in 30 days.';
+        // refresh button state will be updated by onSnapshot
+        setTimeout(closeEditModal, 900);
+      } catch (err) {
+        console.error('save edit failed', err);
+        editError.textContent = 'Failed to save. Try again.';
+        document.getElementById('saveEditBtn').disabled = false;
+      }
+    });
+
+    // Confirm delete
+    confirmDeleteBtn.addEventListener('click', async () => {
+      if (!deletingScriptId || !currentUser) return;
+      confirmDeleteBtn.disabled = true;
+      deleteMsg.textContent = 'Deleting…';
+      try {
+        await deleteDoc(doc(db, 'approved_scripts', deletingScriptId));
+        deleteMsg.textContent = 'Deleted.';
+        setTimeout(closeDelete, 700);
+      } catch (err) {
+        console.error('delete failed', err);
+        deleteMsg.textContent = 'Failed to delete. Try again.';
+      } finally {
+        confirmDeleteBtn.disabled = false;
+      }
+    });
+
+    // Listen for auth and user's scripts
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        // redirect to signin if not signed in
+        location.href = '/';
+        return;
+      }
+      currentUser = user;
+      userEmailEl.textContent = `Signed in as ${user.email || user.displayName || user.uid}`;
+
+      // unsubscribe previous listener if any
+      if (unsubscribe) unsubscribe();
+
+      // query approved_scripts where submittedBy == uid
+      const q = query(collection(db, 'approved_scripts'), where('submittedBy', '==', user.uid));
+      unsubscribe = onSnapshot(q, snap => {
+        const scripts = [];
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          // attach id
+          data.id = docSnap.id;
+          scripts.push(data);
+        });
+        // sort by timestamp descending
+        scripts.sort((a,b) => {
+          const ta = a.timestamp ? a.timestamp.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime() : 0;
+          const tb = b.timestamp ? b.timestamp.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime() : 0;
+          return tb - ta;
+        });
+        renderScripts(scripts);
+      }, err => {
+        console.error('snapshot error', err);
+        scriptsContainer.innerHTML = '<div class="muted">Failed to load scripts. Check your Firestore rules.</div>';
+      });
+    });
+
+    // small helpers for optional navigation
+    document.getElementById('goToClaims').addEventListener('click', () => location.href = '/claims.html');
+    document.getElementById('goToSettings').addEventListener('click', () => location.href = '/settings.html');
+
+    // close modals on ESC
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (editBackdrop.style.display === 'flex') closeEditModal();
+        if (deleteBackdrop.style.display === 'flex') closeDelete();
+      }
+    });
+
+  </script>
+</body>
+</html>
