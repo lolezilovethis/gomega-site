@@ -5,55 +5,82 @@
   <title>Admin — Ban Users | Gomega Watch</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root{--bg:#0f0f10;--card:#141416;--muted:#9aa0a6;--accent:#00d4ff;--accent2:#0066ff;--danger:#ff5252}
-    body{background:var(--bg);color:#eef2f3;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:24px}
-    .wrap{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:16px}
-    .card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.02)}
-    h1{margin:0 0 6px;color:var(--accent)}
+    :root{
+      --bg:#0f0f10;
+      --card:#141416;
+      --muted:#9aa0a6;
+      --accent:#00d4ff;
+      --accent2:#0066ff;
+      --danger:#ff5252;
+      --glass: rgba(255,255,255,0.02);
+      --surface:#0b0b0c;
+    }
+    *{box-sizing:border-box}
+    body{background:var(--bg);color:#eef2f3;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:28px}
+    .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:18px}
+    .card{background:linear-gradient(180deg,var(--card),#0e0e0f);border-radius:12px;padding:18px;box-shadow:0 14px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03)}
+    header.page-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    header.page-header h1{margin:0;font-size:1.35rem;color:var(--accent)}
+    header.page-header .subtitle{color:var(--muted);font-size:0.95rem}
     .muted{color:var(--muted)}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    input[type="text"], textarea, select, input[type="number"] {width:100%;padding:10px;border-radius:8px;border:1px solid #222;background:#0b0b0c;color:#eef2f3}
+    input[type="text"], textarea, select, input[type="number"] {
+      width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);
+      background:var(--surface);color:#eef2f3;font-size:0.95rem;
+    }
     .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    button.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;padding:10px 12px;border-radius:8px;color:#001;font-weight:700;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent);padding:8px 10px;border-radius:8px;cursor:pointer}
-    button.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040);color:#fff;padding:8px 10px;border-radius:8px;cursor:pointer}
+    button{font-weight:700}
+    button.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;padding:10px 14px;border-radius:10px;color:#001;cursor:pointer;transition:transform .08s ease, box-shadow .08s ease}
+    button.btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,0.08)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent);padding:8px 12px;border-radius:10px;cursor:pointer}
+    button.ghost:hover{background:rgba(255,255,255,0.02)}
+    button.danger{background:linear-gradient(90deg,#ff7b7b,#ff4040);color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer}
+    button.danger:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,64,64,0.06)}
     .small{font-size:0.9rem;color:var(--muted)}
-    .hidden{display:none}
-    pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff}
-    .status{margin-top:8px;font-weight:700}
+    .hidden{display:none !important}
+    pre{background:#0a0a0a;padding:10px;border-radius:8px;overflow:auto;color:#d3f6ff;margin:0}
+    .status{margin-top:8px;font-weight:700;color:var(--muted)}
     .note-line{font-size:0.85rem;color:var(--muted); margin-top:8px}
     .error { color: #ffb3b3; font-weight:700; margin-top:8px}
     .success { color: #a8ffdf; font-weight:700; margin-top:8px}
     hr{border:none;border-top:1px solid rgba(255,255,255,0.04);margin:12px 0}
     .top-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .mono{font-family:monospace; font-size:0.9rem}
+    .mono{font-family:monospace; font-size:0.9rem;color:var(--muted)}
     /* modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999}
-    .modal{background:var(--card);padding:18px;border-radius:10px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.8)}
-    .modal h3{margin-top:0;color:var(--accent)}
-    .modal .warn{background:rgba(255,82,82,0.06);border-left:4px solid rgba(255,82,82,0.18);padding:10px;border-radius:6px;color:#ffdede;margin-top:8px}
-    .modal .controls{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:9999;padding:18px}
+    .modal{background:linear-gradient(180deg,var(--card),#0e0e0f);padding:22px;border-radius:12px;max-width:560px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.03)}
+    .modal h3{margin-top:0;color:var(--accent);font-size:1.1rem}
+    .modal .warn{background:rgba(255,82,82,0.06);border-left:4px solid rgba(255,82,82,0.18);padding:12px;border-radius:8px;color:#ffdede;margin-top:12px}
+    .modal .controls{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+    /* ensure hidden modal never flashes */
+    .modal-backdrop.hidden{display:none !important;pointer-events:none}
+    /* improved layout on small screens */
+    @media (max-width:780px){ .two{grid-template-columns:1fr} header.page-header{flex-direction:column;align-items:flex-start;gap:6px} }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card" id="accessCard">
-      <h1>Admin — Ban Management</h1>
-      <p class="muted">Only authorized admins may use this page. You must be signed in as <strong>gomegaassist@gmail.com</strong>.</p>
-      <div id="accessMsg" class="small muted">Checking authentication…</div>
-      <div id="accessErr" class="error hidden"></div>
+      <header class="page-header">
+        <div>
+          <h1>Admin — Ban Management</h1>
+          <div class="subtitle">Only authorized admins may use this page. Signed-in admin should be <strong>gomegaassist@gmail.com</strong>.</div>
+        </div>
+        <div class="top-controls">
+          <button class="btn" id="signInBtn">Sign in with Google</button>
+          <button class="ghost hidden" id="signOutBtn">Sign out</button>
+          <button class="ghost" id="forceRefreshBtn" title="Force refresh token/claims">Force token refresh</button>
+        </div>
+      </header>
 
-      <div style="margin-top:12px" class="top-controls">
-        <button class="btn" id="signInBtn">Sign in with Google</button>
-        <button class="ghost hidden" id="signOutBtn">Sign out</button>
-        <button class="ghost" id="forceRefreshBtn" title="Force refresh token/claims">Force token refresh</button>
-      </div>
+      <div style="margin-top:12px" class="small muted" id="accessMsg">Checking authentication…</div>
+      <div id="accessErr" class="error hidden" style="margin-top:8px"></div>
 
-      <div id="debugConsole" class="small muted mono" style="margin-top:8px;white-space:pre-wrap;"></div>
+      <div id="debugConsole" class="mono" style="margin-top:12px;white-space:pre-wrap;"></div>
     </div>
 
     <div class="card hidden" id="mainCard" aria-hidden="true">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
         <div>
           <h2 style="margin:0">Find user</h2>
           <div class="small muted">Search by email (recommended) or paste UID.</div>
@@ -64,16 +91,16 @@
       </div>
 
       <div style="margin-bottom:12px;">
-        <div class="row" style="gap:8px">
+        <div class="row" style="gap:10px">
           <input type="text" id="searchEmail" placeholder="user@example.com (search by email)" />
           <button class="btn" id="searchEmailBtn">Search</button>
         </div>
-        <div style="height:8px"></div>
-        <div class="row" style="gap:8px">
+        <div style="height:10px"></div>
+        <div class="row" style="gap:10px">
           <input type="text" id="manualUid" placeholder="Or paste UID here (fallback)" />
           <button class="btn" id="loadUidBtn">Load</button>
         </div>
-        <div id="searchStatus" class="small muted" style="margin-top:8px"></div>
+        <div id="searchStatus" class="small muted" style="margin-top:10px"></div>
         <div id="hint" class="note-line">Tip: Add a <code>usersByEmail/{encodedEmail}</code> mapping doc to avoid permission issues. See notes below if you get permission errors.</div>
       </div>
 
@@ -107,11 +134,11 @@
         <h3 style="margin:0 0 8px 0">Ban user</h3>
         <div class="small muted">Fill the form and press <strong>Ban</strong>. This page performs Firestore writes directly — your signed-in account must have permission (per rules) to write to <code>users/{uid}</code>.</div>
 
-        <div style="margin-top:8px">
+        <div style="margin-top:12px">
           <label class="small muted">Title (shown to user)</label>
           <input type="text" id="banTitle" placeholder="Banned for 6 Months" />
 
-          <div style="height:8px"></div>
+          <div style="height:10px"></div>
 
           <label class="small muted">Length</label>
           <div class="row" style="gap:8px">
@@ -126,22 +153,22 @@
             </select>
           </div>
 
-          <div style="height:8px"></div>
+          <div style="height:10px"></div>
 
           <label class="small muted">Reason</label>
           <input type="text" id="banReason" placeholder="Bullying, Exploit, etc." />
 
-          <div style="height:8px"></div>
+          <div style="height:10px"></div>
 
           <label class="small muted">Offensive item (optional)</label>
           <input type="text" id="banOffensive" placeholder="ExploitDetected - Place ID: 537413528" />
 
-          <div style="height:8px"></div>
+          <div style="height:10px"></div>
 
           <label class="small muted">Moderator note (internal)</label>
           <textarea id="banNote" placeholder="Moderator notes for audit (internal)"></textarea>
 
-          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
             <button class="btn" id="banBtn">Ban</button>
             <button class="danger" id="unbanBtn">Unban</button>
             <!-- Permanent ban button added -->
@@ -162,7 +189,7 @@
         <li>If you get <code>permission-denied</code> when reading or writing <code>users/{uid}</code>, either:
           <ul>
             <li>Set the admin custom claim for your admin user (`admin:true`) using the Firebase Admin SDK, or</li>
-            <li>Create `usersByEmail/{encodedEmail}` mapping docs (can be created via the Console or admin script), or</li>
+            <li>Create <code>usersByEmail/{encodedEmail}</code> mapping docs (can be created via the Console or admin script), or</li>
             <li>Temporarily relax your rules for testing (not recommended long-term).</li>
           </ul>
         </li>
@@ -172,7 +199,8 @@
   </div>
 
   <!-- Permanent ban confirmation modal (hidden by default) -->
-  <div id="permModal" class="modal-backdrop hidden" aria-hidden="true">
+  <!-- NOTE: we explicitly set inline style display:none to avoid modal flashing -->
+  <div id="permModal" class="modal-backdrop hidden" aria-hidden="true" style="display:none;">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="permModalTitle">
       <h3 id="permModalTitle">Permanent ban — confirmation</h3>
       <div id="permStep" class="small muted">Step <span id="permStepNum">1</span> of 3</div>
@@ -409,14 +437,13 @@
           moderatorNote: moderatorNote || '',
           offensiveItem: offensiveItem || '',
           start: nowIso,
-          end: endIso,            // null for indefinite (but for permanent we'll mark permanent:true)
+          end: endIso,
           reviewedAt: nowIso,
           action: permanent ? 'ban-permanent' : 'ban',
           permanent: !!permanent,
           moderatorUid: currentAdmin.uid
         };
 
-        // Merge: set banned true and push ban entry
         await setDoc(doc(db, 'users', uid), {
           banned: true,
           bans: arrayUnion(banEntry),
@@ -470,7 +497,6 @@
           bans.push(audit);
         }
 
-        // Write back whole bans array and set banned:false
         await updateDoc(uref, {
           banned: false,
           bans: bans,
@@ -486,7 +512,6 @@
 
     // Permanent ban client-side (requires confirmation)
     async function permanentBanClient(uid, { title, reason, moderatorNote, offensiveItem }) {
-      // Permanent ban uses banUserClient(permanent:true) to add an entry with permanent:true
       return await banUserClient(uid, { title, lengthDays: null, reason, moderatorNote, offensiveItem, permanent: true });
     }
 
@@ -637,12 +662,19 @@
       permStep = 1;
       permStepNum.textContent = permStep;
       permWarnText.textContent = 'Your response will be recorded and if you do this without permission you might be sued';
+      // ensure modal is visible (both class and inline style toggled for robustness)
       permModal.classList.remove('hidden');
+      permModal.style.display = 'flex';
       permModal.setAttribute('aria-hidden','false');
     }
     function closePermModal() {
+      // hide modal in both ways to avoid flashing
       permModal.classList.add('hidden');
+      permModal.style.display = 'none';
       permModal.setAttribute('aria-hidden','true');
+      // reset step so next open starts from 1
+      permStep = 0;
+      permStepNum.textContent = '1';
     }
 
     permCancel.addEventListener('click', () => {
@@ -662,7 +694,8 @@
         } else if (permStep === 3) {
           permWarnText.textContent += ' — FINAL CONFIRMATION. THIS ACTION IS IRREVERSIBLE FROM THE CLIENT.';
         }
-        return;
+        // if not final step, bail out and wait for next click
+        if (permStep < 3) return;
       }
 
       // Step 3 confirmed: perform permanent ban
@@ -758,6 +791,16 @@
       if (s === null || s === undefined) return '';
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
+
+    // Ensure modal is hidden on initial load (extra guard in case CSS/class is modified)
+    (function initModalGuard() {
+      try {
+        permModal.classList.add('hidden');
+        permModal.style.display = 'none';
+        permModal.setAttribute('aria-hidden','true');
+        permStepNum.textContent = '1';
+      } catch (e) { /* ignore */ }
+    })();
 
   </script>
 </body>
