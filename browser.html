@@ -1,324 +1,238 @@
 <!doctype html>
 <html lang="en">
 <head>
-   <script type="module" src="/js/ban-guard.js"></script>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gomega Browser — Download</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Gomega Browser — v14.9.9</title>
   <style>
     :root{
-      --bg:#061018;
-      --card:#0e1a24;
-      --muted:#9fb0bd;
-      --accent:#58a6ff;
-      --accent-2:#23a455;
-      --accent-3:#8b5cf6;
-      --glow: rgba(88,166,255,0.12);
-      --glass: rgba(255,255,255,0.02);
-      --radius:16px;
-      --btn-radius:12px;
-      --maxw:1120px;
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#9aa7bf;
+      --accent:#3ea6ff;
+      --glass: rgba(255,255,255,0.03);
+      --radius:14px;
     }
-
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      background:
-        radial-gradient(900px 500px at 10% 5%, rgba(140,92,246,0.04), transparent 8%),
-        radial-gradient(900px 500px at 100% 100%, rgba(35,164,85,0.03), transparent 6%),
-        linear-gradient(180deg,#041018 0%, #061018 60%);
-      color:#e6f3ff;
-      font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-      padding:34px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-height:100vh;
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;color:#e6eef8;background:linear-gradient(180deg,#071028 0%, #07182a 60%);}
+    .app {
+      max-width:1100px;margin:28px auto;padding:18px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      box-shadow: 0 8px 30px rgba(3,10,20,0.6);
+      border: 1px solid rgba(255,255,255,0.02);
     }
-
-    .shell{
-      width:100%;
-      max-width:var(--maxw);
-      background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
-      border-radius:18px;
-      padding:26px;
-      box-shadow: 0 18px 60px rgba(2,8,20,0.7);
-      border:1px solid rgba(255,255,255,0.03);
-      display:grid;
-      grid-template-columns: 1fr 420px;
-      gap:24px;
-      align-items:start;
-    }
-
-    header{
-      grid-column:1 / -1;
-      display:flex;
-      gap:18px;
-      align-items:center;
-    }
-
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .brand{display:flex;align-items:center;gap:12px}
     .logo{
-      width:74px;height:74px;border-radius:16px;
-      display:flex;align-items:center;justify-content:center;font-weight:900;font-size:28px;color:#041018;
-      background:linear-gradient(135deg,var(--accent), #2ac2ff);
-      box-shadow: 0 8px 30px rgba(88,166,255,0.06);
+      width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7fffd4);
+      display:flex;align-items:center;justify-content:center;font-weight:800;color:#032034;font-size:20px;box-shadow:0 6px 18px rgba(62,166,255,0.12);
     }
-
-    .title-wrap{display:flex;flex-direction:column;gap:6px}
-    h1{margin:0;font-size:1.5rem;color:var(--accent)}
-    .sub{margin:0;color:var(--muted);font-size:0.95rem;max-width:720px}
-
-    .ribbon{
-      margin-left:auto;padding:10px 14px;border-radius:999px;
-      background:linear-gradient(90deg,#ff8a37, #ff3d9a);
-      color:white;font-weight:800;font-size:0.92rem;box-shadow:0 8px 30px rgba(255,60,120,0.06);
+    h1{font-size:18px;margin:0}
+    .meta{font-size:12px;color:var(--muted)}
+    .controls{display:flex;gap:8px;align-items:center}
+    .search {
+      margin-top:18px;background:var(--glass);border-radius:12px;padding:18px;display:flex;gap:12px;align-items:center;
+      border:1px solid rgba(255,255,255,0.03);
     }
-
-    /* LEFT COLUMN */
-    .left {
-      padding-top:6px;
+    .search input{
+      flex:1;background:transparent;border:0;outline:none;color:#e6eef8;font-size:16px;padding:14px 8px;
     }
-
-    .lead{
-      color:#eaf6ff;font-size:1.05rem;line-height:1.6;margin-bottom:12px;
+    .btn{
+      background:linear-gradient(180deg,var(--accent),#2fa1ff);border:0;padding:10px 14px;border-radius:10px;color:#032034;font-weight:700;cursor:pointer;
     }
-
-    .card{
-      background:var(--card);
-      border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.02);
-      margin-bottom:12px;
+    .sandbox {
+      margin-top:18px;border-radius:12px;overflow:hidden;background:var(--card);height:640px;border:1px solid rgba(255,255,255,0.02);
+      display:flex;flex-direction:column;
     }
-
-    .long-desc{
-      color:var(--muted);line-height:1.6;font-size:0.98rem;padding:12px;border-radius:10px;background:var(--glass);
+    .toolbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.03));}
+    .toolbar .path{flex:1;color:var(--muted);font-size:13px}
+    .content {flex:1; display:block}
+    .message{padding:28px;color:var(--muted);font-size:15px}
+    .warningOverlay{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,12,0.6);
     }
-
-    .grid-features{
-      display:grid;grid-template-columns:repeat(2, 1fr);gap:12px;margin-top:12px;
-    }
-    .feature{
-      background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
-      padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);
-      color:var(--muted);font-size:0.95rem;
-    }
-
-    .upcoming{
-      margin-top:12px;border-left:4px solid rgba(139,92,246,0.9);padding:12px 14px;border-radius:10px;background:linear-gradient(180deg, rgba(139,92,246,0.02), transparent);
-    }
-    .upcoming h3{margin:0 0 8px 0;color:#eaf6ff}
-    .upcoming p{margin:0;color:var(--muted);line-height:1.5}
-
-    .notes{margin-top:10px;color:var(--muted);font-size:0.92rem}
-
-    /* RIGHT COLUMN - Download / Call to action */
-    .cta {
-      position:sticky;top:26px;
-      display:flex;flex-direction:column;gap:12px;
-    }
-
-    .download-card{
-      padding:18px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));border:1px solid rgba(255,255,255,0.03);
-    }
-    .ver-label{color:var(--muted);font-size:0.92rem}
-    .ver-big{font-weight:900;font-size:1.8rem;color:#eaf6ff;margin:6px 0}
-    .meta{color:var(--muted);font-size:0.92rem;margin-bottom:10px}
-
-    .download-btn{
-      width:100%;padding:14px;border-radius:12px;border:none;font-weight:900;font-size:1.03rem;
-      background:linear-gradient(180deg,var(--accent-2), #2ea043);
-      color:white;cursor:pointer;box-shadow: 0 14px 36px rgba(16,64,32,0.28);
-      display:inline-flex;align-items:center;justify-content:center;gap:10px;
-    }
-    .download-btn:active{ transform:translateY(1px) }
-
-    .help-btn{
-      margin-top:6px;display:inline-block;padding:12px;border-radius:12px;background:linear-gradient(180deg,#ffb86b, #ff8a37);color:#071018;font-weight:800;text-decoration:none;text-align:center;width:100%;
-    }
-
-    .small-note{color:var(--muted);font-size:0.88rem;margin-top:8px}
-
-    /* Visual progress / feedback */
-    .progress-wrap{height:8px;background:rgba(255,255,255,0.02);border-radius:999px;margin-top:12px;overflow:hidden}
-    .progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent), #8b5cf6);transition:width 400ms cubic-bezier(.2,.9,.25,1)}
-
-    footer{
-      grid-column:1 / -1;margin-top:8px;display:flex;justify-content:space-between;color:var(--muted);font-size:0.9rem;padding-top:6px;
-    }
-
-    /* responsive */
-    @media (max-width:980px){
-      .shell{grid-template-columns:1fr;padding:18px}
-      .cta{position:relative;top:auto}
-    }
+    .modal{background:#071827;padding:20px;border-radius:12px;max-width:680px;color:#dff;box-shadow:0 10px 40px rgba(2,8,20,0.7)}
+    .modal h3{margin:0 0 10px 0}
+    .modal p{color:var(--muted);margin:0 0 16px 0}
+    .modal .actions{display:flex;gap:8px;justify-content:flex-end}
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:12px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center}
+    a.link{color:var(--accent);text-decoration:none}
   </style>
 </head>
 <body>
-  <main class="shell" role="main" aria-labelledby="page-title">
+  <div class="app" role="application" aria-label="Gomega Browser">
     <header>
-      <div class="logo" aria-hidden="true">Gm</div>
-      <div class="title-wrap">
-        <h1 id="page-title">Gomega Browser</h1>
-        <div class="sub">A lightweight, student-friendly browser built for fast loading, low resource usage, and developer convenience.</div>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">G</div>
+        <div>
+          <h1>Gomega Browser</h1>
+          <div class="meta">Lightweight shell — version <strong id="ver">14.9.9</strong></div>
+        </div>
       </div>
-
-      <div class="ribbon" aria-hidden="false">Get ready for V14.9.9 — Coming soon</div>
+      <div class="controls">
+        <button id="simOut" class="btn" title="Simulate an update prompt (developer)">Simulate Outdated</button>
+        <a class="link" href="https://gomega.watch" target="_blank">gomega.watch</a>
+      </div>
     </header>
 
-    <!-- LEFT -->
-    <section class="left" aria-label="Details">
-      <div class="lead">Fast. Minimal. Reliable. Designed to run smoothly on low-spec machines while giving power users the tools they need.</div>
+    <div class="search" role="search" aria-label="Search Gomega">
+      <input id="q" type="search" placeholder="Gomega Search — search gomega.watch or type a URL (ex: gomega.watch/scripts)" />
+      <button id="go" class="btn">Search</button>
+    </div>
 
-      <div class="card">
-        <div class="long-desc">
-          <strong>About Gomega Browser</strong>
-          <br><br>
-          Gomega is a compact, thoughtfully designed browser that prioritizes predictable performance, low memory overhead, and a distraction-free interface.
-          The installer is small and unobtrusive, updates are optional, and the UI focuses on clarity — so students, educators, and developers can get things done quickly.
-          <br><br>
-          This release emphasizes a clean experience for classroom demonstrations, development testing, and everyday browsing on resource-constrained devices.
-          It includes improved session handling, developer conveniences for script testing, and straightforward privacy toggles so users can control tracking and user-agent strings when testing web apps.
-          <br><br>
-          <strong>Responsible usage:</strong> Gomega is intended for legitimate educational, development, and productivity use. If your organization restricts software installations, please consult Gomega Support.
+    <div class="sandbox" aria-live="polite">
+      <div class="toolbar">
+        <div class="path" id="pathBar">Home</div>
+        <div class="small">Only Gomega content is allowed inside the app. External links are blocked by default.</div>
+      </div>
+
+      <div class="content" id="content">
+        <div class="message">
+          <h2>Welcome to Gomega Browser</h2>
+          <p class="small">Use the search box above to search the site or type a URL. When packaged as an app (Electron), this app prevents external navigation (so users can't escape to Google directly).</p>
+          <p style="margin-top:12px"><strong>Tip:</strong> Try: <code>gomega.watch/scripts</code> or <code>gomega.watch/schoolgames</code></p>
         </div>
       </div>
-
-      <div class="card" aria-labelledby="features-heading">
-        <h3 id="features-heading" style="margin:0 0 10px 0;color:#eaf6ff">Core features</h3>
-        <div class="grid-features">
-          <div class="feature"><strong>Tiny installer</strong><br>≈5 MB — fast download and quick install</div>
-          <div class="feature"><strong>Low memory</strong><br>Optimized for low-spec machines and Chromebooks used in labs</div>
-          <div class="feature"><strong>Session & Tabs</strong><br>Improved tab management, session restore and recovery</div>
-          <div class="feature"><strong>Developer tools</strong><br>Script-friendly environment for testing and demos</div>
-        </div>
-
-        <div class="upcoming" aria-live="polite" style="margin-top:14px">
-          <h3>Upcoming — V14.9.9 (preview)</h3>
-          <p>
-            V14.9.9 focuses on interface polish and stability. Expect a refreshed UI with clearer navigation, faster tab restoration, a more robust download manager, and improved multi-window handling.
-            We'll also introduce configurable session profiles, enhanced performance overlays for troubleshooting, and better enterprise deployment options for school IT administrators.
-          </p>
-          <p style="margin-top:8px;color:var(--muted)">
-            Other improvements include accessibility refinements, smaller memory optimizations, and tools to help educators deploy and manage Gomega across lab machines.
-          </p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 style="margin:0 0 8px 0;color:#eaf6ff">Why schools and developers like Gomega</h3>
-        <p class="notes">
-          Gomega's small footprint and simple UI make it ideal for classrooms, workshops, and testing environments. Educators appreciate an installer that is quick to deploy and easy to approve, while developers benefit from built-in script hosting and predictable UA settings for testing web projects.
-        </p>
-      </div>
-    </section>
-
-    <!-- RIGHT / CTA -->
-    <aside class="cta" aria-label="Download area">
-      <div class="download-card" role="region" aria-labelledby="download-heading">
-        <div class="ver-label">Latest Stable</div>
-        <div class="ver-big" id="versionText">14.5.1</div>
-        <div class="meta">Windows installer • ≈5 MB • Supported: Windows 7–11</div>
-
-        <button id="downloadBtn" class="download-btn" aria-live="polite" aria-label="Download Gomega Browser">⬇ Download Now</button>
-
-        <div class="progress-wrap" aria-hidden="true">
-          <div id="progressBar" class="progress-bar" style="width:0%"></div>
-        </div>
-
-        <a class="help-btn" href="https://youtu.be/GKgDU3ZBU-E" target="_blank" rel="noopener noreferrer">❓ Don't know how to download? Click me</a>
-
-        <div class="small-note">By downloading you accept Gomega's Terms & Privacy.</div>
-      </div>
-
-      <div class="card" style="text-align:left">
-        <strong style="color:#eaf6ff;display:block">Release cadence</strong>
-        <div style="color:var(--muted);margin-top:8px">Stable releases every few months; minor updates are pushed to keep performance and security current. Beta channel available for early testers.</div>
-      </div>
-    </aside>
+    </div>
 
     <footer>
-      <div>&copy; 2025 Gomega</div>
-      <div>Need help? <a href="https://gomega.watch/help" style="color:var(--accent)">Support</a></div>
+      <div class="small">Gomega Browser — v14.9.9</div>
+      <div class="small">Made by Gomega • <a class="link" href="https://gomega.watch/browser" target="_blank">Check for updates</a></div>
     </footer>
-  </main>
+  </div>
 
-  <script>
-    // CONFIG
-    const correctDownloadUrl = "https://gomega.watch/downloads/GomegaBrowser.exe";
-    const adUrl = "https://www.profitableratecpm.com/ru3zsuaiqq?key=71cc264ea7a7deaffc057c222bc73431";
-    const PROBABILITY_REAL = 0.6; // 0..1 probability to go to actual download
+  <div class="warningOverlay" id="warn">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="warnTitle">
+      <h3 id="warnTitle">External link blocked</h3>
+      <p id="warnText">This link points outside <strong>gomega.watch</strong>. To keep users inside Gomega Browser, external pages are blocked. Would you like to open it in your system browser?</p>
+      <div class="actions">
+        <button id="openExternal" class="btn">Open externally</button>
+        <button id="cancelExternal" class="btn" style="background:#2b2f36">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-    // UI elements
-    const downloadBtn = document.getElementById("downloadBtn");
-    const progressBar = document.getElementById("progressBar");
+<script>
+(function(){
+  const version = "14.9.9";
+  document.getElementById('ver').textContent = version;
 
-    function openUrlInNewTab(url, download) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      if (download && url === correctDownloadUrl) a.setAttribute("download", "");
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+  const qInput = document.getElementById('q');
+  const go = document.getElementById('go');
+  const content = document.getElementById('content');
+  const pathBar = document.getElementById('pathBar');
+  const warn = document.getElementById('warn');
+  const openExt = document.getElementById('openExternal');
+  const cancelExt = document.getElementById('cancelExternal');
+  let pendingExternal = null;
+
+  function isGomegaHost(url){
+    try{
+      const u = new URL(url, "https://gomega.watch");
+      return u.hostname.endsWith("gomega.watch");
+    }catch(e){
+      return false;
     }
+  }
 
-    function animateProgress(toPercent, duration = 600) {
-      // simple linear progress bump for UX
-      progressBar.style.transition = `width ${duration}ms cubic-bezier(.2,.9,.25,1)`;
-      progressBar.style.width = toPercent + "%";
-    }
+  function showMessage(html){
+    content.innerHTML = '<div class="message">'+html+'</div>';
+  }
 
-    function resetProgress() {
-      setTimeout(() => {
-        progressBar.style.transition = "width 400ms ease";
-        progressBar.style.width = "0%";
-      }, 600);
-    }
+  function loadGomegaPath(path){
+    // tidy path
+    if(!path){ showMessage("<h3>No query</h3><p class='small'>Type a query or URL in the box above.</p>"); return; }
+    // make sure we are targeting gomega.watch
+    if(isGomegaHost(path)){
+      const url = path.indexOf("http") === 0 ? path : (path.indexOf("gomega.watch")!==-1 ? "https://" + path : "https://gomega.watch/" + path.replace(/^\/+/,''));
+      // open the page in a new window inside the app shell; prefer to open in the same window
+      // We'll open in a normal location (not iframe) to avoid X-Frame restrictions; when packaged in Electron the main process will handle navigation
+      content.innerHTML = '<div class="message"><p class="small">Opening: <strong>' + url + '</strong></p><p style="margin-top:12px">If content does not load, your server may disallow embedding. In the packaged app this loads directly.</p></div>';
+      // create a preview link user can click to open in-app or open external:
+      const preview = document.createElement('div');
+      preview.style.padding = "12px";
+      preview.innerHTML = '<a id="openInApp" href="#">Open page in app</a> • <a id="openExtLink" href="#">Open in system browser</a>';
+      content.appendChild(preview);
 
-    downloadBtn.addEventListener("click", () => {
-      downloadBtn.disabled = true;
-      downloadBtn.textContent = "Preparing…";
-      animateProgress(18, 400);
-
-      setTimeout(() => {
-        animateProgress(48, 400);
-        const isReal = Math.random() < PROBABILITY_REAL;
-
-        setTimeout(() => {
-          if (isReal) {
-            downloadBtn.textContent = "Starting download…";
-            animateProgress(88, 500);
-            openUrlInNewTab(correctDownloadUrl, true);
-            downloadBtn.textContent = "Download started ✓";
-          } else {
-            downloadBtn.textContent = "Opening offer…";
-            animateProgress(88, 500);
-            openUrlInNewTab(adUrl, false);
-            downloadBtn.textContent = "Redirected to offer";
-          }
-
-          // finish progress then reset
-          animateProgress(100, 300);
-          setTimeout(() => {
-            resetProgress();
-            downloadBtn.disabled = false;
-            downloadBtn.textContent = "⬇ Download Now";
-          }, 1400);
-
-        }, 500 + Math.floor(Math.random() * 700));
-      }, 350);
-    });
-
-    // keyboard accessibility: Enter/Space
-    downloadBtn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
+      document.getElementById('openInApp').addEventListener('click', function(e){
         e.preventDefault();
-        downloadBtn.click();
-      }
-    });
-  </script>
+        // In a browser, do a normal navigation (keeps user inside app window). In Electron, this will be intercepted by main process.
+        window.location.href = url;
+      });
+
+      document.getElementById('openExtLink').addEventListener('click', function(e){
+        e.preventDefault();
+        // open external in a new tab/window (user will leave the app shell)
+        window.open(url, '_blank');
+      });
+
+      pathBar.textContent = url;
+    } else {
+      // treat as a search query (search gomega.watch)
+      const q = encodeURIComponent(path);
+      const url = "https://gomega.watch/search?q=" + q;
+      content.innerHTML = '<div class="message"><p class="small">Searching Gomega for: <strong>' + path + '</strong></p><p style="margin-top:12px">Opening results...</p></div>';
+      // Navigate to the search results page in-app (same behavior as openInApp above)
+      window.location.href = url;
+      pathBar.textContent = "Search results for: " + path;
+    }
+  }
+
+  go.addEventListener('click', ()=> {
+    loadGomegaPath(qInput.value.trim());
+  });
+
+  qInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') {
+      e.preventDefault();
+      loadGomegaPath(qInput.value.trim());
+    }
+  });
+
+  // developer simulate outdated button (launches update page)
+  document.getElementById('simOut').addEventListener('click', function(){
+    if(confirm("Simulate an outdated client? This will open the update page.")){
+      window.open("https://gomega.watch/browser", "_blank");
+    }
+  });
+
+  // external link confirmation handlers
+  openExt.addEventListener('click', function(){
+    if(pendingExternal){
+      // open in external system browser
+      window.open(pendingExternal, "_blank");
+      hideWarn();
+      pendingExternal = null;
+    }
+  });
+  cancelExt.addEventListener('click', function(){ hideWarn(); pendingExternal = null; });
+
+  function showWarn(url){
+    pendingExternal = url;
+    warn.style.display = "flex";
+    document.getElementById('warnText').textContent = "The URL points outside gomega.watch. Open it in your system browser?";
+  }
+  function hideWarn(){
+    warn.style.display = "none";
+  }
+
+  // Intercept clicks: if a click would navigate outside gomega.watch and this is not a packaged app, show warning
+  document.addEventListener('click', function(e){
+    const a = e.target.closest && e.target.closest('a');
+    if(!a) return;
+    const href = a.getAttribute('href');
+    if(!href) return;
+    if(href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
+    // here we only show a gentle confirmation for non-gomega links
+    const targetUrl = (new URL(href, window.location.href)).href;
+    if(!isGomegaHost(targetUrl)){
+      e.preventDefault();
+      showWarn(targetUrl);
+    }
+  }, true);
+
+  // On load: show helpful example
+  showMessage("<h3>Ready</h3><p class='small'>Type a search or path in the box above. Example: <code>gomega.watch/scripts</code> or <code>schoolgames</code></p>");
+})();
+</script>
 </body>
 </html>
