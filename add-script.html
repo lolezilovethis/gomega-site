@@ -311,7 +311,9 @@
       const brandInput = document.getElementById('brandName');
       const brandName = brandInput.value.trim();
       const includeAds = document.getElementById('includeAds').checked;
-      const numAds = parseInt(document.getElementById('numAds').value);
+      // safer parse for numAds (if disabled we want 0)
+      const rawNumAds = document.getElementById('numAds').value;
+      const numAds = includeAds ? (parseInt(rawNumAds, 10) || 1) : 0;
       const getPaid = document.getElementById('getPaid').checked;
 
       // Validation
@@ -327,7 +329,6 @@
       }
 
       // ===== NEW: Use brands collection to reserve/claim brand =====
-      // This avoids listing/reading the entire users collection (which rules block).
       if (!brandInput.disabled) {
         const brandId = brandToId(brandName);
         if (!brandId) {
@@ -338,34 +339,64 @@
 
         const brandRef = doc(db, 'brands', brandId);
 
-        // Try to create (set) the brand doc with ownerId == currentUser.uid.
-        // Firestore rules should allow create only when the doc doesn't exist and ownerId == auth.uid.
-        // If the doc already exists (or a rules check fails) this will throw and we handle it.
         try {
-          // use setDoc WITHOUT merge to ensure create attempt; if doc exists, rules should prevent update
+          // IMPORTANT: rules require request.resource.data.name (string) and ownerId == auth.uid
+          // so include both 'name' and 'ownerId' (and also include displayName for convenience)
           await setDoc(brandRef, {
             ownerId: currentUser.uid,
+            name: brandName,          // <-- rules expect this property
             displayName: brandName,
             createdAt: serverTimestamp()
           });
           // success => brand reserved
         } catch (brandErr) {
           console.error('Brand reservation failed', brandErr);
-          // Friendly message for collisions or permission issues
-          errorEl.textContent = '🚫 Someone has already picked this brand name.';
-          submitBtn.disabled = false;
-          return;
+          try {
+            // try to read the doc to display a friendlier message (read is allowed)
+            const existing = await getDoc(brandRef);
+            if (existing.exists()) {
+              if (existing.data().ownerId === currentUser.uid) {
+                // we already own it — proceed
+              } else {
+                errorEl.textContent = '🚫 That brand is already taken by someone else.';
+                submitBtn.disabled = false;
+                return;
+              }
+            } else {
+              // not exists but write failed => likely a rules validation issue (e.g. missing field), show generic msg
+              errorEl.textContent = '🚫 Could not reserve brand (permission or validation error).';
+              submitBtn.disabled = false;
+              return;
+            }
+          } catch (readErr) {
+            console.warn('brand read after failed create also failed', readErr);
+            errorEl.textContent = '🚫 Could not reserve brand name.';
+            submitBtn.disabled = false;
+            return;
+          }
         }
       }
 
       try {
-        // Save brand if first time (allowed by your rules)
+        // Save brand into user's doc if first time (allowed by your rules)
         if (!brandInput.disabled) {
           await setDoc(doc(db, 'users', currentUser.uid), { brandName }, { merge: true });
         }
 
         // Prepare script data
-        const scriptData = { title, description, code, brandName, includeAds, numAds: includeAds ? numAds : 0, getPaid, submittedBy: currentUser.uid, timestamp: serverTimestamp() };
+        // NOTE: your rules require ownerId == auth.uid when creating approved_scripts
+        const scriptData = {
+          title,
+          description,
+          code,
+          brandName,
+          includeAds,
+          numAds: includeAds ? numAds : 0,
+          getPaid,
+          ownerId: currentUser.uid,     // <-- required by rules
+          submittedBy: currentUser.uid,
+          timestamp: serverTimestamp()
+        };
 
         await addDoc(collection(db, 'approved_scripts'), scriptData);
 
@@ -377,10 +408,14 @@
         document.getElementById('brandAvailable').className = 'ok';
         document.getElementById('brandAvailable').textContent = '✅ You own this brand.';
       } catch (err) {
-        console.error(err);
-        // If brand was reserved above but script publish failed, DO NOT delete the brand here —
-        // ownership remains with user; if you want to rollback in some flows we can add that later.
-        errorEl.textContent = '❌ Failed to publish script. Please try again.';
+        console.error('Publish failed', err);
+        // If brand was reserved but script publish failed, we intentionally keep brand reserved.
+        // Provide slightly more context to help debugging.
+        if (err?.code === 'permission-denied' || (err && /permission/i.test(String(err)))) {
+          errorEl.textContent = '❌ Permission denied when publishing script. Check Firestore rules and required fields.';
+        } else {
+          errorEl.textContent = '❌ Failed to publish script. Please try again.';
+        }
       } finally {
         submitBtn.disabled = false;
       }
