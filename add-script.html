@@ -6,257 +6,439 @@
   <title>Add Script – Gomega Watch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
-  <!-- (styles omitted for brevity — keep your existing styles) -->
-  <style>/* ... keep your existing CSS ... */</style>
+  <style>
+    /* Global Dark Theme */
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #1e1e1e;
+      padding: 22px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      animation: fadeIn 0.35s ease-in-out;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 18px;
+      color: #00d4ff;
+      font-size: 1.6rem;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #ccc;
+    }
+
+    input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #2a2a2a;
+      color: #f5f5f5;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-size: 0.95rem;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #00d4ff;
+      box-shadow: 0 0 6px rgba(0, 212, 255, 0.35);
+      outline: none;
+    }
+
+    textarea { resize: vertical; min-height: 120px; }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ddd;
+    }
+
+    .checkbox-group input { width: auto; }
+
+    #numAds { max-width: 120px; }
+
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      background: linear-gradient(90deg, #00d4ff, #0066ff);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.25s, transform 0.14s;
+    }
+
+    .btn:hover:not(:disabled) { transform: translateY(-2px); }
+    .btn:disabled { background: #444; cursor: not-allowed; opacity: 0.9; }
+
+    /* Messages */
+    #successMsg { color: #4caf50; text-align: center; margin-top: 14px; font-weight: 700; }
+    #errorMsg { color: #ff6b6b; text-align: center; margin-top: 14px; font-weight: 700; white-space: pre-wrap; }
+
+    small { color: #9aa; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+      .container { padding: 16px; }
+      h1 { font-size: 1.3rem; }
+    }
+
+    /* small availability indicator */
+    #brandAvailable { display:block; margin-top:6px; font-size:0.92rem; }
+    #brandAvailable.ok { color: #4caf50; }
+    #brandAvailable.taken { color: #ff5252; }
+    #brandAvailable.unknown { color: #999; }
+
+    /* subtle spinner */
+    .spinner {
+      display:inline-block;
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      border:3px solid rgba(255,255,255,0.08);
+      border-top-color: rgba(255,255,255,0.5);
+      animation: spin 0.9s linear infinite;
+      vertical-align: middle;
+      margin-left:8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>🆕 Add New Script</h1>
-    <form id="scriptForm"> 
-      <!-- (form elements unchanged) -->
-      <!-- same inputs as you had -->
+
+    <form id="scriptForm">
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" id="title" placeholder="Example: Auto Farm" required>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description <small>(optional)</small></label>
+        <input type="text" id="description" placeholder="Short description...">
+      </div>
+
+      <div class="form-group">
+        <label for="code">Script Code</label>
+        <textarea id="code" rows="8" placeholder="Paste Lua script here..." required></textarea>
+        <small>Tip: keep scripts concise — very long content may be rejected by rules.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="brandName">Brand Name</label>
+        <input type="text" id="brandName" placeholder="Your publishing brand" required>
+        <small id="brandHint">Your unique brand (only you can use this)</small>
+        <span id="brandAvailable" class="unknown"></span>
+      </div>
+
+      <div class="form-group checkbox-group" style="margin-top:8px;">
+        <input type="checkbox" id="includeAds">
+        <label for="includeAds">Include Ads?</label>
+      </div>
+
+      <div class="form-group">
+        <label for="numAds">Number of Ads (1–15)</label>
+        <input type="number" id="numAds" value="1" min="1" max="15" disabled>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="getPaid">
+        <label for="getPaid">💵 I want to get paid</label>
+      </div>
+
+      <button type="submit" class="btn" id="submitBtn">💾 Publish Script</button>
+      <p id="errorMsg" role="status" aria-live="polite"></p>
+      <p id="successMsg" role="status" aria-live="polite"></p>
     </form>
   </div>
 
   <script type="module">
+    // firebase imports - assumes ./js/firebase.js exports initialized `auth` and `db`
     import { auth, db } from './js/firebase.js';
     import {
       doc, setDoc, getDoc, collection, addDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    let currentUser;
+    let currentUser = null;
 
-    // small helpers (same as before)
+    // UI refs
+    const brandInput = document.getElementById('brandName');
+    const brandAvailableEl = document.getElementById('brandAvailable');
+    const brandHintEl = document.getElementById('brandHint');
+    const numAdsInput = document.getElementById('numAds');
+    const includeAdsCb = document.getElementById('includeAds');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorEl = document.getElementById('errorMsg');
+    const successEl = document.getElementById('successMsg');
+
+    // toggle numAds
+    includeAdsCb.addEventListener('change', (e) => {
+      numAdsInput.disabled = !e.target.checked;
+      if (!e.target.checked) numAdsInput.value = 1;
+    });
+
+    // sanitize brand -> doc id
     function brandToId(brand) {
       if (!brand) return '';
       return brand.trim().toLowerCase()
-        .replace(/[^a-z0-9\-_\.]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/(^-|-$)/g, '');
+        .replace(/[^a-z0-9\-_\.]/g, '-')   // replace invalid chars with -
+        .replace(/-+/g, '-')                // collapse dashes
+        .replace(/(^-|-$)/g, '');           // trim leading/trailing dash
     }
 
+    // availability check
+    let brandCheckToken = 0;
     async function checkBrandAvailabilityUI(brandName) {
-      const availEl = document.getElementById('brandAvailable');
-      availEl.className = 'unknown';
-      availEl.textContent = '';
+      brandAvailableEl.className = 'unknown';
+      brandAvailableEl.textContent = '';
       const id = brandToId(brandName);
       if (!id) return;
+
+      const myToken = ++brandCheckToken;
+      // show spinner while checking
+      brandAvailableEl.innerHTML = 'Checking<span class="spinner" aria-hidden="true"></span>';
       try {
         const bRef = doc(db, 'brands', id);
         const snap = await getDoc(bRef);
+        // if a later check started, ignore this result
+        if (myToken !== brandCheckToken) return;
         if (snap.exists()) {
           if (currentUser && snap.data().ownerId === currentUser.uid) {
-            availEl.className = 'ok';
-            availEl.textContent = '✅ You own this brand.';
+            brandAvailableEl.className = 'ok';
+            brandAvailableEl.textContent = '✅ You own this brand.';
           } else {
-            availEl.className = 'taken';
-            availEl.textContent = '🚫 That brand is taken.';
+            brandAvailableEl.className = 'taken';
+            brandAvailableEl.textContent = '🚫 That brand is taken.';
           }
         } else {
-          availEl.className = 'ok';
-          availEl.textContent = '✅ Brand available';
+          brandAvailableEl.className = 'ok';
+          brandAvailableEl.textContent = '✅ Brand available';
         }
       } catch (err) {
         console.warn('brand availability check error', err);
-        availEl.className = 'unknown';
-        availEl.textContent = '';
+        brandAvailableEl.className = 'unknown';
+        brandAvailableEl.textContent = '';
       }
     }
 
-    // wire UI bits
-    document.getElementById('includeAds').addEventListener('change', e => {
-      document.getElementById('numAds').disabled = !e.target.checked;
+    // attach brand input debounce
+    brandInput.addEventListener('input', () => {
+      if (brandInput.disabled) return;
+      const v = brandInput.value.trim();
+      if (!v) {
+        brandAvailableEl.textContent = '';
+        brandAvailableEl.className = 'unknown';
+        return;
+      }
+      if (brandInput._deb) clearTimeout(brandInput._deb);
+      brandInput._deb = setTimeout(() => checkBrandAvailabilityUI(v), 350);
     });
 
-    // Auth guard + brand UI wiring
-    onAuthStateChanged(auth, async user => {
-      if (!user) return location.href = "/";
+    // Ensure user is authenticated and load existing user doc brand (if present)
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return location.href = '/';
       currentUser = user;
 
-      const userRef = doc(db, 'users', user.uid);
       try {
+        const userRef = doc(db, 'users', user.uid);
         const snap = await getDoc(userRef);
         if (snap.exists() && snap.data().brandName) {
-          const brandInput = document.getElementById('brandName');
           brandInput.value = snap.data().brandName;
           brandInput.disabled = true;
-          document.getElementById('brandHint').textContent = 'Brand locked';
-          document.getElementById('brandAvailable').className = 'ok';
-          document.getElementById('brandAvailable').textContent = '✅ You own this brand.';
+          brandHintEl.textContent = 'Brand locked';
+          brandAvailableEl.className = 'ok';
+          brandAvailableEl.textContent = '✅ You own this brand.';
         } else {
-          const brandInput = document.getElementById('brandName');
-          brandInput.addEventListener('input', () => {
-            const v = brandInput.value.trim();
-            if (v.length === 0) {
-              document.getElementById('brandAvailable').textContent = '';
-              document.getElementById('brandAvailable').className = 'unknown';
-              return;
-            }
-            if (brandInput._availTimeout) clearTimeout(brandInput._availTimeout);
-            brandInput._availTimeout = setTimeout(() => checkBrandAvailabilityUI(v), 350);
-          });
+          // if not locked, let the availability input respond to user typing (already wired)
         }
       } catch (err) {
-        console.error('Failed to load user doc:', err);
-        // still attach availability check in case reads are blocked
-        const brandInput = document.getElementById('brandName');
-        brandInput.addEventListener('input', () => {
-          const v = brandInput.value.trim();
-          if (v.length === 0) {
-            document.getElementById('brandAvailable').textContent = '';
-            document.getElementById('brandAvailable').className = 'unknown';
-            return;
-          }
-          if (brandInput._availTimeout) clearTimeout(brandInput._availTimeout);
-          brandInput._availTimeout = setTimeout(() => checkBrandAvailabilityUI(v), 350);
-        });
+        // read might be blocked by rules — still allow proceeding
+        console.warn('Could not read user doc (availability still functional if brands read allowed):', err);
       }
     });
 
-    document.getElementById('scriptForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const errorEl = document.getElementById('errorMsg');
-      const successEl = document.getElementById('successMsg');
-      const submitBtn = document.getElementById('submitBtn');
+    // helper to show detailed error to user console + UI
+    function showError(msg, err) {
+      console.error(msg, err);
+      let detail = '';
+      try {
+        if (err && err.code) detail = ` (${err.code})`;
+      } catch {}
+      errorEl.textContent = `${msg}${detail}\n${err && err.message ? err.message : ''}`;
+      successEl.textContent = '';
+    }
 
+    // main form submit
+    document.getElementById('scriptForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
       errorEl.textContent = '';
       successEl.textContent = '';
       submitBtn.disabled = true;
 
-      const title = document.getElementById('title').value.trim();
-      const description = document.getElementById('description').value.trim();
-      const code = document.getElementById('code').value.trim();
-      const brandInput = document.getElementById('brandName');
-      const brandName = brandInput.value.trim();
-      const includeAds = document.getElementById('includeAds').checked;
-      const rawNumAds = document.getElementById('numAds').value;
-      const numAds = includeAds ? (parseInt(rawNumAds, 10) || 1) : 0;
-      const getPaid = document.getElementById('getPaid').checked;
+      try {
+        if (!currentUser) throw new Error('Auth lost — please refresh and sign in again.');
 
-      if (!title || !code || !brandName) {
-        errorEl.textContent = 'Please fill in title, code, and brand.';
-        submitBtn.disabled = false;
-        return;
-      }
-      if (includeAds && (numAds < 1 || numAds > 15)) {
-        errorEl.textContent = 'Ads count must be between 1 and 15.';
-        submitBtn.disabled = false;
-        return;
-      }
+        const title = document.getElementById('title').value.trim();
+        const description = document.getElementById('description').value.trim();
+        const code = document.getElementById('code').value.trim();
+        const brandName = brandInput.value.trim();
+        const includeAds = includeAdsCb.checked;
+        const rawNumAds = document.getElementById('numAds').value;
+        const numAds = includeAds ? (parseInt(rawNumAds, 10) || 1) : 0;
+        const getPaid = document.getElementById('getPaid').checked;
 
-      // Reserve/claim brand if necessary
-      if (!brandInput.disabled) {
-        const brandId = brandToId(brandName);
-        if (!brandId) {
-          errorEl.textContent = 'Brand name contains no valid characters.';
+        // basic client validation
+        if (!title || !code || !brandName) {
+          errorEl.textContent = 'Please fill in Title, Code, and Brand fields.';
+          submitBtn.disabled = false;
+          return;
+        }
+        if (includeAds && (numAds < 1 || numAds > 15)) {
+          errorEl.textContent = 'Number of ads must be between 1 and 15.';
           submitBtn.disabled = false;
           return;
         }
 
-        const brandRef = doc(db, 'brands', brandId);
-        try {
-          await setDoc(brandRef, {
-            ownerId: currentUser.uid,
-            name: brandName,
-            displayName: brandName,
-            createdAt: serverTimestamp()
-          });
-          console.log('Brand reserved:', brandId);
-        } catch (brandErr) {
-          console.error('Brand reservation failed', brandErr);
-          // Try to read existing doc to determine if it's a collision
+        // 1) Reserve brand (if not locked)
+        if (!brandInput.disabled) {
+          const brandId = brandToId(brandName);
+          if (!brandId) {
+            errorEl.textContent = 'Brand name contains no valid characters. Use letters/numbers/dashes.';
+            submitBtn.disabled = false;
+            return;
+          }
+
+          const brandRef = doc(db, 'brands', brandId);
           try {
-            const existing = await getDoc(brandRef);
-            if (existing.exists()) {
-              if (existing.data().ownerId === currentUser.uid) {
-                // already owned by user — ok
-                console.log('You already own this brand, proceeding.');
+            // write required fields per rules: ownerId and name (string)
+            await setDoc(brandRef, {
+              ownerId: currentUser.uid,
+              name: brandName,
+              displayName: brandName,
+              createdAt: serverTimestamp()
+            });
+            console.log('Brand reserved:', brandId);
+          } catch (brandErr) {
+            // Might be collision or rules error. Try to read doc to better categorize.
+            console.warn('Brand reservation failed, attempting to read existing doc...', brandErr);
+            try {
+              const existing = await getDoc(brandRef);
+              if (existing.exists()) {
+                if (existing.data().ownerId === currentUser.uid) {
+                  // already owned by user - allowed
+                  console.log('Brand already owned by you, proceeding.');
+                } else {
+                  errorEl.textContent = '🚫 That brand is already taken by someone else.';
+                  submitBtn.disabled = false;
+                  return;
+                }
               } else {
-                errorEl.textContent = '🚫 That brand is already taken by someone else.';
+                // doc doesn't exist and write failed -> likely permission/validation issue
+                showError('🚫 Could not reserve brand (permission or validation error).', brandErr);
                 submitBtn.disabled = false;
                 return;
               }
-            } else {
-              errorEl.textContent = '🚫 Could not reserve brand (permission or validation error).';
+            } catch (readErr) {
+              showError('🚫 Could not reserve brand and reading brand doc failed.', readErr);
               submitBtn.disabled = false;
               return;
             }
-          } catch (readErr) {
-            console.warn('brand read after failed create also failed', readErr);
-            errorEl.textContent = '🚫 Could not reserve brand name.';
-            submitBtn.disabled = false;
-            return;
           }
         }
-      }
 
-      // --- SAFE users doc create/update: check existence first ---
-      const userRef = doc(db, 'users', currentUser.uid);
-      try {
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          // update (merge) — allowed by your rules
-          try {
-            await setDoc(userRef, { brandName }, { merge: true });
-            console.log('User doc updated: merged brandName');
-          } catch (uErr) {
-            console.error('Failed to update existing user doc', uErr);
-            errorEl.textContent = '❌ Failed to update your user profile. Check console for details.';
-            submitBtn.disabled = false;
-            return;
+        // 2) Ensure users/{uid} exists and follows rules for create
+        const userRef = doc(db, 'users', currentUser.uid);
+        try {
+          const uSnap = await getDoc(userRef);
+          if (uSnap.exists()) {
+            // merge brandName into existing document (allowed)
+            try {
+              await setDoc(userRef, { brandName }, { merge: true });
+              console.log('User doc merged with brandName.');
+            } catch (uUpdateErr) {
+              showError('❌ Failed to update your user profile (merge).', uUpdateErr);
+              submitBtn.disabled = false;
+              return;
+            }
+          } else {
+            // create with required fields: uid and displayName (rules expect them)
+            const displayName = currentUser.displayName || '';
+            try {
+              await setDoc(userRef, { uid: currentUser.uid, displayName, brandName });
+              console.log('User doc created with uid & displayName.');
+            } catch (uCreateErr) {
+              showError('❌ Could not create user profile (permission denied or validation).', uCreateErr);
+              submitBtn.disabled = false;
+              return;
+            }
           }
-        } else {
-          // create with required fields (rules expect uid and displayName)
-          const displayName = currentUser.displayName || '';
-          try {
-            await setDoc(userRef, { uid: currentUser.uid, displayName, brandName });
-            console.log('User doc created with uid & displayName');
-          } catch (uErr2) {
-            console.error('Failed to create user doc', uErr2);
-            errorEl.textContent = '❌ Could not create user profile (permission denied).';
-            submitBtn.disabled = false;
-            return;
-          }
+        } catch (userCheckErr) {
+          showError('❌ Failed to verify user profile existence.', userCheckErr);
+          submitBtn.disabled = false;
+          return;
         }
-      } catch (readUserErr) {
-        console.error('Failed to check user doc existence', readUserErr);
-        errorEl.textContent = '❌ Could not verify user profile. Please try again.';
-        submitBtn.disabled = false;
-        return;
-      }
 
-      // Now create the approved_scripts doc (rules require ownerId == auth.uid)
-      try {
-        const scriptData = {
-          title,
-          description,
-          code,
-          brandName,
-          includeAds,
-          numAds: includeAds ? numAds : 0,
-          getPaid,
-          ownerId: currentUser.uid,
-          submittedBy: currentUser.uid,
-          timestamp: serverTimestamp()
-        };
+        // 3) Create approved_scripts doc (must include ownerId per your rules)
+        try {
+          const scriptData = {
+            title,
+            description,
+            code,
+            brandName,
+            includeAds,
+            numAds: includeAds ? numAds : 0,
+            getPaid,
+            ownerId: currentUser.uid,   // required by rules
+            submittedBy: currentUser.uid,
+            timestamp: serverTimestamp()
+          };
+          await addDoc(collection(db, 'approved_scripts'), scriptData);
+        } catch (publishErr) {
+          showError('Publish failed', publishErr);
+          submitBtn.disabled = false;
+          return;
+        }
 
-        await addDoc(collection(db, 'approved_scripts'), scriptData);
+        // success path
         successEl.textContent = '✅ Script published successfully!';
-        document.getElementById('scriptForm').reset();
-        document.getElementById('numAds').disabled = true;
+        errorEl.textContent = '';
+        // lock brand input and update UI state
         brandInput.disabled = true;
-        document.getElementById('brandHint').textContent = 'Brand locked';
-        document.getElementById('brandAvailable').className = 'ok';
-        document.getElementById('brandAvailable').textContent = '✅ You own this brand.';
-      } catch (err) {
-        console.error('Publish failed', err);
-        // give precise hint
-        if (err?.code === 'permission-denied' || (err && /permission/i.test(String(err)))) {
-          errorEl.textContent = '❌ Permission denied when publishing script. Check Firestore rules and required fields.';
-        } else {
-          errorEl.textContent = '❌ Failed to publish script. Please try again.';
-        }
+        brandHintEl.textContent = 'Brand locked';
+        brandAvailableEl.className = 'ok';
+        brandAvailableEl.textContent = '✅ You own this brand.';
+        // reset the rest of the form (leave brand locked)
+        document.getElementById('scriptForm').reset();
+        numAdsInput.disabled = true;
+      } catch (topErr) {
+        showError('Unexpected error', topErr);
       } finally {
         submitBtn.disabled = false;
       }
