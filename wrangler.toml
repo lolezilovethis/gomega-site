@@ -1,0 +1,9 @@
+name = "gomega-ai-proxy"
+main = "index.mjs"
+compatibility_date = "2025-08-17"  # update to today's date or later
+
+# If you want to deploy to workers.dev subdomain, leave out routes and set account_id
+# To bind the worker to your domain route (e.g. gomega.watch/api/*), set routes in the Cloudflare dashboard or use `routes` here.
+# routes = ["https://gomega.watch/api/*"]
+
+# If you publish to your workers.dev subdomain, you'll get <name>.<workers.dev>
