@@ -1,24 +1,24 @@
 // functions/index.js
 const functions = require("firebase-functions");
+const admin = require("firebase-admin");
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
-// Express app
+admin.initializeApp();
+const db = admin.firestore();
+
 const app = express();
 app.use(express.json());
-
-// If hosting the frontend on same Firebase Hosting site with rewrites,
-// requests will be same-origin so CORS isn't strictly required. Still allow flexible CORS for testing:
+// allow CORS from anywhere for development; tighten origin for production
 app.use(cors({ origin: true }));
 
-// Load secrets from functions config (set via firebase CLI)
+// Load config (gmail/openai etc) from functions config if set
 const gmailUser = functions.config().gmail && functions.config().gmail.user;
 const gmailPass = functions.config().gmail && functions.config().gmail.pass;
-const openaiKey = functions.config().openai && functions.config().openai.key; // optional future use
+const serviceSalt = (functions.config().service && functions.config().service.salt) || "";
 
-// nodemailer transporter (optional — only if gmailUser & gmailPass provided)
 let transporter = null;
 if (gmailUser && gmailPass) {
   transporter = nodemailer.createTransport({
@@ -27,10 +27,7 @@ if (gmailUser && gmailPass) {
   });
 }
 
-// Simple in-memory demo store (cold starts will reset — for persistence use Firestore)
-const memories = [];
-
-// Simple models list returned to frontend
+// MODELS list — returned by /config
 const MODELS = [
   { id: 'gomega-5', label: 'gomega-5 (best)' },
   { id: 'gomega-4o', label: 'gomega-4o (balanced)' },
@@ -41,14 +38,13 @@ const MODELS = [
   { id: 'local-md', label: 'local-md (learning)' }
 ];
 
-// Utility: rotating key every 12 hours
 function getCurrentKey() {
   const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
-  const raw = "gomega-secret-salt-" + interval + (functions.config().service && functions.config().service.salt ? functions.config().service.salt : "");
+  const raw = "gomega-firebase-salt-" + interval + serviceSalt;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12);
 }
 
-// Simple keyword extraction & memory helpers (same logic as local server)
+/* Simple keyword extraction */
 const STOPWORDS = new Set([
   'the','and','for','with','that','this','from','have','has','was','were','are','you','your','but','not','all','they','their','them','then','when','what','how','why','where','who','which','will','can','could','would','should','a','an','in','on','at','to','of','is','it','i','me','my','we','us','our'
 ]);
@@ -67,13 +63,52 @@ function extractKeywords(text) {
   return keys.slice(0, 8);
 }
 
-function pushMemory(role, text) {
+/* Firestore helpers */
+async function pushMemoryToFirestore(role, text, userId) {
   const ts = Date.now();
-  const summary = String(text || '').slice(0, 120);
   const keywords = extractKeywords(String(text || ''));
-  memories.push({ role, text: String(text || ''), summary, keywords, ts });
-  while (memories.length > 2000) memories.shift();
+  const summary = String(text || '').slice(0, 120);
+  await db.collection('memories').add({ role, text: String(text || ''), summary, keywords, ts, userId: userId || null });
+  // optionally trim old docs: not implemented here (Firestore billing caution)
 }
+
+/* Retrieve recent memories and score them by shared keywords (simple heuristic) */
+async function findRelevantFromFirestore(keywords, limit = 6) {
+  if (!keywords || !keywords.length) return [];
+  // fetch recent N memories (e.g. 1000) then score in memory
+  // Firestore doesn't support fast full-text match without indexing or Algolia; this is a simple fallback
+  const q = db.collection('memories').orderBy('ts', 'desc').limit(1000);
+  const snap = await q.get();
+  const scored = [];
+  snap.forEach(doc => {
+    const m = doc.data();
+    let score = 0;
+    const textLower = (m.text || '').toLowerCase();
+    for (const k of keywords) {
+      if (textLower.includes(k)) score += 2;
+      if ((m.keywords || []).includes(k)) score += 1;
+    }
+    if (score > 0) scored.push({ m, score });
+  });
+  scored.sort((a,b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.m);
+}
+
+/* Middleware: try to verify Firebase ID token if provided via Authorization: Bearer ... */
+async function tryVerifyToken(req) {
+  const authHeader = req.headers && req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    return decoded; // contains uid, email, etc.
+  } catch (e) {
+    console.warn('token verify failed', e && e.message);
+    return null;
+  }
+}
+
+/* Endpoints */
 
 // GET /config
 app.get('/config', (req, res) => {
@@ -81,7 +116,7 @@ app.get('/config', (req, res) => {
     provider: 'gomega-firebase',
     premiumAvailable: false,
     models: MODELS,
-    info: 'Firebase Functions demo API (non-streaming).'
+    info: 'Firebase Functions with Firestore-backed memories'
   });
 });
 
@@ -96,9 +131,12 @@ app.post('/verify-key', (req, res) => {
   res.json({ valid: key === getCurrentKey() });
 });
 
-// POST /chat (non-streaming)
+// POST /chat
 app.post('/chat', async (req, res) => {
   try {
+    const user = await tryVerifyToken(req); // may be null
+    const uid = user ? user.uid : null;
+
     const { modelId = 'gomega-5', temperature = 0.7, system, messages = [] } = req.body || {};
     // find last user message
     let lastUser = null;
@@ -106,50 +144,38 @@ app.post('/chat', async (req, res) => {
       if (messages[i].role === 'user') { lastUser = messages[i].content; break; }
     }
     const userText = String(lastUser || '').trim();
-    if (userText) pushMemory('user', userText);
+
+    if (userText) await pushMemoryToFirestore('user', userText, uid);
+
     const kw = extractKeywords(userText);
-    if (kw.length && userText) pushMemory('meta', `keywords:${kw.join(', ')} — ${userText.slice(0,120)}`);
+    if (kw.length && userText) await pushMemoryToFirestore('meta', `keywords:${kw.join(', ')} — ${userText.slice(0,120)}`, uid);
 
-    // find relevant memories by keyword match
-    const relevant = [];
-    if (kw.length) {
-      for (const m of memories) {
-        let score = 0;
-        for (const k of kw) {
-          if (m.text.toLowerCase().includes(k)) score += 2;
-          if ((m.keywords || []).includes(k)) score += 1;
-        }
-        if (score > 0) relevant.push({ m, score });
-      }
-      relevant.sort((a,b) => b.score - a.score);
-    }
+    // lookup relevant memories from firestore
+    const relevant = await findRelevantFromFirestore(kw, 6);
 
-    // craft reply (simple heuristics)
+    // Build reply
     const today = new Date().toLocaleString();
     const parts = [];
-    parts.push(`Gomega (${modelId}) — firebase demo.`);
+    parts.push(`Gomega (${modelId}) — firebase backend.`);
     parts.push(`Date: ${today}`);
     if (system) parts.push(`System: ${system}`);
-    if (userText.toLowerCase().includes('date') || userText.toLowerCase().includes('time') || userText.toLowerCase().includes("today")) {
+
+    if (userText.toLowerCase().includes('date') || userText.toLowerCase().includes('time') || userText.toLowerCase().includes('today')) {
       parts.push('');
       parts.push(`You asked about today's date/time. Right now it is: ${today}.`);
     } else {
       if (relevant.length) {
         parts.push('');
         parts.push('Relevant memories I found:');
-        for (const s of relevant.slice(0,6)) {
-          const m = s.m;
-          parts.push(`- (${m.role}) ${m.summary}${m.keywords && m.keywords.length ? ` [tags:${m.keywords.slice(0,5).join(',')}]` : ''}`);
-        }
+        for (const m of relevant) parts.push(`- (${m.role}) ${m.summary}${m.keywords && m.keywords.length ? ` [tags: ${m.keywords.slice(0,5).join(', ')}]` : ''}`);
       }
 
-      // answer heuristics
       let answer = '';
       if (userText.endsWith('?') || /how|what|why|where|when|help|suggest|advise|fix|who|which/i.test(userText)) {
-        answer = `Steps to approach "${userText}":\n1) Clarify the exact problem.\n2) Try searching keywords: ${kw.slice(0,5).join(', ') || '...'}.\n3) Ask for "step" to get step-by-step instructions.`;
+        answer = `Approach for "${userText}":\n1) Clarify the goal.\n2) Quick idea: search keywords: ${kw.slice(0,5).join(', ') || '...'}.\n3) Ask for "step" for step-by-step guidance.`;
       } else {
         const short = userText.length ? userText.slice(0, 200) : '(no input)';
-        answer = `I received: "${short}". I can save memories, look them up later, and assist with steps. Say "remember: ..." to store a note.`;
+        answer = `I received: "${short}". I can save memories and reference them later. Say "remember: ..." to store a specific note.`;
       }
       parts.push('');
       parts.push(answer);
@@ -157,24 +183,37 @@ app.post('/chat', async (req, res) => {
 
     const replyText = parts.join('\n');
 
-    pushMemory('assistant', replyText);
+    // store assistant reply
+    await pushMemoryToFirestore('assistant', replyText, uid);
 
-    res.json({ choices:[{ text: replyText }], reply: replyText });
+    // Return non-streaming JSON (frontend expects this)
+    return res.json({ choices: [{ text: replyText }], reply: replyText });
   } catch (err) {
     console.error('chat error', err);
-    res.status(500).json({ error: 'server error', detail: String(err) });
+    return res.status(500).json({ error: 'server error', detail: String(err) });
   }
 });
 
-// GET /memories
-app.get('/memories', (req, res) => {
-  res.json({ count: memories.length, memories: memories.slice(-200) });
+// GET /memories (returns last N memories)
+app.get('/memories', async (req, res) => {
+  try {
+    const snap = await db.collection('memories').orderBy('ts', 'desc').limit(200).get();
+    const out = [];
+    snap.forEach(d => {
+      const v = d.data();
+      out.push({ role: v.role, text: v.text, summary: v.summary, keywords: v.keywords, ts: v.ts, userId: v.userId || null });
+    });
+    res.json({ count: out.length, memories: out });
+  } catch (err) {
+    console.error('memories error', err);
+    res.status(500).json({ error: 'failed' });
+  }
 });
 
-// sendEmail endpoint (optional)
+// sendEmail function (optional)
 exports.sendEmail = functions.https.onRequest((req, res) => {
   cors({ origin: true })(req, res, async () => {
-    if (!transporter) return res.status(500).send('Email not configured. Set gmail.user and gmail.pass with firebase functions:config:set');
+    if (!transporter) return res.status(500).send('Email not configured.');
     try {
       const { type, email, school } = req.body || {};
       if (!type || !email || !school) return res.status(400).send('Missing fields.');
@@ -193,5 +232,5 @@ exports.sendEmail = functions.https.onRequest((req, res) => {
   });
 });
 
-// Export Express app as function "api"
+// Export Express app as "api"
 exports.api = functions.https.onRequest(app);
