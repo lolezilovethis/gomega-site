@@ -17,6 +17,8 @@
     @keyframes blink { 50% { opacity: 0; } }
     /* small debug area */
     #debug { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace; font-size: 12px; color: #94a3b8; max-height: 5rem; overflow:auto; white-space: pre-wrap; }
+    /* subtle response container spacing */
+    .prose pre { margin-top: 0.4rem; margin-bottom: 0.4rem; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
@@ -62,6 +64,9 @@
           <div class="mt-2 text-xs text-slate-400">
             <div>Debug: <span id="backendStatus">checking...</span></div>
             <div id="debug"></div>
+            <div class="mt-2 text-xs text-slate-500">
+              Tip: if you host the frontend on GitHub Pages, append <code>?api=https://api.example.com</code> to override the API URL.
+            </div>
           </div>
         </section>
 
@@ -81,7 +86,7 @@
 
           <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">About</h2>
-            <p class="text-sm text-slate-300">Local-only AI — no 3rd-party AI services required. Serve this page from the same host as your local API at <code>/api</code>.</p>
+            <p class="text-sm text-slate-300">Local-only AI — no 3rd-party AI services required. Serve this page from the same host as your local API at <code>/api</code> or use the <code>?api=</code> query override.</p>
           </div>
         </aside>
       </div>
@@ -94,12 +99,11 @@
 /* -----------------------
    Configuration
    -----------------------
-   BASE_URL should point to your local backend that implements:
-     GET  /api/config
-     POST /api/chat
-   The provided local server implementation streams plain text (markdown).
+   DEFAULT BASE_URL is "/api". You can override by adding ?api=https://api.example.com
 */
-const BASE_URL = "/api";
+const DEFAULT_BASE = "/api";
+const QS = new URLSearchParams(location.search);
+const BASE_URL = (QS.get('api') || DEFAULT_BASE).replace(/\/+$/, ''); // trim trailing slash
 
 /* -----------------------
    DOM helpers & elements
@@ -146,7 +150,9 @@ const FALLBACK = [
 let backendAvailable = false;
 async function loadConfig(){
   try{
-    const r = await fetch(BASE_URL + '/config', { cache: 'no-store' });
+    const url = BASE_URL + '/config';
+    logDebug('fetching config from', url);
+    const r = await fetch(url, { cache: 'no-store' });
     if(!r.ok){
       const txt = await r.text().catch(()=>null);
       logDebug(`config fetch failed: ${r.status} ${r.statusText}\n${txt}`);
@@ -167,6 +173,10 @@ async function loadConfig(){
     backendAvailable = false;
     sendBtn.disabled = true;
     logDebug('Config load failed — using fallback models.');
+    logDebug(`Current BASE_URL = ${BASE_URL}`);
+    if (BASE_URL === DEFAULT_BASE && location.hostname !== 'localhost') {
+      logDebug('Note: if you are running the API elsewhere, add ?api=https://api.example.com to the URL to override.');
+    }
   }
 }
 function populate(models,premiumAvailable){
