@@ -18,6 +18,8 @@
     .prose-invert img { border-radius: 6px; }
     .status-error { color: #fca5a5; }
     .small-muted { font-size: 12px; color: #94a3b8; }
+    /* small helper */
+    .kv { display:flex; gap:0.5rem; align-items:center; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
@@ -76,6 +78,31 @@
           <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">Session</h2>
             <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">checking...</span></div>
+
+            <!-- ADDED: API override input -->
+            <div class="mt-3 space-y-2">
+              <label class="text-xs text-slate-400">API override (optional)</label>
+              <div class="flex gap-2">
+                <input id="apiInput" type="text" placeholder="https://your-project.cloudfunctions.net/api" class="flex-1 rounded px-2 py-1 bg-slate-800 text-xs" />
+                <button id="saveApiBtn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Save</button>
+              </div>
+              <div class="text-xs small-muted">Current: <span id="currentApiDisplay">/api</span></div>
+            </div>
+
+            <!-- ADDED: Key controls -->
+            <div class="mt-3 flex flex-col gap-2">
+              <div class="kv">
+                <button id="getKeyBtn" class="px-2 py-1 rounded bg-slate-800 text-xs">Show current key</button>
+                <div id="currentKey" class="text-xs text-slate-300 ml-2">—</div>
+              </div>
+
+              <div class="kv">
+                <input id="keyInput" placeholder="Enter key to activate" class="rounded px-2 py-1 bg-slate-800 text-xs flex-1" />
+                <button id="verifyKeyBtn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Verify</button>
+              </div>
+              <div id="keyResult" class="text-xs small-muted">Key status: <span id="keyStatus">unknown</span></div>
+            </div>
+
             <div class="mt-3 flex items-center gap-2">
               <button id="toggleFallback" class="px-2 py-1 rounded bg-slate-800 text-xs">Use local fallback</button>
               <button id="clearSavedApi" class="px-2 py-1 rounded bg-slate-800 text-xs">Clear saved API</button>
@@ -113,13 +140,23 @@ const QS = new URLSearchParams(location.search);
 // Otherwise if there's a saved API in localStorage use that.
 // Finally fall back to DEFAULT_BASE.
 const SAVED_API_KEY = 'gomega_api_base';
-const apiFromQS = QS.get('api');
+let apiFromQS = QS.get('api');
 if(apiFromQS){
   try{ localStorage.setItem(SAVED_API_KEY, apiFromQS); }catch(e){ /* ignore */ }
 }
 const savedApi = localStorage.getItem(SAVED_API_KEY);
 const BASE_URL_RAW = (apiFromQS || savedApi || DEFAULT_BASE);
-const BASE_URL = String(BASE_URL_RAW).replace(/\/+$/,''); // remove trailing slash
+
+// If user omitted protocol, assume https (gentle convenience)
+function normalizeApi(val){
+  if(!val) return val;
+  val = String(val).trim();
+  if(/^https?:\/\//i.test(val)) return val.replace(/\/+$/,'');
+  // also allow users passing "project.cloudfunctions.net/api"
+  if(val.indexOf('.') !== -1 && !val.startsWith('/')) return 'https://' + val.replace(/\/+$/,'');
+  return val.replace(/\/+$/,'');
+}
+const BASE_URL = String(normalizeApi(BASE_URL_RAW) || DEFAULT_BASE).replace(/\/+$/,''); // remove trailing slash
 
 /* small flags */
 let userProvidedApi = Boolean(apiFromQS || savedApi);
@@ -133,7 +170,10 @@ const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendB
       modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
       clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
       backendShort = $('#backendShort'), viewMem = $('#viewMem'), modelListEl = $('#modelList'),
-      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'), clearSavedApiBtn = $('#clearSavedApi');
+      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'), clearSavedApiBtn = $('#clearSavedApi'),
+      apiInput = $('#apiInput'), saveApiBtn = $('#saveApiBtn'), currentApiDisplay = $('#currentApiDisplay'),
+      getKeyBtn = $('#getKeyBtn'), currentKey = $('#currentKey'), keyInput = $('#keyInput'),
+      verifyKeyBtn = $('#verifyKeyBtn'), keyStatus = $('#keyStatus'), keyResult = $('#keyResult');
 
 $('#yr').textContent = new Date().getFullYear();
 tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
@@ -143,6 +183,14 @@ promptEl.addEventListener('input', fit); fit();
 let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
 systemEl.value = localStorage.getItem('gomega_ai_system')||'';
 function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
+
+/* helper to show current API in UI */
+function refreshCurrentApiDisplay(){
+  const saved = localStorage.getItem(SAVED_API_KEY);
+  currentApiDisplay.textContent = saved ? normalizeApi(saved) : DEFAULT_BASE;
+  apiInput.value = saved ? normalizeApi(saved) : '';
+}
+refreshCurrentApiDisplay();
 
 function addMsg(role, html){
   const wrap=document.createElement('div');
@@ -240,6 +288,65 @@ function populate(models,premiumAvailable){
 
 /* initial load */
 loadConfig().catch(e=>console.warn('loadConfig', e));
+
+/* ----------  NEW: API override handlers ---------- */
+saveApiBtn.addEventListener('click', ()=>{
+  let val = apiInput.value.trim();
+  if(!val) {
+    alert('Enter a URL like https://us-central1-<proj>.cloudfunctions.net/api');
+    return;
+  }
+  val = normalizeApi(val);
+  try{ localStorage.setItem(SAVED_API_KEY, val); }catch(e){}
+  userProvidedApi = true;
+  fallbackEnabled = false;
+  refreshCurrentApiDisplay();
+  // reload config with new BASE_URL by reloading the page (ensures consistent state)
+  location.reload();
+});
+
+clearSavedApiBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(SAVED_API_KEY);
+  userProvidedApi = false;
+  backendNote.textContent = 'Cleared saved API. Reload the page to try default/local behavior.';
+  alert('Saved API cleared. Reload the page.');
+});
+
+/* ----------  NEW: Key endpoints (GET /key and POST /verify-key) ---------- */
+getKeyBtn.addEventListener('click', async ()=>{
+  const target = normalizeApi(localStorage.getItem(SAVED_API_KEY) || QS.get('api') || DEFAULT_BASE);
+  try{
+    const r = await fetch(target + '/key', { cache: 'no-store' });
+    if(!r.ok) throw new Error(`status ${r.status}`);
+    const j = await r.json();
+    currentKey.textContent = j.key || '(no key returned)';
+  }catch(err){
+    console.error('get key error', err);
+    currentKey.textContent = 'error';
+    alert('Failed to fetch key. Check that API is set and reachable (CORS, HTTPS).');
+  }
+});
+
+verifyKeyBtn.addEventListener('click', async ()=>{
+  const k = keyInput.value.trim();
+  if(!k){ alert('Enter a key to verify'); return; }
+  const target = normalizeApi(localStorage.getItem(SAVED_API_KEY) || QS.get('api') || DEFAULT_BASE);
+  try{
+    const r = await fetch(target + '/verify-key', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ key: k }) });
+    if(!r.ok) throw new Error('verify failed ' + r.status);
+    const j = await r.json();
+    keyStatus.textContent = j.valid ? 'valid' : 'invalid';
+    keyStatus.style.color = j.valid ? '#86efac' : '#fca5a5';
+    if(j.valid) alert('Key valid — app activated.');
+  }catch(err){
+    console.error('verify key error', err);
+    keyStatus.textContent = 'error';
+    alert('Failed to verify key. Check API URL and network (CORS).');
+  }
+});
+
+/* initial display of API */
+refreshCurrentApiDisplay();
 
 function isTextEventStream(ct){ return ct && ct.includes('text/event-stream'); }
 function isNDJson(ct){ return ct && (ct.includes('ndjson') || ct.includes('application/json') || ct.includes('application/x-ndjson')); }
@@ -426,17 +533,12 @@ toggleFallbackBtn.addEventListener('click', ()=>{
   }
 });
 
-/* Clear saved API */
-clearSavedApiBtn.addEventListener('click', ()=>{
-  localStorage.removeItem(SAVED_API_KEY);
-  userProvidedApi = false;
-  backendNote.textContent = 'Cleared saved API. Reload the page to try default/local behavior.';
-  alert('Saved API cleared. Reload the page.');
-});
-
 /* show initial toggle state */
 toggleFallbackBtn.textContent = fallbackEnabled ? 'Using local fallback' : 'Use local fallback';
 if(fallbackEnabled) toggleFallbackBtn.classList.add('bg-indigo-600'); else toggleFallbackBtn.classList.add('bg-slate-800');
+
+/* Re-run loadConfig after a short delay (useful if localStorage API override was set before page load) */
+setTimeout(()=>{ loadConfig().catch(e=>console.warn('loadConfig', e)); }, 300);
 </script>
 </body>
 </html>
