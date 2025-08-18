@@ -5,23 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gomega AI — ai.html (local)</title>
 
-  <!--
-    IMPORTANT: This script must be the very first script in <head>.
-    It overrides fetch() for any request whose path starts with /api and
-    provides an in-page "backend" so the UI never needs a separate server.
-  -->
+  <!-- In-page /api override MUST be first in head -->
   <script>
   (function(){
     const origFetch = window.fetch.bind(window);
 
-    // Simple in-memory local server state
-    const LOCAL = {
+    // Local persistent state (persisted to localStorage)
+    const PKEY = 'gomega_local_state_v2';
+    let LOCAL = {
       key: "local-key-123456",
-      memories: [], // { role: 'user'|'assistant', text: '...' }
-      models: [{ id: 'gomega-5', label: 'gomega-5 (local)' }]
+      memories: [], // { role: 'user'|'assistant', text: '...', ts: 0, keywords: [] }
+      models: [
+        { id: 'gomega-3.o', label: 'gomega-3.o (conservative)' },
+        { id: 'gomega-4.o', label: 'gomega-4.o (balanced)' },
+        { id: 'gomega-5.o', label: 'gomega-5.o (beta)' }
+      ],
+      learn: true
     };
 
-    // Minimal helper to build JSON Response
+    // Load from localStorage if available
+    try{
+      const raw = localStorage.getItem(PKEY);
+      if(raw) {
+        const parsed = JSON.parse(raw);
+        Object.assign(LOCAL, parsed);
+      }
+    }catch(e){ console.warn('failed load local state', e); }
+
+    function persist(){ try{ localStorage.setItem(PKEY, JSON.stringify(LOCAL)); }catch(e){console.warn('persist failed',e);} }
+
+    // minimal helper to build JSON Response
     function jsonResp(obj, status = 200) {
       return new Response(JSON.stringify(obj), {
         status,
@@ -29,48 +42,120 @@
       });
     }
 
-    // A small local "AI" generator
-    function localGenerate(messages, temperature=0.7) {
+    // simple tokenizer & keyword extractor (remove short/common words)
+    function extractKeywords(s){
+      if(!s) return [];
+      const stop = new Set(['the','is','in','on','and','a','an','of','to','for','i','you','me','it','that','this','with','are','was','be','have','has','do','did','not','but']);
+      return Array.from(new Set(String(s).toLowerCase()
+        .replace(/[^\w\s]/g,' ')
+        .split(/\s+/)
+        .filter(w => w.length>2 && !stop.has(w))
+        .slice(0,20)
+      ));
+    }
+
+    // similarity: number of keyword overlaps
+    function overlapScore(qKeys, mKeys){
+      if(!qKeys.length || !mKeys.length) return 0;
+      let s=0;
+      const set = new Set(mKeys);
+      for(const k of qKeys) if(set.has(k)) s++;
+      return s;
+    }
+
+    // local generation: use memories + templates
+    function localGenerate(messages, temperature=0.7, modelId='gomega-4.o'){
+      // find last user content
       let lastUser = "";
       for (let i = messages.length - 1; i >= 0; --i) {
         if (messages[i].role === 'user') { lastUser = (messages[i].content || ""); break; }
       }
-      const q = (lastUser || "").trim().toLowerCase();
+      const q = (lastUser || "").trim();
+      const ql = q.toLowerCase();
 
-      // Useful deterministic replies
-      if (/\bdate\b|\btoday\b/.test(q)) {
+      // built-in direct helpers
+      if (/\bdate\b|\btoday\b/.test(ql)) {
         const d = new Date(); return `Today is ${d.toDateString()}.`;
       }
-      if (/\btime\b/.test(q)) {
+      if (/\btime\b/.test(ql)) {
         const d = new Date(); return `Current time: ${d.toLocaleTimeString()}.`;
       }
-      if (/\bwho are you\b|\bwhat are you\b/.test(q)) {
-        return "I am Gomega (local demo) — a lightweight local assistant running inside your browser.";
-      }
-      if (q.startsWith("search memory:")) {
-        const term = lastUser.slice(14).trim().toLowerCase();
-        const hits = LOCAL.memories.filter(m => m.text.toLowerCase().includes(term));
-        if (!hits.length) return "No memories matched that query.";
-        return "Memory matches:\n\n" + hits.slice(-6).map(h => `${h.role}: ${h.text.slice(0,240)}`).join("\n\n");
+      if (/\bwho are you\b|\bwhat are you\b/.test(ql)) {
+        return "I am Gomega (local demo) — a lightweight local assistant running inside your browser. I learn from our conversations and keep memories locally.";
       }
 
-      // If we recall a previous assistant response that contains substring of the query, return it
-      for (let i = LOCAL.memories.length - 1; i >= 0; --i) {
-        const m = LOCAL.memories[i];
-        if (m.role === 'assistant' && m.text.toLowerCase().includes(q.slice(0, 20))) {
-          return m.text;
+      if (ql.startsWith('search memory:')) {
+        const term = q.slice('search memory:'.length).trim().toLowerCase();
+        if(!term) return 'Provide a term after "search memory:".';
+        const hits = LOCAL.memories.filter(m => (m.text||'').toLowerCase().includes(term));
+        if (!hits.length) return "No memories matched that query.";
+        return "Memory matches:\n\n" + hits.slice(-8).map(h => `${h.role.toUpperCase()} (${new Date(h.ts).toLocaleString()}): ${h.text.slice(0,300)}`).join("\n\n");
+      }
+
+      // extract keywords for query and score memories
+      const qkeys = extractKeywords(q);
+      const scored = LOCAL.memories.map(m => ({m,score: overlapScore(qkeys, m.keywords || extractKeywords(m.text||''))}));
+      scored.sort((a,b) => b.score - a.score);
+
+      // if we have a strong match, return that memory (assistant messages)
+      if(scored.length && scored[0].score >= Math.max(1, Math.floor(qkeys.length/2))){
+        const best = scored[0].m;
+        if(best.role === 'assistant' && best.text && best.text.length>20){
+          // vary phrasing slightly by temperature
+          if(Math.random() < Math.min(0.9,temperature+0.2)){
+            return `I recall: ${best.text}`;
+          } else {
+            return `Related memory: ${best.text}`;
+          }
         }
       }
 
-      // Fallback canned replies (slightly influenced by temperature)
-      const canned = [
-        `I got: "${lastUser}". Can you add more detail?`,
-        `Local reply — you asked: "${lastUser}". I can help structure an answer.`,
-        `Quick local reply: "${lastUser}". Try asking the date or time for built-ins.`
+      // try to synthesize from multiple recent relevant memories
+      const relevant = scored.filter(s => s.score>0).slice(0,6).map(s => s.m.text);
+      if(relevant.length){
+        // pick a sentence from relevant memories and combine
+        const take = relevant.map(r => r.split(/[.\n]/).map(p => p.trim()).filter(Boolean)).flat();
+        if(take.length){
+          const pick = take[Math.floor(Math.random()*take.length)];
+          // small paraphrase
+          const opens = [
+            `Based on earlier chats, here's a thought:`,
+            `From what I remember:`,
+            `I can combine past notes:`
+          ];
+          const opener = opens[Math.floor(Math.random()*opens.length)];
+          return `${opener} ${pick}${Math.random()<0.3 ? ' — does that help?' : ''}`;
+        }
+      }
+
+      // fallback canned replies influenced by modelId and temperature
+      const baseCanned = [
+        `I got: "${lastUser}". Could you give a bit more detail?`,
+        `Local reply — you asked: "${lastUser}". I can help structure an answer or provide steps.`,
+        `Here's a quick reply: "${lastUser}". Try asking for examples or an explanation.`,
       ];
+
+      // model personality: gomega-3 conservative, gomega-4 balanced, gomega-5 creative
+      let personalityFactor = 0.7;
+      if(modelId && modelId.includes('3.o')) personalityFactor = 0.25;
+      if(modelId && modelId.includes('5.o')) personalityFactor = 1.0;
+
       const t = Math.max(0, Math.min(1, Number(temperature) || 0.7));
-      const idx = Math.floor((Math.random() * (0.5 + t)) * canned.length) % canned.length;
-      return canned[idx];
+      // choose index influenced by temperature and personality
+      const idx = Math.floor((Math.random() * (0.3 + t*personalityFactor)) * baseCanned.length) % baseCanned.length;
+      let canned = baseCanned[idx];
+
+      // add a helpful hint sometimes
+      if(Math.random() < 0.4 + (t*0.2)) {
+        const hints = [
+          "You can ask me to `search memory: <term>` to look through what I remember.",
+          "Tip: include examples or what format you'd like the answer in (list, steps, code).",
+          "If you want me to remember something for later, say: `remember: <something>`."
+        ];
+        canned += `\n\n${hints[Math.floor(Math.random()*hints.length)]}`;
+      }
+
+      return canned;
     }
 
     // Override fetch: intercept requests where pathname starts with /api
@@ -81,13 +166,13 @@
         const pathname = parsed.pathname || '/';
         if (pathname.startsWith('/api')) {
           // emulate small latency
-          await new Promise(r => setTimeout(r, 80 + Math.random() * 160));
+          await new Promise(r => setTimeout(r, 60 + Math.random() * 200));
 
           const sub = pathname.slice('/api'.length) || '/';
 
           // GET /api/config
           if ((sub === '/' || sub === '' || sub === '/config') && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ models: LOCAL.models, provider: 'local', premiumAvailable: false });
+            return jsonResp({ models: LOCAL.models, provider: 'local', premiumAvailable: false, learn: !!LOCAL.learn });
           }
 
           // GET /api/key
@@ -105,7 +190,14 @@
 
           // GET /api/memories
           if (sub === '/memories' && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ memories: LOCAL.memories.slice(-50).map(m => ({ role: m.role, text: m.text })) });
+            return jsonResp({ memories: LOCAL.memories.slice(-200).map(m => ({ role: m.role, text: m.text, ts: m.ts })) });
+          }
+
+          // POST /api/clear-memories
+          if (sub === '/clear-memories' && init && (init.method||'POST').toUpperCase() === 'POST') {
+            LOCAL.memories = [];
+            persist();
+            return jsonResp({ ok: true });
           }
 
           // POST /api/chat
@@ -114,10 +206,26 @@
             try { body = JSON.parse(init.body || '{}'); } catch(e){}
             const messages = body.messages || [];
             const temperature = Number(body.temperature || 0.7);
-            const reply = localGenerate(messages, temperature);
-            // store memory
-            LOCAL.memories.push({ role: 'assistant', text: reply });
-            return jsonResp({ text: reply });
+            const modelId = body.modelId || (LOCAL.models[0] && LOCAL.models[0].id);
+            // store the user message as memory if learning enabled
+            try {
+              const lastUser = messages.slice().reverse().find(m => m.role==='user');
+              if(LOCAL.learn && lastUser && lastUser.content) {
+                LOCAL.memories.push({ role:'user', text: lastUser.content, ts: Date.now(), keywords: extractKeywords(lastUser.content) });
+              }
+            } catch(e){ console.warn('store user memory err', e); }
+
+            const reply = localGenerate(messages, temperature, modelId);
+
+            // store assistant reply
+            if(LOCAL.learn && reply) {
+              LOCAL.memories.push({ role:'assistant', text: reply, ts: Date.now(), keywords: extractKeywords(reply) });
+              // keep memories bounded
+              if(LOCAL.memories.length > 1000) LOCAL.memories = LOCAL.memories.slice(-1000);
+              persist();
+            }
+
+            return jsonResp({ text: reply, model: modelId });
           }
 
           // Not found
@@ -129,6 +237,13 @@
       // fallback to original fetch for everything else
       return origFetch(input, init);
     };
+
+    // expose a small debug inspector on window for dev convenience
+    window.__GOMEGA_LOCAL = {
+      getState: () => JSON.parse(JSON.stringify(LOCAL)),
+      persist,
+      setLearn: (v) => { LOCAL.learn = !!v; persist(); }
+    };
   })();
   </script>
 
@@ -139,43 +254,47 @@
   <style>
     html, body { height: 100%; }
     .msg p { margin: 0.25rem 0; }
-    .msg pre { overflow:auto; padding:0.75rem; border-radius:0.5rem; background:#0f172a; color:#e2e8f0; }
-    .msg code:not(pre code) { background:#0f172a; color:#e2e8f0; padding:0.2rem 0.3rem; border-radius:0.3rem; }
+    .msg pre { overflow:auto; padding:0.75rem; border-radius:0.5rem; background:#071023; color:#e2e8f0; }
+    .msg code:not(pre code) { background:#071023; color:#e2e8f0; padding:0.2rem 0.3rem; border-radius:0.3rem; }
     .blinker { animation: blink 1s step-start 0s infinite; }
     @keyframes blink { 50% { opacity: 0; } }
     header .logo { font-weight: 700; letter-spacing: -0.5px; }
     .model-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:999px; font-size:11px; background:rgba(255,255,255,0.03); color:#cbd5e1; border:1px solid rgba(255,255,255,0.03); }
-    .prose-invert img { border-radius: 6px; }
-    .status-error { color: #fca5a5; }
     .small-muted { font-size: 12px; color: #94a3b8; }
     .kv { display:flex; gap:0.5rem; align-items:center; }
+    /* slightly nicer scrollbar for the chat area */
+    #chat::-webkit-scrollbar { width: 10px; }
+    #chat::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius:10px; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
   <div class="min-h-full flex flex-col">
-    <header class="sticky top-0 z-20 backdrop-blur bg-slate-900/75 border-b border-slate-800">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500"></div>
+    <header class="sticky top-0 z-20 backdrop-blur bg-slate-900/60 border-b border-slate-800">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg"></div>
         <h1 class="text-xl font-semibold tracking-tight logo">Gomega AI</h1>
-        <div class="ml-4 text-xs text-slate-400 hidden md:block">Lightweight, local-first assistant</div>
-        <span class="ml-auto text-xs text-slate-400">/ai</span>
+        <div class="ml-4 text-xs text-slate-400 hidden md:block">Local-first assistant — learns from chats</div>
+        <div class="ml-auto flex items-center gap-3 text-xs text-slate-400">
+          <div id="backendShort">local</div>
+          <div class="text-slate-500">/ai</div>
+        </div>
       </div>
     </header>
 
     <main class="flex-1">
-      <div class="max-w-5xl mx-auto px-4 py-4 grid gap-4 md:grid-cols-[1fr,20rem]">
-        <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-3 md:p-4 flex flex-col min-h-[70vh]">
-          <div id="chat" class="flex-1 overflow-y-auto space-y-4 pr-1"></div>
+      <div class="max-w-6xl mx-auto px-4 py-4 grid gap-4 md:grid-cols-[1fr,20rem]">
+        <section class="rounded-2xl border border-slate-800 bg-slate-950/40 p-3 md:p-4 flex flex-col min-h-[70vh]">
+          <div id="chat" class="flex-1 overflow-y-auto space-y-4 pr-2"></div>
 
           <form id="composer" class="mt-3" onsubmit="event.preventDefault()">
             <div class="flex items-end gap-2">
-              <textarea id="prompt" rows="1" placeholder="Ask anything…" class="flex-1 resize-none bg-slate-800/70 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
+              <textarea id="prompt" rows="1" placeholder="Ask anything… (or use commands: /reset, /memories, search memory: <term>, remember: <text>)" class="flex-1 resize-none bg-slate-800/60 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
               <button id="send" type="submit" class="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-medium">Send</button>
             </div>
 
             <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
               <label class="flex items-center gap-1">Model
-                <select id="model" class="bg-slate-800/70 rounded-lg p-1"></select>
+                <select id="model" class="bg-slate-800/60 rounded-lg p-1"></select>
               </label>
 
               <label class="flex items-center gap-2">Temp
@@ -183,30 +302,31 @@
                 <span id="tempv">0.7</span>
               </label>
 
-              <button id="clear" type="button" class="ml-auto underline">Clear chat</button>
+              <button id="clear" type="button" class="ml-auto underline text-slate-300">Clear chat</button>
             </div>
 
-            <div class="mt-2 flex items-center gap-2 text-xs">
-              <div id="modelInfo" class="text-slate-300">Available: <span id="modelList" class="ml-2"></span></div>
+            <div class="mt-2 text-xs text-slate-300">
+              <div>Status: <span id="backendStatus">checking...</span></div>
+              <div id="backendNote" class="small-muted mt-1">No external backend — everything runs locally in your browser.</div>
             </div>
-
-            <details class="mt-2 text-xs text-slate-300">
-              <summary class="cursor-pointer select-none">System prompt</summary>
-              <textarea id="system" rows="3" class="w-full mt-2 bg-slate-800/70 rounded-lg p-2" placeholder="You are Gomega AI, a helpful assistant…"></textarea>
-            </details>
           </form>
 
-          <div class="mt-2 text-xs text-slate-400">
-            <div>Status: <span id="backendStatus">checking...</span></div>
-            <div id="backendNote" class="small-muted mt-1"></div>
-            <div class="mt-2 text-xs text-slate-500">This page uses an embedded local backend — no <code>?api=</code> needed.</div>
+          <div class="mt-3 text-xs text-slate-400">
+            <div class="flex gap-2">
+              <button id="toggleLearn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Learning: ON</button>
+              <button id="viewMem" class="px-2 py-1 rounded bg-slate-800 text-xs">View memories</button>
+              <button id="exportMem" class="px-2 py-1 rounded bg-slate-800 text-xs">Export memories</button>
+              <label class="px-2 py-1 rounded bg-slate-800 text-xs cursor-pointer"><input id="importMemFile" type="file" accept="application/json" class="hidden">Import</label>
+              <button id="clearMem" class="px-2 py-1 rounded bg-rose-600 text-xs">Clear memories</button>
+            </div>
+            <div class="mt-2 small-muted">Memories are stored locally (browser storage). Use export/import to move them between machines.</div>
           </div>
         </section>
 
         <aside class="space-y-3">
-          <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
+          <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
             <h2 class="font-semibold mb-2">Session</h2>
-            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">local</span></div>
+            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShortText">local</span></div>
 
             <div class="mt-3 space-y-2">
               <div class="text-xs small-muted">Local-only mode (for development/demo).</div>
@@ -220,22 +340,25 @@
             </div>
 
             <div class="mt-3 flex items-center gap-2">
-              <button id="toggleFallback" class="px-2 py-1 rounded bg-slate-800 text-xs">Using local backend</button>
+              <div class="text-xs text-slate-300">Models:</div>
             </div>
+
+            <div id="modelList" class="mt-2 flex flex-wrap gap-2"></div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
+          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
             <h2 class="font-semibold mb-2">Shortcuts</h2>
             <ul class="list-disc list-inside text-sm text-slate-300">
               <li><kbd>Shift+Enter</kbd> for newline</li>
-              <li><kbd>/reset</kbd> to start over</li>
+              <li>Type <code>/reset</code> to clear UI history</li>
+              <li>Type <code>remember: ...</code> to explicitly store something</li>
             </ul>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
+          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
             <h2 class="font-semibold mb-2">About</h2>
-            <p class="text-sm text-slate-300">This local backend is for development/testing only. Replace with a real server when ready.</p>
-            <button id="viewMem" class="mt-2 px-2 py-1 rounded bg-slate-800 text-xs">View recent memories</button>
+            <p class="text-sm text-slate-300">This local backend is for testing and demo. Replace with a server if you need remote storage or real LLMs.</p>
+            <button id="helpBtn" class="mt-2 px-2 py-1 rounded bg-slate-800 text-xs">Commands</button>
           </div>
         </aside>
       </div>
@@ -244,17 +367,35 @@
     <footer class="border-t border-slate-800 text-center text-xs text-slate-500 py-4">© <span id="yr"></span> Gomega</footer>
   </div>
 
+  <!-- modal container for viewing memories -->
+  <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/50 z-50">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-4">
+      <div class="flex items-center justify-between">
+        <div class="font-semibold">Memories</div>
+        <div class="flex gap-2">
+          <input id="memSearch" placeholder="search..." class="bg-slate-800 text-xs rounded p-1" />
+          <button id="closeModal" class="px-2 py-1 rounded bg-indigo-600 text-xs">Close</button>
+        </div>
+      </div>
+      <div id="memList" class="mt-3 max-h-80 overflow-auto text-sm prose prose-invert"></div>
+    </div>
+  </div>
+
 <script>
 /* -------------------------
    UI logic (works with in-page /api override above)
    ------------------------- */
 const $ = (s,p=document)=>p.querySelector(s);
 const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
-      modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
+      modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'),
       clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
-      backendShort = $('#backendShort'), viewMem = $('#viewMem'), modelListEl = $('#modelList'),
-      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'),
-      currentKey = $('#currentKey'), keyStatus = $('#keyStatus');
+      backendShortText = $('#backendShortText'), modelListEl = $('#modelList'),
+      backendNote = $('#backendNote'), toggleLearnBtn = $('#toggleLearn'),
+      currentKey = $('#currentKey'), keyStatus = $('#keyStatus'),
+      viewMem = $('#viewMem'), memModal = $('#modal'), memList = $('#memList'),
+      closeModal = $('#closeModal'), memSearch = $('#memSearch'),
+      exportMem = $('#exportMem'), importMemFile = $('#importMemFile'), clearMemBtn = $('#clearMem'),
+      helpBtn = $('#helpBtn');
 
 $('#yr').textContent = new Date().getFullYear();
 tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
@@ -262,27 +403,20 @@ function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(pro
 promptEl.addEventListener('input', fit); fit();
 
 let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
-systemEl.value = localStorage.getItem('gomega_ai_system')||'';
-function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
 
-function addMsg(role, html){
-  const wrap=document.createElement('div');
-  wrap.className='msg flex items-start gap-3';
-  wrap.innerHTML = `<div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">${role==='user'?'U':'G'}</div><div class="flex-1 prose prose-invert max-w-none text-sm">${html}</div>`;
-  chatEl.appendChild(wrap);
-  chatEl.scrollTop = chatEl.scrollHeight;
+function saveHistory(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-200))); }
+function loadConfig(){
+  return fetch('/api/config', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+    .catch(()=> ({ models: [{id:'gomega-4.o',label:'gomega-4.o (local)'}], provider:'local', learn: true }));
 }
-function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:true}); }
-function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
-renderHistory();
 
-function populate(models,premiumAvailable){
+function populate(models, premiumAvailable, learn){
   modelEl.innerHTML='';
-  modelListEl.innerHTML = '';
+  modelListEl.innerHTML='';
   for(const m of models){
     const o=document.createElement('option');
-    o.value=m.id; o.textContent=m.label||m.id;
-    if(m.premium && !premiumAvailable) o.disabled=true;
+    o.value=m.id; o.textContent=m.label || m.id;
     modelEl.appendChild(o);
 
     const span = document.createElement('span');
@@ -290,37 +424,66 @@ function populate(models,premiumAvailable){
     span.textContent = m.id;
     modelListEl.appendChild(span);
   }
+  // set learn button state
+  toggleLearnBtn.textContent = learn ? 'Learning: ON' : 'Learning: OFF';
+  toggleLearnBtn.classList.toggle('bg-rose-600', !learn);
+  toggleLearnBtn.classList.toggle('bg-indigo-600', !!learn);
 }
 
-async function loadConfig(){
-  try{
-    const r = await fetch('/api/config', { cache: 'no-store' });
-    if(!r.ok) throw new Error('config fetch failed ' + r.status);
-    const cfg = await r.json();
-    populate(cfg.models || [{id:'gomega-5',label:'gomega-5 (local)'}], !!cfg.premiumAvailable);
-    backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
-    backendShort.textContent = cfg.provider||'local';
-    backendNote.textContent = `Using built-in local backend`;
-    sendBtn.disabled = false;
-  }catch(e){
-    console.warn('loadConfig', e);
-    populate([{id:'gomega-5',label:'gomega-5 (local)'}], false);
-    backendStatusEl.textContent = 'local fallback';
-    backendNote.textContent = 'Using built-in local backend.';
-    sendBtn.disabled = false;
-  }
+function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:true}); }
+
+function addMsg(role, html, meta=''){
+  const wrap=document.createElement('div');
+  wrap.className='msg flex items-start gap-3';
+  const avatar = role==='user' ? 'U' : 'G';
+  wrap.innerHTML = `<div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">${avatar}</div><div class="flex-1 prose prose-invert max-w-none text-sm">${html}${meta?`<div class="text-xs text-slate-400 mt-2">${meta}</div>`:''}</div>`;
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
 }
-loadConfig().catch(e=>console.warn('loadConfig', e));
+
+function renderHistory(){
+  chatEl.innerHTML='';
+  for(const m of history) addMsg(m.role, renderMarkdown(m.content), m.ts ? new Date(m.ts).toLocaleString() : '');
+}
+renderHistory();
+
+loadConfig().then(cfg=>{
+  populate(cfg.models || [{id:'gomega-4.o',label:'gomega-4.o (local)'}], !!cfg.premiumAvailable, !!cfg.learn);
+  backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
+  backendShortText.textContent = cfg.provider||'local';
+  sendBtn.disabled = false;
+}).catch(e=>{
+  console.warn('loadConfig', e);
+  populate([{id:'gomega-4.o',label:'gomega-4.o (local)'}], false, true);
+  backendStatusEl.textContent = 'local fallback';
+  backendNote.textContent = 'Using built-in local backend.';
+  sendBtn.disabled = false;
+});
 
 /* submit */
 form.addEventListener('submit', async e=>{
   e.preventDefault();
   const content = promptEl.value.trim(); if(!content) return;
-  if(content==='/reset'){ history=[]; save(); renderHistory(); promptEl.value=''; return; }
 
-  history.push({ role:'user', content });
-  addMsg('user', renderMarkdown(content));
+  // commands
+  if(content === '/reset'){ history=[]; saveHistory(); renderHistory(); promptEl.value=''; return; }
+  if(content === '/memories'){ await showMemories(); promptEl.value=''; return; }
+  if(content.toLowerCase().startsWith('remember:')){
+    // store explicit memory via /api call (so it follows same storage process)
+    const note = content.slice(9).trim();
+    if(note) {
+      try{
+        await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ messages: [{role:'user', content:`remember: ${note}`}], temperature:0.2, modelId: modelEl.value }) });
+        alert('Saved to memories.');
+      }catch(e){ alert('Failed to save memory.'); }
+    } else alert('Provide text after "remember:"');
+    promptEl.value=''; return;
+  }
+
+  history.push({ role:'user', content, ts: Date.now() });
+  addMsg('user', renderMarkdown(content), new Date().toLocaleString());
   promptEl.value=''; fit();
+  saveHistory();
 
   const placeholder = document.createElement('div');
   placeholder.className = 'msg flex items-start gap-3';
@@ -331,8 +494,7 @@ form.addEventListener('submit', async e=>{
   sendBtn.disabled = true;
 
   try{
-    const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value || undefined, messages: history.slice(-20), stream: false };
-
+    const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), messages: history.slice(-40), stream: false };
     const resp = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if(!resp.ok){
       const txt = await resp.text().catch(()=>null);
@@ -342,9 +504,11 @@ form.addEventListener('submit', async e=>{
     }
     const j = await resp.json();
     const reply = j.text || JSON.stringify(j);
+    // replace placeholder with content
     bodyEl.innerHTML = renderMarkdown(reply);
-    history.push({ role:'assistant', content: reply });
-    save();
+    // store assistant in history and persist
+    history.push({ role:'assistant', content: reply, ts: Date.now() });
+    saveHistory();
   }catch(err){
     console.error('chat error', err);
     bodyEl.innerHTML = renderMarkdown('**Error:** ' + (err.message || String(err)));
@@ -353,22 +517,105 @@ form.addEventListener('submit', async e=>{
   }
 });
 
-clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
+clearBtn.addEventListener('click', ()=>{ history=[]; saveHistory(); renderHistory(); });
+
 promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 
-viewMem.addEventListener('click', async ()=>{
+/* memory modal and actions */
+async function showMemories(filter=''){
   try{
     const r = await fetch('/api/memories');
     if(!r.ok){ alert('Failed to fetch memories'); return; }
     const j = await r.json();
-    const display = (j.memories || []).slice(-20).map(m => `${m.role.toUpperCase()}: ${String(m.text||'').slice(0,240)}`).join('\n\n');
-    alert(display || 'No recent memories.');
+    const mems = (j.memories || []).slice().reverse();
+    memList.innerHTML = '';
+    const q = (filter || '').toLowerCase();
+    const frag = document.createDocumentFragment();
+    for(const m of mems){
+      if(q && !((m.text||'').toLowerCase().includes(q))) continue;
+      const div = document.createElement('div');
+      div.className = 'mb-3 p-2 rounded bg-slate-800/40 border border-slate-800';
+      div.innerHTML = `<div class="text-xs text-slate-400">${m.role.toUpperCase()} • ${new Date(m.ts || Date.now()).toLocaleString()}</div><div class="mt-1">${renderMarkdown(m.text||'')}</div>`;
+      frag.appendChild(div);
+    }
+    memList.appendChild(frag);
+    memModal.classList.remove('hidden');
+    memModal.classList.add('flex');
   }catch(e){ console.log('memories error', e); alert('Failed to fetch memories'); }
+}
+
+viewMem.addEventListener('click', ()=> showMemories());
+closeModal.addEventListener('click', ()=> { memModal.classList.add('hidden'); memModal.classList.remove('flex'); });
+
+memSearch.addEventListener('input', ()=> showMemories(memSearch.value));
+
+/* toggle learning */
+toggleLearnBtn.addEventListener('click', async ()=>{
+  // flip in local api state
+  try{
+    const st = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
+    const current = st ? !!st.learn : true;
+    window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.setLearn(!current);
+    populate((await fetch('/api/config').then(r=>r.json()).catch(()=>({models:[{id:'gomega-4.o'}], provider:'local', learn:!current}))).models, false, !current);
+  }catch(e){ console.warn(e); }
 });
 
-toggleFallbackBtn.textContent = 'Using local backend';
-toggleFallbackBtn.classList.add('bg-indigo-600');
+/* export/import/clear memories */
+exportMem.addEventListener('click', async ()=>{
+  try{
+    const r = await fetch('/api/memories');
+    const j = await r.json();
+    const data = j.memories || [];
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `gomega-memories-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }catch(e){ alert('Export failed'); }
+});
 
+importMemFile.addEventListener('change', async (ev)=>{
+  const f = ev.target.files && ev.target.files[0];
+  if(!f) return;
+  try{
+    const txt = await f.text();
+    const arr = JSON.parse(txt);
+    if(!Array.isArray(arr)) throw new Error('Expected array');
+    // merge into existing via the fetch override's persistence
+    for(const it of arr){
+      // push as-is but ensure fields
+      const m = { role: it.role||'assistant', text: it.text||'', ts: it.ts || Date.now(), keywords: [] };
+      try{ m.keywords = (it.keywords || []).slice(0,20); }catch(e){}
+      // we'll call internal setter
+      const state = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
+      if(state){
+        state.memories = (state.memories || []).concat([m]).slice(-1000);
+        localStorage.setItem('gomega_local_state_v2', JSON.stringify(state));
+        alert('Imported. Reload page to view updated memories.');
+      }
+    }
+  }catch(e){ alert('Import failed: '+ (e.message||e)); }
+  ev.target.value = '';
+});
+
+clearMemBtn.addEventListener('click', async ()=>{
+  if(!confirm('Clear all local memories? This cannot be undone.')) return;
+  try{
+    const r = await fetch('/api/clear-memories', { method: 'POST' });
+    if(!r.ok) throw new Error('clear failed');
+    alert('Memories cleared.');
+  }catch(e){ alert('Failed to clear memories'); }
+});
+
+/* help */
+helpBtn.addEventListener('click', ()=> {
+  alert("Commands:\n\n/reset — clear chat UI history\n/memories — view local memories\nsearch memory: <term> — search stored memories\nremember: <text> — explicitly add a memory\n\nMemories are stored locally in your browser (localStorage). Use Export/Import to move them.");
+});
+
+/* quick load existing history into UI */
+(function syncHistoryToUI(){
+  if(history.length) renderHistory();
+})();
 </script>
 </body>
 </html>
