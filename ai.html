@@ -31,7 +31,6 @@
         <section class="rounded-2xl border border-slate-800 bg-slate-950/50 p-3 md:p-4 flex flex-col min-h-[70vh]">
           <div id="chat" class="flex-1 overflow-y-auto space-y-4 pr-1"></div>
 
-          <!-- inline onsubmit prevents default page submit even if JS crashes -->
           <form id="composer" class="mt-3" onsubmit="event.preventDefault()">
             <div class="flex items-end gap-2">
               <textarea id="prompt" rows="1" placeholder="Ask anything…" class="flex-1 resize-none bg-slate-800/70 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
@@ -84,163 +83,76 @@
   </div>
 
 <script>
+  // If you use nginx reverse proxy to map /api -> Node, leave "/api"
+  // If you instead expose Node at https://myserver.example, set that url (no trailing slash)
   const BASE_URL = "/api";
 
-  const $ = (s, p=document) => p.querySelector(s);
-  const chatEl = $('#chat');
-  const promptEl = $('#prompt');
-  const form = $('#composer');
-  const sendBtn = $('#send');
-  const modelEl = $('#model');
-  const tempEl = $('#temp');
-  const tempvEl = $('#tempv');
-  const systemEl = $('#system');
-  const clearBtn = $('#clear');
-  const backendStatusEl = $('#backendStatus');
+  const $ = (s,p=document)=>p.querySelector(s);
+  const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
+        modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
+        clearBtn = $('#clear'), backendStatusEl = $('#backendStatus');
   $('#yr').textContent = new Date().getFullYear();
-  tempEl.addEventListener('input', () => tempvEl.textContent = tempEl.value);
-
-  function fit() { promptEl.style.height = 'auto'; promptEl.style.height = Math.min(promptEl.scrollHeight, 220) + 'px'; }
+  tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
+  function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(promptEl.scrollHeight,220)+'px'; }
   promptEl.addEventListener('input', fit); fit();
 
-  // History
   let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
-  systemEl.value = localStorage.getItem('gomega_ai_system') || '';
-  function save() {
-    localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50)));
-    localStorage.setItem('gomega_ai_system', systemEl.value || '');
-  }
+  systemEl.value = localStorage.getItem('gomega_ai_system')||'';
+  function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
 
-  function addMsg(role, html) {
-    const wrap = document.createElement('div');
-    wrap.className = 'msg flex items-start gap-3';
-    wrap.innerHTML = `
-      <div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">
-        ${role==='user'?'U':'G'}
-      </div>
-      <div class="flex-1 prose prose-invert max-w-none text-sm">${html}</div>
-    `;
-    chatEl.appendChild(wrap); chatEl.scrollTop = chatEl.scrollHeight;
-  }
+  function addMsg(role, html){ const wrap=document.createElement('div'); wrap.className='msg flex items-start gap-3'; wrap.innerHTML=`
+    <div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">${role==='user'?'U':'G'}</div>
+    <div class="flex-1 prose prose-invert max-w-none text-sm">${html}</div>`; chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight; }
 
-  function renderMarkdown(md) { return marked.parse(md, { breaks: true, gfm: true }); }
-
-  function renderHistory() {
-    chatEl.innerHTML = '';
-    for (const m of history) addMsg(m.role, renderMarkdown(m.content));
-  }
+  function renderMarkdown(md){ return marked.parse(md, {breaks:true, gfm:true}); }
+  function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
   renderHistory();
 
-  const FALLBACK_MODELS = [
-    { id: 'gomega-4o', label: 'gomega-4o', premium: false },
-    { id: 'gomega-4o-mini', label: 'gomega-4o-mini', premium: false },
-    { id: 'gomega3.1', label: 'gomega3.1', premium: false },
-    { id: 'gomega5o', label: 'gomega5o (premium)', premium: true }
+  const FALLBACK = [
+    {id:'gomega-4o',label:'gomega-4o',premium:false},
+    {id:'gomega-4o-mini',label:'gomega-4o-mini',premium:false},
+    {id:'gomega3.1',label:'gomega3.1',premium:false},
+    {id:'gomega5o',label:'gomega5o (premium)',premium:true}
   ];
 
-  async function loadConfig() {
-    try {
-      const r = await fetch(BASE_URL + '/config', { cache: 'no-store' });
-      if (!r.ok) throw new Error('config fetch failed ' + r.status);
+  async function loadConfig(){
+    try{
+      const r = await fetch(BASE_URL+'/config',{cache:'no-store'});
+      if(!r.ok) throw new Error('config fetch failed '+r.status);
       const cfg = await r.json();
-      populateModelDropdown(cfg.models || FALLBACK_MODELS, !!cfg.premiumAvailable);
-      backendStatusEl.textContent = `provider=${cfg.provider || 'unknown'}`;
+      populate(cfg.models || FALLBACK, !!cfg.premiumAvailable);
+      backendStatusEl.textContent = `provider=${cfg.provider||'unknown'}`;
       return;
-    } catch (err) {
-      console.warn('config load failed', err);
-      populateModelDropdown(FALLBACK_MODELS, false);
-      backendStatusEl.textContent = 'unavailable (no backend) — responses disabled';
+    }catch(e){
+      console.warn('config load failed', e);
+      populate(FALLBACK,false);
+      backendStatusEl.textContent = 'unavailable (no backend)';
     }
   }
-  loadConfig().catch(e => console.warn('loadConfig error', e));
+  function populate(models,premiumAvailable){ modelEl.innerHTML=''; for(const m of models){ const o=document.createElement('option'); o.value=m.id; o.textContent=m.label||m.id; if(m.premium && !premiumAvailable) o.disabled=true; modelEl.appendChild(o);} }
+  loadConfig().catch(e=>console.warn('loadConfig',e));
 
-  function populateModelDropdown(models, premiumAvailable) {
-    modelEl.innerHTML = '';
-    for (const m of models) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.label || m.id;
-      if (m.premium && !premiumAvailable) opt.disabled = true;
-      modelEl.appendChild(opt);
-    }
-  }
-
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async e=>{
     e.preventDefault();
-    const content = promptEl.value.trim();
-    if (!content) return;
-    if (content === '/reset') { history = []; save(); renderHistory(); promptEl.value=''; return; }
-
-    history.push({ role: 'user', content });
-    addMsg('user', renderMarkdown(content));
-    promptEl.value = ''; fit();
-
-    const wrap = document.createElement('div');
-    wrap.className = 'msg flex items-start gap-3';
-    wrap.innerHTML = `
-      <div class="w-8 h-8 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xs font-bold">G</div>
-      <div class="flex-1 prose prose-invert max-w-none text-sm"><span class="blinker">▍</span></div>
-    `;
-    const bodyEl = wrap.children[1];
-    chatEl.appendChild(wrap); chatEl.scrollTop = chatEl.scrollHeight;
-    sendBtn.disabled = true;
-
-    try {
-      const resp = await fetch(BASE_URL + '/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modelId: modelEl.value,
-          temperature: Number(tempEl.value),
-          system: systemEl.value || undefined,
-          messages: history.slice(-20),
-          stream: true
-        })
-      });
-
-      if (resp.status === 402 || resp.status === 403) {
-        const json = await resp.json().catch(()=>({ error: 'premium required' }));
-        bodyEl.innerHTML = renderMarkdown('**Error:** ' + (json.error || 'Payment/Premium required for that model.'));
-        return;
-      }
-
-      if (!resp.ok) {
-        const txt = await resp.text().catch(()=>null);
-        throw new Error('chat request failed: ' + (txt || resp.status));
-      }
-
-      if (!resp.body) throw new Error('No response body streaming');
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        acc += chunk;
-        bodyEl.innerHTML = renderMarkdown(acc);
-        chatEl.scrollTop = chatEl.scrollHeight;
-      }
-
-      history.push({ role: 'assistant', content: acc });
-      save();
-
-    } catch (err) {
-      bodyEl.innerHTML = renderMarkdown('**Error:** ' + (err.message || err));
-    } finally {
-      sendBtn.disabled = false;
-    }
+    const content = promptEl.value.trim(); if(!content) return;
+    if(content==='/reset'){ history=[]; save(); renderHistory(); promptEl.value=''; return; }
+    history.push({role:'user',content}); addMsg('user', renderMarkdown(content)); promptEl.value=''; fit();
+    const wrap=document.createElement('div'); wrap.className='msg flex items-start gap-3'; wrap.innerHTML=`<div class="w-8 h-8 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xs font-bold">G</div><div class="flex-1 prose prose-invert max-w-none text-sm"><span class="blinker">▍</span></div>`; const bodyEl = wrap.children[1];
+    chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight; sendBtn.disabled = true;
+    try{
+      const resp = await fetch(BASE_URL + '/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value||undefined, messages: history.slice(-20), stream:true })});
+      if(resp.status===402||resp.status===403){ const json = await resp.json().catch(()=>({error:'premium'})); bodyEl.innerHTML = renderMarkdown('**Error:** '+(json.error||'premium')); return; }
+      if(!resp.ok){ const txt = await resp.text().catch(()=>null); throw new Error('chat request failed: '+(txt||resp.status)); }
+      if(!resp.body) throw new Error('No response body');
+      const reader = resp.body.getReader(); const decoder = new TextDecoder(); let acc=''; while(true){ const {value, done} = await reader.read(); if(done) break; const chunk = decoder.decode(value, {stream:true}); acc += chunk; bodyEl.innerHTML = renderMarkdown(acc); chatEl.scrollTop = chatEl.scrollHeight; }
+      history.push({role:'assistant', content: acc}); save();
+    }catch(err){
+      bodyEl.innerHTML = renderMarkdown('**Error:** '+(err.message||err));
+    }finally{ sendBtn.disabled=false; }
   });
 
-  clearBtn.addEventListener('click', () => { history = []; save(); renderHistory(); });
-
-  promptEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      form.requestSubmit();
-    }
-  });
+  clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
+  promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 </script>
 </body>
 </html>

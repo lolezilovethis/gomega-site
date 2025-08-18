@@ -1,145 +1,86 @@
 // server.js
 import express from 'express';
-import cors from 'cors';
 import morgan from 'morgan';
+import { Readable } from 'stream';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('tiny'));
 
 const PORT = process.env.PORT || 8080;
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: false }));
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
 
-// PROVIDER: 'ollama' (default). You can extend to other local providers later.
-const PROVIDER = process.env.PROVIDER || 'ollama';
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-
-// Premium gate: set PREMIUM=true to allow premium model use (gomega5o)
-const PREMIUM_ENABLED = (process.env.PREMIUM === 'true') || !!process.env.PREMIUM_KEY;
-
-// Map your brand-names -> provider model names
+// Map frontend model IDs -> Ollama model names you downloaded with `ollama pull`
 const MODEL_REGISTRY = {
-  'gomega-4o': { providerModel: 'gpt-4o', premium: false },
-  'gomega-4o-mini': { providerModel: 'gpt-4o-mini', premium: false },
-  'gomega3.1': { providerModel: 'llama3.1', premium: false },
-  'gomega5o': { providerModel: 'gpt-5o', premium: true }
+  "gomega-4o":      { model: "moonshotai/Kimi-K2-Instruct", premium: false },
+  "gomega-4o-mini": { model: "small-model/local-instruct",      premium: false },
+  "gomega3.1":      { model: "llama/3.1-placeholder",           premium: false },
+  "gomega5o":       { model: "gpt-5o-placeholder",             premium: true  }
 };
 
-// Provide frontend with models + premium flag
+app.options('/*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(204);
+});
+
 app.get('/config', (req, res) => {
   const models = Object.entries(MODEL_REGISTRY).map(([id, info]) => ({
     id,
     label: id + (info.premium ? ' (premium)' : ''),
     premium: !!info.premium
   }));
-  res.json({ models, premiumAvailable: PREMIUM_ENABLED, provider: PROVIDER });
+  res.json({ models, premiumAvailable: false, provider: 'ollama-local' });
 });
 
-// Main chat endpoint
 app.post('/chat', async (req, res) => {
   try {
-    const {
-      modelId,
-      messages = [],
-      temperature = 0.7,
-      system,
-      stream = true
-    } = req.body || {};
-
+    const { modelId, messages = [], temperature = 0.7, system } = req.body || {};
     if (!modelId) return res.status(400).json({ error: 'modelId required' });
-    const modelInfo = MODEL_REGISTRY[modelId];
-    if (!modelInfo) return res.status(400).json({ error: 'unknown modelId' });
-    if (modelInfo.premium && !PREMIUM_ENABLED) {
-      return res.status(402).json({ error: 'Model requires premium access' });
-    }
-
-    // For now we only support Ollama (self-hosted). Extend this switch for other local providers later.
-    if (PROVIDER !== 'ollama') {
-      return res.status(500).json({ error: 'Only Ollama provider is configured on this server' });
-    }
-
-    // Ollama chat streaming API
+    const entry = MODEL_REGISTRY[modelId];
+    if (!entry) return res.status(400).json({ error: 'unknown modelId' });
+    // Build payload for Ollama
     const payload = {
-      model: modelInfo.providerModel,
+      model: entry.model,
       messages: [ ...(system ? [{ role: 'system', content: system }] : []), ...messages ],
-      stream: stream === true,
-      options: { temperature }
+      stream: true,
+      options: { temperature: Number(temperature) || 0.7 }
     };
 
-    // Initiate request to Ollama
     const upstream = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
     if (!upstream.ok || !upstream.body) {
-      const text = await upstream.text().catch(()=>null);
-      console.error('Ollama error', upstream.status, text);
-      return res.status(502).json({ error: 'Ollama upstream error' });
+      const txt = await upstream.text().catch(() => null);
+      console.error('Ollama upstream error', upstream.status, txt);
+      return res.status(502).json({ error: 'Ollama upstream error', status: upstream.status, detail: txt });
     }
 
-    // Stream back plain text chunks (frontend expects text chunks that are concatenated)
+    // Convert native web ReadableStream to Node Readable and pipe to response
+    const nodeStream = Readable.fromWeb(upstream.body);
+
+    // Set response headers for streaming and CORS
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    // Some proxies require these:
     res.setHeader('Cache-Control', 'no-transform');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
+    // Pipe the upstream stream directly to the client response
+    nodeStream.pipe(res);
+    nodeStream.on('error', (err) => {
+      console.error('stream error', err);
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
 
-    // Ollama typically streams newline-delimited JSON objects. We'll parse chunk-by-chunk and
-    // write text tokens when found.
-    let buffer = '';
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // split into lines (handle partial lines)
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        // Ollama often sends JSON lines; try to parse and extract message content
-        try {
-          const obj = JSON.parse(line);
-          // Different versions can package the text in different places; be permissive:
-          // check obj.message.content or obj.output_text or obj.token
-          let out = '';
-          if (obj.message && typeof obj.message.content === 'string') out = obj.message.content;
-          else if (typeof obj.output_text === 'string') out = obj.output_text;
-          else if (obj.token) out = String(obj.token);
-          else if (obj.text) out = String(obj.text);
-
-          if (out) {
-            res.write(out);
-          }
-        } catch (e) {
-          // If not JSON, write line raw (best-effort)
-          res.write(line + '\n');
-        }
-      }
-    }
-
-    // flush any leftover buffer (best-effort)
-    if (buffer) {
-      try {
-        const obj = JSON.parse(buffer);
-        if (obj.message && obj.message.content) res.write(obj.message.content);
-      } catch {
-        res.write(buffer);
-      }
-    }
-
-    res.end();
   } catch (err) {
     console.error('server error', err);
-    if (!res.headersSent) res.status(500).json({ error: 'server error' });
+    if (!res.headersSent) return res.status(500).json({ error: 'server error', message: String(err) });
     else res.end();
   }
 });
 
-app.listen(PORT, () => console.log(`Gomega AI server on :${PORT} (provider=${PROVIDER})`));
+app.listen(PORT, () => console.log(`Gomega AI Node proxy listening on :${PORT} (ollama at ${OLLAMA_BASE_URL})`));
