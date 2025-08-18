@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gomega AI</title>
+  <title>Gomega AI — ai.html</title>
+  <!-- Tailwind CDN is convenient for dev; you can replace with a local build for production. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="icon" href="/favicon.ico" />
@@ -14,6 +15,8 @@
     .msg code:not(pre code) { background:#0f172a; color:#e2e8f0; padding:0.2rem 0.3rem; border-radius:0.3rem; }
     .blinker { animation: blink 1s step-start 0s infinite; }
     @keyframes blink { 50% { opacity: 0; } }
+    /* small debug area */
+    #debug { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace; font-size: 12px; color: #94a3b8; max-height: 5rem; overflow:auto; white-space: pre-wrap; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
@@ -55,12 +58,17 @@
               <textarea id="system" rows="3" class="w-full mt-2 bg-slate-800/70 rounded-lg p-2" placeholder="You are Gomega AI, a helpful assistant…"></textarea>
             </details>
           </form>
+
+          <div class="mt-2 text-xs text-slate-400">
+            <div>Debug: <span id="backendStatus">checking...</span></div>
+            <div id="debug"></div>
+          </div>
         </section>
 
         <aside class="space-y-3">
           <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">Session</h2>
-            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendStatus">checking...</span></div>
+            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">checking...</span></div>
           </div>
 
           <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
@@ -73,7 +81,7 @@
 
           <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">About</h2>
-            <p class="text-sm text-slate-300">Built for <span class="font-medium">gomega.watch</span>. Streamed Markdown, code blocks, history, and model controls.</p>
+            <p class="text-sm text-slate-300">Local-only AI — no 3rd-party AI services required. Serve this page from the same host as your local API at <code>/api</code>.</p>
           </div>
         </aside>
       </div>
@@ -83,76 +91,259 @@
   </div>
 
 <script>
-  // If you use nginx reverse proxy to map /api -> Node, leave "/api"
-  // If you instead expose Node at https://myserver.example, set that url (no trailing slash)
-  const BASE_URL = "/api";
+/* -----------------------
+   Configuration
+   -----------------------
+   BASE_URL should point to your local backend that implements:
+     GET  /api/config
+     POST /api/chat
+   The provided local server implementation streams plain text (markdown).
+*/
+const BASE_URL = "/api";
 
-  const $ = (s,p=document)=>p.querySelector(s);
-  const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
-        modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
-        clearBtn = $('#clear'), backendStatusEl = $('#backendStatus');
-  $('#yr').textContent = new Date().getFullYear();
-  tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
-  function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(promptEl.scrollHeight,220)+'px'; }
-  promptEl.addEventListener('input', fit); fit();
+/* -----------------------
+   DOM helpers & elements
+   -----------------------*/
+const $ = (s,p=document)=>p.querySelector(s);
+const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
+      modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
+      clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
+      backendShort = $('#backendShort'), debugEl = $('#debug');
+$('#yr').textContent = new Date().getFullYear();
 
-  let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
-  systemEl.value = localStorage.getItem('gomega_ai_system')||'';
-  function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
+tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
+function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(promptEl.scrollHeight,220)+'px'; }
+promptEl.addEventListener('input', fit); fit();
 
-  function addMsg(role, html){ const wrap=document.createElement('div'); wrap.className='msg flex items-start gap-3'; wrap.innerHTML=`
+/* -----------------------
+   History / persistence
+   -----------------------*/
+let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
+systemEl.value = localStorage.getItem('gomega_ai_system')||'';
+function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
+
+function addMsg(role, html){
+  const wrap=document.createElement('div');
+  wrap.className='msg flex items-start gap-3';
+  wrap.innerHTML=`
     <div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">${role==='user'?'U':'G'}</div>
-    <div class="flex-1 prose prose-invert max-w-none text-sm">${html}</div>`; chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight; }
+    <div class="flex-1 prose prose-invert max-w-none text-sm">${html}</div>`;
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:true}); }
+function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
+renderHistory();
 
-  function renderMarkdown(md){ return marked.parse(md, {breaks:true, gfm:true}); }
-  function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
-  renderHistory();
+/* -----------------------
+   Config load & UI population
+   -----------------------*/
+const FALLBACK = [
+  {id:'local-sm',label:'local-sm (small)',premium:false},
+  {id:'local-md',label:'local-md (learning)',premium:false}
+];
 
-  const FALLBACK = [
-    {id:'gomega-4o',label:'gomega-4o',premium:false},
-    {id:'gomega-4o-mini',label:'gomega-4o-mini',premium:false},
-    {id:'gomega3.1',label:'gomega3.1',premium:false},
-    {id:'gomega5o',label:'gomega5o (premium)',premium:true}
-  ];
-
-  async function loadConfig(){
-    try{
-      const r = await fetch(BASE_URL+'/config',{cache:'no-store'});
-      if(!r.ok) throw new Error('config fetch failed '+r.status);
-      const cfg = await r.json();
-      populate(cfg.models || FALLBACK, !!cfg.premiumAvailable);
-      backendStatusEl.textContent = `provider=${cfg.provider||'unknown'}`;
-      return;
-    }catch(e){
-      console.warn('config load failed', e);
-      populate(FALLBACK,false);
-      backendStatusEl.textContent = 'unavailable (no backend)';
+let backendAvailable = false;
+async function loadConfig(){
+  try{
+    const r = await fetch(BASE_URL + '/config', { cache: 'no-store' });
+    if(!r.ok){
+      const txt = await r.text().catch(()=>null);
+      logDebug(`config fetch failed: ${r.status} ${r.statusText}\n${txt}`);
+      throw new Error('config fetch failed '+r.status);
     }
+    const cfg = await r.json();
+    populate(cfg.models || FALLBACK, !!cfg.premiumAvailable);
+    backendAvailable = true;
+    backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
+    backendShort.textContent = cfg.provider||'local';
+    sendBtn.disabled = false;
+    return;
+  }catch(e){
+    console.warn('config load failed', e);
+    populate(FALLBACK,false);
+    backendStatusEl.textContent = 'unavailable (no backend)';
+    backendShort.textContent = 'none';
+    backendAvailable = false;
+    sendBtn.disabled = true;
+    logDebug('Config load failed — using fallback models.');
   }
-  function populate(models,premiumAvailable){ modelEl.innerHTML=''; for(const m of models){ const o=document.createElement('option'); o.value=m.id; o.textContent=m.label||m.id; if(m.premium && !premiumAvailable) o.disabled=true; modelEl.appendChild(o);} }
-  loadConfig().catch(e=>console.warn('loadConfig',e));
+}
+function populate(models,premiumAvailable){
+  modelEl.innerHTML='';
+  for(const m of models){
+    const o=document.createElement('option');
+    o.value=m.id;
+    o.textContent=m.label||m.id;
+    if(m.premium && !premiumAvailable) o.disabled=true;
+    modelEl.appendChild(o);
+  }
+}
+loadConfig().catch(e=>console.warn('loadConfig',e));
 
-  form.addEventListener('submit', async e=>{
-    e.preventDefault();
-    const content = promptEl.value.trim(); if(!content) return;
-    if(content==='/reset'){ history=[]; save(); renderHistory(); promptEl.value=''; return; }
-    history.push({role:'user',content}); addMsg('user', renderMarkdown(content)); promptEl.value=''; fit();
-    const wrap=document.createElement('div'); wrap.className='msg flex items-start gap-3'; wrap.innerHTML=`<div class="w-8 h-8 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xs font-bold">G</div><div class="flex-1 prose prose-invert max-w-none text-sm"><span class="blinker">▍</span></div>`; const bodyEl = wrap.children[1];
-    chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight; sendBtn.disabled = true;
-    try{
-      const resp = await fetch(BASE_URL + '/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value||undefined, messages: history.slice(-20), stream:true })});
-      if(resp.status===402||resp.status===403){ const json = await resp.json().catch(()=>({error:'premium'})); bodyEl.innerHTML = renderMarkdown('**Error:** '+(json.error||'premium')); return; }
-      if(!resp.ok){ const txt = await resp.text().catch(()=>null); throw new Error('chat request failed: '+(txt||resp.status)); }
-      if(!resp.body) throw new Error('No response body');
-      const reader = resp.body.getReader(); const decoder = new TextDecoder(); let acc=''; while(true){ const {value, done} = await reader.read(); if(done) break; const chunk = decoder.decode(value, {stream:true}); acc += chunk; bodyEl.innerHTML = renderMarkdown(acc); chatEl.scrollTop = chatEl.scrollHeight; }
-      history.push({role:'assistant', content: acc}); save();
-    }catch(err){
-      bodyEl.innerHTML = renderMarkdown('**Error:** '+(err.message||err));
-    }finally{ sendBtn.disabled=false; }
-  });
+/* -----------------------
+   Debug helper
+   -----------------------*/
+function logDebug(...args){
+  console.log(...args);
+  debugEl.textContent = (debugEl.textContent ? (debugEl.textContent + "\n") : "") + args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+  debugEl.scrollTop = debugEl.scrollHeight;
+}
 
-  clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
-  promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
+/* -----------------------
+   Stream parsing helpers
+   - Supports:
+     - plain text chunked (text/plain)
+     - ndjson / newline-delimited JSON
+     - SSE (text/event-stream)
+   -----------------------*/
+function isTextEventStream(ct){ return ct && ct.includes('text/event-stream'); }
+function isNDJson(ct){ return ct && (ct.includes('ndjson') || ct.includes('application/json') || ct.includes('application/x-ndjson')); }
+
+async function streamToText(resp, onChunk){
+  const contentType = (resp.headers && resp.headers.get && resp.headers.get('content-type')) || '';
+  logDebug('response content-type:', contentType);
+
+  // If SSE, parse `data:` lines
+  if(isTextEventStream(contentType)){
+    // SSE fallback parser using reader
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while(true){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream:true});
+      let lines = buf.split(/\r?\n/);
+      buf = lines.pop(); // remainder
+      for(const line of lines){
+        if(line.startsWith('data:')){
+          const data = line.replace(/^data:\s*/, '');
+          onChunk(data);
+        }
+      }
+    }
+    if(buf.trim().startsWith('data:')){
+      onChunk(buf.replace(/^data:\s*/, ''));
+    }
+    return;
+  }
+
+  // If NDJSON or JSON-like (server emits {"delta":"..."} per-line)
+  if(isNDJson(contentType)){
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buffer = '';
+    while(true){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buffer += dec.decode(value, {stream:true});
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop();
+      for(const line of lines){
+        if(!line.trim()) continue;
+        try{
+          const obj = JSON.parse(line);
+          // heuristics: look for common keys
+          const chunk = obj.delta || obj.text || obj.content || obj.choices?.[0]?.delta?.content || obj.choices?.[0]?.text;
+          if(chunk) onChunk(chunk);
+          else onChunk(line);
+        }catch(e){
+          // not JSON — append raw
+          onChunk(line);
+        }
+      }
+    }
+    if(buffer.trim()){
+      try{ const obj = JSON.parse(buffer); const chunk = obj.delta || obj.text || obj.content; if(chunk) onChunk(chunk); else onChunk(buffer); }catch(e){ onChunk(buffer); }
+    }
+    return;
+  }
+
+  // Default: assume plain text stream (markdown) — concatenate chunks
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  while(true){
+    const {value, done} = await reader.read();
+    if(done) break;
+    const chunk = decoder.decode(value, {stream:true});
+    onChunk(chunk);
+  }
+}
+
+/* -----------------------
+   Submit handler
+   -----------------------*/
+form.addEventListener('submit', async e=>{
+  e.preventDefault();
+  if(!backendAvailable){
+    logDebug('Backend unavailable; cannot send.');
+    return;
+  }
+  const content = promptEl.value.trim();
+  if(!content) return;
+  if(content==='/reset'){ history=[]; save(); renderHistory(); promptEl.value=''; return; }
+
+  history.push({role:'user', content});
+  addMsg('user', renderMarkdown(content));
+  promptEl.value=''; fit();
+
+  // placeholder assistant message with blinker
+  const wrap=document.createElement('div');
+  wrap.className='msg flex items-start gap-3';
+  wrap.innerHTML = `<div class="w-8 h-8 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xs font-bold">G</div><div class="flex-1 prose prose-invert max-w-none text-sm"><span class="blinker">▍</span></div>`;
+  const bodyEl = wrap.children[1];
+  chatEl.appendChild(wrap);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  sendBtn.disabled = true;
+
+  try {
+    const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value || undefined, messages: history.slice(-20), stream: true };
+    const resp = await fetch(BASE_URL + '/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+    if(resp.status === 402 || resp.status === 403){
+      const json = await resp.json().catch(()=>({ error: 'premium' }));
+      bodyEl.innerHTML = renderMarkdown('**Error:** ' + (json.error || 'premium'));
+      return;
+    }
+
+    if(!resp.ok){
+      const txt = await resp.text().catch(()=>null);
+      logDebug('chat non-ok', resp.status, resp.statusText, txt);
+      // show a friendly UI error while keeping debug details in the debug box
+      bodyEl.innerHTML = renderMarkdown(`**Error:** server returned ${resp.status} ${resp.statusText}\n\nSee console/debug for details.`);
+      return;
+    }
+
+    if(!resp.body){
+      throw new Error('No response body (server did not stream).');
+    }
+
+    // Accumulate text progressively and update UI
+    let acc = '';
+    await streamToText(resp, chunk => {
+      acc += chunk;
+      bodyEl.innerHTML = renderMarkdown(acc);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    });
+
+    // push assistant message to history and persist
+    history.push({ role: 'assistant', content: acc });
+    save();
+  } catch(err){
+    console.error('chat error', err);
+    bodyEl.innerHTML = renderMarkdown('**Error:** ' + (err.message || String(err)));
+    logDebug('chat error: ' + (err.message || String(err)));
+  } finally {
+    sendBtn.disabled = false;
+  }
+});
+
+/* -----------------------
+   Simple UI controls
+   -----------------------*/
+clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
+promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 </script>
 </body>
 </html>
