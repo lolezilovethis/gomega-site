@@ -1,651 +1,828 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gomega AI — ai.html (local)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gomega AI — ai.html (local)</title>
 
-  <!-- In-page /api override MUST be first in head -->
-  <script>
-  (function(){
-    const origFetch = window.fetch.bind(window);
+<!-- In-page /api override (must be first) -->
+<script>
+(function(){
+  const origFetch = window.fetch.bind(window);
 
-    // Local persistent state (persisted to localStorage)
-    const PKEY = 'gomega_local_state_v3';
-    let LOCAL = {
-      key: "local-key-123456",
-      memories: [], // { role: 'user'|'assistant', text: '...', ts: 0, keywords: [] }
-      models: [
-        { id: 'gomega-3.o', label: 'gomega-3.o (conservative)' },
-        { id: 'gomega-4.o', label: 'gomega-4.o (balanced)' },
-        { id: 'gomega-5.o', label: 'gomega-5.o (beta)' }
-      ],
-      learn: true
+  // ----------- persistent local state --------------
+  const PKEY = 'gomega_local_state_v4';
+  // session state (cleared on 2h reset) is stored separately
+  const SESSION_KEY = 'gomega_session_v4';
+
+  const DEFAULT = {
+    key: "local-key-123456",
+    learn: true,
+    models: [
+      { id: 'gomega-2.o', label: 'gomega-2.o (concise)' },
+      { id: 'gomega-3.o', label: 'gomega-3.o (conservative)' },
+      { id: 'gomega-4.o', label: 'gomega-4.o (balanced)' },
+      { id: 'gomega-5.o', label: 'gomega-5.o (beta)' },
+      { id: 'gomega-6.o', label: 'gomega-6.o (creative)' },
+      { id: 'gomega-7.o', label: 'gomega-7.o (developer)' }
+    ],
+    // system knowledge that the assistant can reference
+    systemKnowledge: `
+You are Gomega AI — a local assistant running inside the user's browser.
+Name: Gomega AI
+Identity: GPT-5 Thinking mini (for direct "what model are you" questions).
+Purpose: Help the user with coding, ideas, local testing, and remembering short facts locally.
+Memory policy: Store meaningful user/assistant turns for retrieval. Do not store tiny greetings.
+Limits: Chat session resets every 2 hours, but long-term memories persist unless the user clears them.
+Knowledge: Use local heuristics and stored memories; do not call external servers.
+    `.trim()
+  };
+
+  // load persistent state
+  let LOCAL = Object.assign({}, DEFAULT);
+  try {
+    const raw = localStorage.getItem(PKEY);
+    if(raw) {
+      Object.assign(LOCAL, JSON.parse(raw));
+      // ensure defaults exist
+      LOCAL.models = LOCAL.models || DEFAULT.models;
+      LOCAL.systemKnowledge = LOCAL.systemKnowledge || DEFAULT.systemKnowledge;
+    } else {
+      LOCAL = Object.assign({}, DEFAULT);
+    }
+  } catch(e) { console.warn('load state err', e); }
+
+  // session state (history) with start timestamp
+  let SESSION = { startedAt: Date.now(), history: [] }; // history: [{role,content,ts}]
+  try {
+    const rawS = localStorage.getItem(SESSION_KEY);
+    if(rawS) SESSION = JSON.parse(rawS);
+  } catch(e){ console.warn('load session err', e); }
+
+  function persist() {
+    try { localStorage.setItem(PKEY, JSON.stringify(LOCAL)); }
+    catch(e){ console.warn('persist err', e); }
+  }
+  function persistSession() {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }
+    catch(e){ console.warn('persist session err', e); }
+  }
+
+  // ----------- text utilities & simple vector retrieval --------------
+  const STOP = new Set([
+    'the','is','in','on','and','a','an','of','to','for','i','you','me','it','that','this','with','are','was',
+    'be','have','has','do','did','not','but','my','your','we','they','he','she','as','at','by','from','or','if'
+  ]);
+  function tokenize(s){
+    if(!s) return [];
+    return String(s).toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>2 && !STOP.has(w));
+  }
+
+  // build TF map
+  function tfMap(tokens){
+    const m = Object.create(null);
+    for(const t of tokens) m[t] = (m[t]||0)+1;
+    return m;
+  }
+
+  function idfMap(docs){
+    const df = Object.create(null);
+    for(const d of docs){
+      const seen = new Set(Object.keys(d));
+      for(const k of seen) df[k] = (df[k]||0)+1;
+    }
+    const idf = Object.create(null);
+    const N = docs.length || 1;
+    for(const k in df) idf[k] = Math.log(1 + N/(df[k]||1));
+    return idf;
+  }
+
+  function dot(a,b,idf){
+    let s = 0;
+    for(const k in a){
+      if(!b[k]) continue;
+      const ai = a[k], bi = b[k];
+      const w = idf && idf[k] ? idf[k] : 1;
+      s += ai * bi * w * w;
+    }
+    return s;
+  }
+
+  function norm(v,idf){
+    let s = 0;
+    for(const k in v){
+      const w = idf && idf[k] ? idf[k] : 1;
+      s += (v[k]*w)*(v[k]*w);
+    }
+    return Math.sqrt(s || 1);
+  }
+
+  // extract keywords and tf map for storage
+  function analyzeText(text){
+    const tokens = tokenize(text);
+    const tf = tfMap(tokens);
+    return { tokens, tf };
+  }
+
+  // store memory: ensure keywords & tf
+  LOCAL.memories = LOCAL.memories || []; // each: {role,text,ts,tokens,tf}
+  function storeMemory(role,text){
+    if(!LOCAL.learn) return;
+    const txt = String(text || '').trim();
+    if(!txt) return;
+    // skip tiny greetings
+    if(txt.length < 30 && /^(hi|hello|hey|how are you|what's up|sup)$/i.test(txt)) return;
+    const a = analyzeText(txt);
+    LOCAL.memories.push({ role, text: txt, ts: Date.now(), tokens: a.tokens, tf: a.tf });
+    if(LOCAL.memories.length > 2500) LOCAL.memories = LOCAL.memories.slice(-2500);
+    persist();
+  }
+
+  // smart retrieval: build idf across memories on the fly and compute cosine-like similarity
+  function retrieveRelevant(query, topN=6){
+    if(!LOCAL.memories.length) return [];
+    const qTokens = tokenize(query);
+    const qTF = tfMap(qTokens);
+    // build docs tf list
+    const docsTF = LOCAL.memories.map(m => m.tf || {});
+    const idf = idfMap(docsTF.concat([qTF]));
+    const qNorm = norm(qTF, idf);
+    const scored = LOCAL.memories.map(m => {
+      const sc = dot(qTF, m.tf || {}, idf) / (qNorm * norm(m.tf || {}, idf) || 1);
+      return { m, score: sc || 0 };
+    });
+    scored.sort((a,b)=>b.score-a.score);
+    return scored.filter(s=>s.score>0.03).slice(0,topN);
+  }
+
+  // slight paraphrase helper
+  function paraphraseShort(text){
+    const templates = [
+      `I remember: ${text}`,
+      `From earlier: ${text}`,
+      `${text} — want more detail?`
+    ];
+    return templates[Math.floor(Math.random()*templates.length)];
+  }
+
+  // system knowledge fetch
+  function systemInfo(){
+    return LOCAL.systemKnowledge || DEFAULT.systemKnowledge;
+  }
+
+  // ----------------- generator (smarter) -----------------
+  // Note: must answer "what model are you" EXACTLY with "GPT-5 Thinking mini" somewhere
+  function localGenerate(messages, temperature=0.7, modelId='gomega-4.o', thinkMode=false){
+    // find last user content
+    let lastUser = "";
+    for(let i=messages.length-1;i>=0;i--) if(messages[i].role==='user'){ lastUser = messages[i].content||''; break; }
+    const q = String(lastUser || '').trim();
+    const lq = q.toLowerCase();
+
+    // direct helpers
+    if(/\bwhat model (are you|is this)\b|\bwhich model (are you|is this)\b/i.test(lq)){
+      // required identity string
+      return `I am GPT-5 Thinking mini, running as Gomega AI (local).`;
+    }
+    if(/\bwhat model am i using\b|\bwhich model am i using\b/i.test(lq)){
+      return modelId ? `You're using **${modelId}** right now.` : `You're using the local model chosen in the UI.`;
+    }
+    if(/\bwho are you\b|\bwhat are you\b/i.test(lq)){
+      return `I am Gomega AI — a local assistant running in your browser. I keep local memories and follow the system knowledge. (Identity: GPT-5 Thinking mini)`;
+    }
+    if(/\bdate\b|\btoday\b/i.test(lq) && /\bwhat\b|\bwhich\b|^\b/.test(lq)){
+      return `Today is ${new Date().toDateString()}.`;
+    }
+    if(/\btime\b/i.test(lq) && /\bwhat\b|current/i.test(lq)){
+      return `Current time: ${new Date().toLocaleTimeString()}.`;
+    }
+
+    // built-in greeting & small talk
+    if(/^(hi|hello|hey|hiya|sup)[\!\.\s]*$/i.test(q)){
+      const msgs = ["Hey — I'm Gomega AI. How can I help?", "Hi! Gomega AI here. What would you like to do today?", "Hello — ready to help. Ask me something!"];
+      return msgs[Math.floor(Math.random()*msgs.length)];
+    }
+    if(/\bhow (are|is) (you|your day)\b|\bhow's your day\b/i.test(lq)){
+      return ["I'm ready and running locally — how's your day?", "Doing well — ready to help you with code, ideas, or memory."][Math.floor(Math.random()*2)];
+    }
+
+    // memory search shortcut
+    if(lq.startsWith('search memory:')) {
+      const term = q.slice(14).trim();
+      if(!term) return 'Provide a term after "search memory:".';
+      const hits = retrieveRelevant(term, 12);
+      if(!hits.length) return 'No memories matched that query.';
+      return 'Memory matches:\n\n' + hits.map(h => `${h.m.role.toUpperCase()} (${new Date(h.m.ts).toLocaleString()}): ${h.m.text.slice(0,280)}`).join('\n\n');
+    }
+
+    // remember: explicit
+    if(lq.startsWith('remember:')) {
+      const note = q.slice(9).trim();
+      if(!note) return 'Say remember: <text> to store something.';
+      // store handled by fetch wrapper; just ack
+      return `Okay — I'll remember: ${note.slice(0,180)}`;
+    }
+
+    // if thinkMode is enabled, make the assistant wait longer and be more elaborate
+    const t = Math.max(0, Math.min(1, Number(temperature) || 0.7));
+    const thinkingBoost = thinkMode ? 0.6 : 0;
+
+    // retrieval from memories (TF-IDF style)
+    const hits = retrieveRelevant(q, 8);
+    if(hits.length && hits[0].score > 0.12 - (0.05 * thinkingBoost)){ // require stronger match
+      const best = hits[0].m;
+      if(best.role === 'assistant' && best.text && best.text.length > 20 && !best.text.toLowerCase().includes(q.toLowerCase())){
+        // reuse/paraphrase
+        return paraphraseShort(best.text);
+      }
+      // else synthesise combination
+      const combined = hits.map(h=>h.m.text).join('\n\n');
+      // keep it concise or elaborate depending on temperature + thinkMode
+      if(t + thinkingBoost > 0.8) {
+        return `Combining relevant notes:\n\n${combined.split('\n').slice(0,6).join('\n')}\n\nWould you like this expanded or summarized?`;
+      } else {
+        const s = hits[0].m.text.split(/[.\n]/).filter(Boolean)[0] || hits[0].m.text;
+        return `Related memory: ${s.slice(0,300)}`;
+      }
+    }
+
+    // fallback synthesis: attempt to produce structured help for pattern questions
+    if(/\bhow to\b|\bhow do i\b|\bexplain\b|\bexample\b|\bcreate\b|\bbuild\b/i.test(lq)){
+      // create a steps list
+      const steps = [
+        `1) Clarify the goal and constraints.`,
+        `2) Break the problem into smaller tasks.`,
+        `3) Provide a short example or sample code.`,
+        `4) Test and iterate.`,
+        `5) Summarize next steps.`
+      ];
+      if(t + thinkingBoost > 0.7) {
+        return `Here's a structured approach:\n\n${steps.join('\n')}\n\nTell me which step to expand on.`;
+      } else {
+        return `Start by clarifying the goal, then break it down into small tasks. Ask me for an example if you want code.`;
+      }
+    }
+
+    // fallback canned replies (vary with temperature/personality)
+    const personalities = {
+      '2.o': 0.2, '3.o': 0.35, '4.o': 0.6, '5.o': 0.9, '6.o': 1.2, '7.o': 1.4
     };
+    const pers = personalities[modelId] || 0.6;
+    const idx = Math.floor(Math.random() * 3 * (0.4 + t * pers)) % 3;
+    const canned = [
+      `I understood: "${q}". Could you add more detail so I can answer precisely?`,
+      `Local reply to "${q}" — I can provide steps, examples or a summary. Which would you prefer?`,
+      `Quick thought: "${q}" — I can expand this into a step-by-step guide if you like.`
+    ][idx];
 
-    // Load persisted state
-    try{
-      const raw = localStorage.getItem(PKEY);
-      if(raw) Object.assign(LOCAL, JSON.parse(raw));
-    }catch(e){ console.warn('failed load local state', e); }
-
-    function persist(){ try{ localStorage.setItem(PKEY, JSON.stringify(LOCAL)); }catch(e){console.warn('persist failed',e);} }
-
-    // minimal helper to build JSON Response
-    function jsonResp(obj, status = 200) {
-      return new Response(JSON.stringify(obj), {
-        status,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    // for think mode, be slightly more helpful
+    if(thinkMode && Math.random() < 0.6) {
+      return canned + `\n\n(Thinking mode: I considered related memories and system knowledge.)`;
     }
+    return canned;
+  }
 
-    // ---------------------
-    // small NLP helpers
-    // ---------------------
-    const STOP = new Set(['the','is','in','on','and','a','an','of','to','for','i','you','me','it','that','this','with','are','was','be','have','has','do','did','not','but','my','your','we','they','he','she','as','at','by']);
+  // ----------------- fetch override -----------------
+  window.fetch = async function(input, init){
+    try {
+      const urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
+      const parsed = new URL(urlStr, location.href);
+      const pathname = parsed.pathname || '/';
+      if(pathname.startsWith('/api')){
+        await new Promise(r=>setTimeout(r, 40 + Math.random()*200));
+        const sub = pathname.slice('/api'.length) || '/';
 
-    function extractKeywords(s){
-      if(!s) return [];
-      return Array.from(new Set(String(s).toLowerCase()
-        .replace(/[^\w\s]/g,' ')
-        .split(/\s+/)
-        .filter(w => w.length>2 && !STOP.has(w))
-        .slice(0,30)
-      ));
-    }
-
-    function overlapScore(aKeys, bKeys){
-      if(!aKeys.length || !bKeys.length) return 0;
-      let s=0; const set=new Set(bKeys);
-      for(const k of aKeys) if(set.has(k)) s++;
-      return s;
-    }
-
-    function smartShortReply(q, modelId){
-      const greetings = ['hi','hello','hey','yo','hiya'];
-      const lq = q.toLowerCase().trim();
-      // greeting
-      if(greetings.includes(lq) || /^hi\b|^hello\b|^hey\b/i.test(q)) {
-        return ["Hey! 👋 How can I help today?","Hello — what would you like to do?","Hi there — ask me anything!"][Math.floor(Math.random()*3)];
-      }
-      // day chit
-      if(/\bhow (are|is) (you|your day)\b/i.test(q) || /\bhow's your day\b/i.test(q)) {
-        return ["I'm a local assistant — running smoothly! How's yours?","Doing great — ready to help. What do you want to ask?"][Math.floor(Math.random()*2)];
-      }
-      // short fallback
-      if(q.length < 40) {
-        return `Quick thought: ${q}. Ask for more detail or examples.`;
-      }
-      return null;
-    }
-
-    function paraphraseShort(text){
-      // simple paraphrase templates
-      const templates = [
-        `I recall: ${text}`,
-        `From earlier: ${text}`,
-        `${text} — does that help?`
-      ];
-      return templates[Math.floor(Math.random()*templates.length)];
-    }
-
-    // ---------------------
-    // Local generator (improved)
-    // ---------------------
-    function localGenerate(messages, temperature=0.7, modelId='gomega-4.o'){
-      // last user
-      let lastUser = "";
-      for (let i = messages.length - 1; i >= 0; --i) {
-        if (messages[i].role === 'user') { lastUser = (messages[i].content || ""); break; }
-      }
-      const q = (lastUser || "").trim();
-      const ql = q.toLowerCase();
-
-      // 1) Built-in helpers (date/time)
-      if (/\bdate\b|\btoday\b/.test(ql) && /\bwhat\b|\bwhich\b|\bcurrent\b|^\b/i.test(ql)) {
-        const d = new Date(); return `Today is ${d.toDateString()}.`;
-      }
-      if (/\btime\b/.test(ql) && /\bwhat\b|\bcurrent\b/.test(ql)) {
-        const d = new Date(); return `Current time: ${d.toLocaleTimeString()}.`;
-      }
-
-      // 2) Identity/model questions
-      if(/\bwhat (model|version) (are you|are you running)\b/i.test(ql) || /\bwhich model (are you|is this)\b/i.test(ql)){
-        // If the generator was called with modelId, state that
-        if(modelId) return `I am the local model **${modelId}** (running in your browser).`;
-        return `I am a local Gomega model (running in-browser).`;
-      }
-      if(/\bwhat model am i using\b|\bwhat model am i using right now\b|\bwhich model am i using\b/i.test(ql)){
-        if(modelId) return `You're using **${modelId}** right now.`;
-        return `You're using the local model configured in the UI.`;
-      }
-
-      // 3) Direct "who are you" -> friendly description
-      if (/\bwho are you\b|\bwhat are you\b/i.test(ql)) {
-        return "I am Gomega — a lightweight local assistant running inside your browser. (Note: ChatGPT identity: GPT-5 Thinking mini)";
-      }
-
-      // 4) explicit memory search command
-      if (ql.startsWith('search memory:')) {
-        const term = q.slice(14).trim().toLowerCase();
-        if(!term) return 'Provide a term after "search memory:".';
-        const hits = LOCAL.memories.filter(m => (m.text||'').toLowerCase().includes(term));
-        if (!hits.length) return "No memories matched that query.";
-        return "Memory matches:\n\n" + hits.slice(-8).map(h => `${h.role.toUpperCase()} (${new Date(h.ts).toLocaleString()}): ${h.text.slice(0,300)}`).join("\n\n");
-      }
-
-      // 5) explicit remember command — store handled elsewhere, but acknowledge
-      if(ql.startsWith('remember:')) {
-        const note = q.slice(9).trim();
-        if(!note) return 'Provide text after "remember:".';
-        return `Okay — I'll keep that in memory: "${note.slice(0,200)}"`;
-      }
-
-      // 6) short chit / greetings / small questions
-      const short = smartShortReply(q, modelId);
-      if(short) return short;
-
-      // 7) Memory retrieval: score and only return when useful
-      const qkeys = extractKeywords(q);
-      const scored = LOCAL.memories.map(m => ({m,score: overlapScore(qkeys, m.keywords || extractKeywords(m.text||''))}));
-      scored.sort((a,b) => b.score - a.score);
-
-      if(scored.length && scored[0].score >= Math.max(2, Math.floor(qkeys.length/3))){
-        const best = scored[0].m;
-        // don't just echo the user's exact question; ensure memory helpfulness
-        if(best.role === 'assistant' && best.text && best.text.length > 20 && !best.text.toLowerCase().includes(q.toLowerCase())){
-          return paraphraseShort(best.text);
+        // GET /api/config
+        if((sub === '/' || sub === '' || sub === '/config') && (!init || (init.method||'GET').toUpperCase()==='GET')){
+          return new Response(JSON.stringify({ models: LOCAL.models, provider: 'local', premiumAvailable: false, learn: !!LOCAL.learn, systemKnowledge: LOCAL.systemKnowledge }), { status:200, headers:{'Content-Type':'application/json'} });
         }
-      }
 
-      // 8) Synthesize from multiple relevant memories if available
-      const relevant = scored.filter(s => s.score>0).slice(0,6).map(s => s.m.text).filter(Boolean);
-      if(relevant.length){
-        const parts = relevant.map(r => r.split(/[\.\n]/).map(p => p.trim()).filter(Boolean)).flat();
-        if(parts.length){
-          const pick = parts[Math.floor(Math.random()*parts.length)];
-          return `Combining earlier notes: ${pick}${Math.random()<0.25 ? ' — want more detail?' : ''}`;
+        // GET /api/key
+        if(sub === '/key' && (!init || (init.method||'GET').toUpperCase()==='GET')){
+          return new Response(JSON.stringify({ key: LOCAL.key }), { status:200, headers:{'Content-Type':'application/json'} });
         }
-      }
 
-      // 9) fallback canned replies (temperature influences creativity)
-      const base = [
-        `I understood: "${lastUser}". Could you add a little more detail so I can give a better answer?`,
-        `Here's a local response to "${lastUser}" — I can format this as steps or an example if you'd like.`,
-        `Quick local reply: "${lastUser}". Try asking for "explain like I'm five" or "give steps".`
-      ];
-      const t = Math.max(0, Math.min(1, Number(temperature) || 0.7));
-      // model personality
-      let personality = 0.7;
-      if(modelId && modelId.includes('3.o')) personality = 0.25;
-      if(modelId && modelId.includes('5.o')) personality = 1.0;
-      const idx = Math.floor(Math.random() * base.length * (0.5 + t*personality)) % base.length;
-      let canned = base[idx];
+        // GET /api/memories
+        if(sub === '/memories' && (!init || (init.method||'GET').toUpperCase()==='GET')){
+          return new Response(JSON.stringify({ memories: LOCAL.memories.map(m=>({ role:m.role, text:m.text, ts:m.ts })) }), { status:200, headers:{'Content-Type':'application/json'} });
+        }
 
-      if(Math.random() < 0.45 + 0.2*t) {
-        const hints = [
-          "Tip: ask for 'examples', 'step-by-step', or 'code' to get structured answers.",
-          "You can use search memory: <term> to look up what I remember.",
-          "Use remember: <text> to explicitly store an item in memory."
-        ];
-        canned += `\n\n${hints[Math.floor(Math.random()*hints.length)]}`;
-      }
+        // POST /api/clear-memories
+        if(sub === '/clear-memories' && init && (init.method||'').toUpperCase() === 'POST'){
+          LOCAL.memories = []; persist();
+          return new Response(JSON.stringify({ ok:true }), { status:200, headers:{'Content-Type':'application/json'} });
+        }
 
-      return canned;
-    }
+        // POST /api/chat
+        if(sub === '/chat' && init && (init.method||'').toUpperCase() === 'POST'){
+          let body = {};
+          try { body = JSON.parse(init.body || '{}'); } catch(e){}
+          const messages = body.messages || [];
+          const temperature = Number(body.temperature || 0.7);
+          const modelId = body.modelId || (LOCAL.models[2] && LOCAL.models[2].id);
+          const thinkMode = !!body.thinkMode;
 
-    // ---------------------
-    // fetch override
-    // ---------------------
-    window.fetch = async function(input, init) {
-      try {
-        const urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
-        const parsed = new URL(urlStr, location.href); // supports absolute and relative URLs
-        const pathname = parsed.pathname || '/';
-        if (pathname.startsWith('/api')) {
-          // emulate small latency
-          await new Promise(r => setTimeout(r, 50 + Math.random() * 220));
-          const sub = pathname.slice('/api'.length) || '/';
-
-          // GET /api/config
-          if ((sub === '/' || sub === '' || sub === '/config') && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ models: LOCAL.models, provider: 'local', premiumAvailable: false, learn: !!LOCAL.learn });
-          }
-
-          // GET /api/key
-          if (sub === '/key' && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ key: LOCAL.key });
-          }
-
-          // POST /api/verify-key
-          if (sub === '/verify-key' && init && (init.method||'').toUpperCase() === 'POST') {
-            let body = {};
-            try { body = JSON.parse(init.body || '{}'); } catch(e){}
-            const ok = String(body.key || '') === String(LOCAL.key);
-            return jsonResp({ valid: !!ok });
-          }
-
-          // GET /api/memories
-          if (sub === '/memories' && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ memories: LOCAL.memories.slice(-500).map(m => ({ role: m.role, text: m.text, ts: m.ts, keywords: m.keywords })) });
-          }
-
-          // POST /api/clear-memories
-          if (sub === '/clear-memories' && init && (init.method||'POST').toUpperCase() === 'POST') {
-            LOCAL.memories = [];
-            persist();
-            return jsonResp({ ok: true });
-          }
-
-          // POST /api/chat
-          if (sub === '/chat' && init && (init.method||'').toUpperCase() === 'POST') {
-            let body = {};
-            try { body = JSON.parse(init.body || '{}'); } catch(e){}
-            const messages = body.messages || [];
-            const temperature = Number(body.temperature || 0.7);
-            const modelId = body.modelId || (LOCAL.models[0] && LOCAL.models[0].id);
-
-            // store the user message as memory (only if it's not a tiny greeting and learning enabled)
-            try {
-              const lastUser = messages.slice().reverse().find(m => m.role==='user');
-              if(LOCAL.learn && lastUser && lastUser.content){
-                const txt = lastUser.content.trim();
-                const isTiny = txt.length < 30 && (/^(hi|hello|hey|how are you|what's up|sup)$/i.test(txt));
-                if(!isTiny){
-                  const mem = { role:'user', text: txt, ts: Date.now(), keywords: extractKeywords(txt) };
-                  LOCAL.memories.push(mem);
-                }
-              }
-            } catch(e){ console.warn('store user memory err', e); }
-
-            const reply = localGenerate(messages, temperature, modelId);
-
-            // store assistant reply (only if helpful / not too short)
-            if(LOCAL.learn && reply && reply.length>20){
-              LOCAL.memories.push({ role:'assistant', text: reply, ts: Date.now(), keywords: extractKeywords(reply) });
-              if(LOCAL.memories.length > 2000) LOCAL.memories = LOCAL.memories.slice(-2000);
-              persist();
+          // store user memory (not tiny greetings)
+          try {
+            const lastUser = messages.slice().reverse().find(m=>m.role==='user');
+            if(lastUser && lastUser.content){
+              const txt = String(lastUser.content).trim();
+              const tiny = txt.length < 30 && /^(hi|hello|hey|how are you|what's up)$/i.test(txt);
+              if(!tiny) storeMemory('user', txt);
             }
+          } catch(e){ console.warn('store user err', e); }
 
-            return jsonResp({ text: reply, model: modelId });
-          }
+          // generate reply
+          const reply = localGenerate(messages, temperature, modelId, thinkMode);
 
-          // Not found
-          return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+          // store assistant memory (if useful)
+          if(reply && reply.length > 20) storeMemory('assistant', reply);
+
+          return new Response(JSON.stringify({ text: reply, model: modelId }), { status:200, headers:{'Content-Type':'application/json'} });
         }
-      } catch (e) {
-        console.warn('fetch override encountered error', e);
+
+        // Not found
+        return new Response('Not found', { status:404, headers:{'Content-Type':'text/plain'} });
       }
-      // fallback to original fetch for everything else
-      return origFetch(input, init);
-    };
+    } catch(e){ console.warn('fetch override err', e); }
+    return origFetch(input, init);
+  };
 
-    // small debug inspector
-    window.__GOMEGA_LOCAL = {
-      getState: () => JSON.parse(JSON.stringify(LOCAL)),
-      persist,
-      setLearn: (v) => { LOCAL.learn = !!v; persist(); }
-    };
-  })();
-  </script>
+  // expose small debug
+  window.__GOMEGA_LOCAL = {
+    getState: () => JSON.parse(JSON.stringify(LOCAL)),
+    persist, storeMemory,
+    resetSession: ()=>{ SESSION = { startedAt: Date.now(), history: [] }; persistSession(); },
+    getSession: ()=> JSON.parse(JSON.stringify(SESSION)),
+    persistSession
+  };
+})();
+</script>
 
-  <!-- Tailwind & marked -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- UI libs -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <style>
-    html, body { height: 100%; }
-    .msg p { margin: 0.25rem 0; }
-    .msg pre { overflow:auto; padding:0.75rem; border-radius:0.5rem; background:#071023; color:#e2e8f0; }
-    .msg code:not(pre code) { background:#071023; color:#e2e8f0; padding:0.2rem 0.3rem; border-radius:0.3rem; }
-    .blinker { animation: blink 1s step-start 0s infinite; }
-    @keyframes blink { 50% { opacity: 0; } }
-    header .logo { font-weight: 700; letter-spacing: -0.5px; }
-    .model-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:999px; font-size:11px; background:rgba(255,255,255,0.03); color:#cbd5e1; border:1px solid rgba(255,255,255,0.03); }
-    .small-muted { font-size: 12px; color: #94a3b8; }
-    .kv { display:flex; gap:0.5rem; align-items:center; }
-    #chat::-webkit-scrollbar { width: 10px; }
-    #chat::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius:10px; }
-  </style>
+<style>
+  :root{
+    --bg:#071026;
+    --card:#071427;
+    --muted:#94a3b8;
+  }
+  html,body{height:100%;background:linear-gradient(180deg,#041226 0%, #071026 100%); color:#e6eef8; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+  .container{max-width:1100px;margin:24px auto;padding:16px;}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); border-radius:14px; padding:14px;}
+  .model-badge{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:12px;color:var(--muted);border:1px solid rgba(255,255,255,0.03);}
+  .msg{display:flex;gap:12px;align-items:flex-start;}
+  .avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .u{background:linear-gradient(90deg,#4f46e5,#ec4899); color:white;}
+  .g{background:linear-gradient(90deg,#06b6d4,#7c3aed); color:white;}
+  .bubble{background:rgba(255,255,255,0.02);border-radius:10px;padding:10px;max-width:78%;}
+  .meta{font-size:12px;color:var(--muted);}
+  .typing-cursor{display:inline-block;width:8px;height:14px;background:currentColor;border-radius:2px;animation:blink 1s steps(2,start) infinite;margin-left:6px;vertical-align:middle;}
+  @keyframes blink{50%{opacity:0}}
+  .think-dots span{display:inline-block;width:6px;height:6px;border-radius:999px;margin:0 3px;background:var(--muted);opacity:0.25;animation:think 1s infinite;}
+  .think-dots span:nth-child(1){animation-delay:0s}
+  .think-dots span:nth-child(2){animation-delay:0.15s}
+  .think-dots span:nth-child(3){animation-delay:0.3s}
+  @keyframes think{0%{transform:translateY(0);opacity:0.2}50%{transform:translateY(-6px);opacity:1}100%{transform:translateY(0);opacity:0.2}}
+  .scrollarea{max-height:56vh; overflow:auto; padding-right:6px;}
+  .controls input[type="range"]{vertical-align:middle}
+  .small{font-size:12px;color:var(--muted);}
+  .reset-timer{font-weight:600;color:#93c5fd}
+  .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;}
+  .leftcol{display:flex;gap:12px;align-items:center;}
+  .rightcol{display:flex;gap:8px;align-items:center;}
+  .pill{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.03);font-size:13px;}
+  .footer-note{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;}
+</style>
 </head>
-<body class="bg-slate-900 text-slate-100">
-  <div class="min-h-full flex flex-col">
-    <header class="sticky top-0 z-20 backdrop-blur bg-slate-900/60 border-b border-slate-800">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg"></div>
-        <h1 class="text-xl font-semibold tracking-tight logo">Gomega AI</h1>
-        <div class="ml-4 text-xs text-slate-400 hidden md:block">Local-first assistant — learns from chats</div>
-        <div class="ml-auto flex items-center gap-3 text-xs text-slate-400">
-          <div id="backendShort">local</div>
-          <div class="text-slate-500">/ai</div>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="topbar">
+        <div class="leftcol">
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(90deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px">GA</div>
+          <div>
+            <div style="font-weight:700;font-size:18px">Gomega AI <span class="small" style="font-weight:500">— local assistant</span></div>
+            <div class="small" id="subtitle">Identity: GPT-5 Thinking mini • Local only</div>
+          </div>
+        </div>
+
+        <div class="rightcol">
+          <div class="pill small">Session resets every 2 hours</div>
+          <div class="pill small">Session timer: <span id="sessionTimer" class="reset-timer">--:--:--</span></div>
         </div>
       </div>
-    </header>
 
-    <main class="flex-1">
-      <div class="max-w-6xl mx-auto px-4 py-4 grid gap-4 md:grid-cols-[1fr,20rem]">
-        <section class="rounded-2xl border border-slate-800 bg-slate-950/40 p-3 md:p-4 flex flex-col min-h-[70vh]">
-          <div id="chat" class="flex-1 overflow-y-auto space-y-4 pr-2"></div>
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;margin-top:14px;">
+        <!-- chat column -->
+        <div class="card" style="padding:12px;">
+          <div id="chatArea" class="scrollarea"></div>
 
-          <form id="composer" class="mt-3" onsubmit="event.preventDefault()">
-            <div class="flex items-end gap-2">
-              <textarea id="prompt" rows="1" placeholder="Ask anything… (commands: /reset, /memories, search memory:, remember: )" class="flex-1 resize-none bg-slate-800/60 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
-              <button id="send" type="submit" class="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-medium">Send</button>
-            </div>
-
-            <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-              <label class="flex items-center gap-1">Model
-                <select id="model" class="bg-slate-800/60 rounded-lg p-1"></select>
-              </label>
-
-              <label class="flex items-center gap-2">Temp
-                <input id="temp" type="range" min="0" max="2" step="0.1" value="0.7" />
-                <span id="tempv">0.7</span>
-              </label>
-
-              <button id="clear" type="button" class="ml-auto underline text-slate-300">Clear chat</button>
-            </div>
-
-            <div class="mt-2 text-xs text-slate-300">
-              <div>Status: <span id="backendStatus">checking...</span></div>
-              <div id="backendNote" class="small-muted mt-1">No external backend — everything runs locally in your browser.</div>
+          <form id="composer" style="margin-top:12px;display:flex;gap:8px;align-items:flex-end;">
+            <textarea id="prompt" rows="2" placeholder="Ask anything… (commands: /reset /memories search memory: remember: )" style="flex:1;background:rgba(255,255,255,0.02);border-radius:10px;padding:10px;border:1px solid rgba(255,255,255,0.03);color:inherit;"></textarea>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button id="send" type="submit" style="background:#7c3aed;padding:8px 12px;border-radius:10px;border:none;color:white;font-weight:700;">Send</button>
+              <button id="resetNow" type="button" style="background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px;border-radius:8px;color:var(--muted);">Reset Now</button>
             </div>
           </form>
 
-          <div class="mt-3 text-xs text-slate-400">
-            <div class="flex gap-2">
-              <button id="toggleLearn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Learning: ON</button>
-              <button id="viewMem" class="px-2 py-1 rounded bg-slate-800 text-xs">View memories</button>
-              <button id="exportMem" class="px-2 py-1 rounded bg-slate-800 text-xs">Export memories</button>
-              <label class="px-2 py-1 rounded bg-slate-800 text-xs cursor-pointer"><input id="importMemFile" type="file" accept="application/json" class="hidden">Import</label>
-              <button id="clearMem" class="px-2 py-1 rounded bg-rose-600 text-xs">Clear memories</button>
-            </div>
-            <div class="mt-2 small-muted">Memories are stored locally (browser storage). Use export/import to move them between machines.</div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center;">
+            <div class="small">Chat limit: <span id="chatLimitDisplay">200 messages</span> • Memories persisted separately</div>
+            <div class="small">Think mode: <label style="margin-left:6px"><input id="thinkToggle" type="checkbox"> on</label></div>
           </div>
-        </section>
+        </div>
 
-        <aside class="space-y-3">
-          <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
-            <h2 class="font-semibold mb-2">Session</h2>
-            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShortText">local</span></div>
+        <!-- side column -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="card" style="padding:12px;">
+            <div style="font-weight:700;margin-bottom:8px">Model & Settings</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <label class="small">Model
+                <select id="modelSelect" style="width:100%;margin-top:6px;background:transparent;border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.04);">
+                </select>
+              </label>
 
-            <div class="mt-3 space-y-2">
-              <div class="text-xs small-muted">Local-only mode (for development/demo).</div>
-            </div>
+              <label class="small">Temperature <span id="tempVal">0.7</span>
+                <input id="tempRange" type="range" min="0" max="2" step="0.1" value="0.7" style="width:100%;display:block;margin-top:6px;">
+              </label>
 
-            <div class="mt-3 flex flex-col gap-2">
-              <div class="kv">
-                <div id="currentKey" class="text-xs text-slate-300 ml-2">local-key</div>
+              <label class="small">Typing speed (ms/char) <span id="speedVal">18</span>
+                <input id="speedRange" type="range" min="4" max="60" step="1" value="18" style="width:100%;display:block;margin-top:6px;">
+              </label>
+
+              <div style="display:flex;gap:8px;">
+                <button id="viewMem" class="pill" style="flex:1">View memories</button>
+                <button id="clearMem" class="pill" style="flex:1">Clear memories</button>
               </div>
-              <div id="keyResult" class="text-xs small-muted">Key status: <span id="keyStatus">local</span></div>
+
+              <div style="display:flex;gap:8px;margin-top:8px;">
+                <button id="exportMem" class="pill" style="flex:1">Export</button>
+                <label class="pill" style="flex:1;cursor:pointer"><input id="importFile" type="file" accept="application/json" style="display:none"> Import</label>
+              </div>
             </div>
-
-            <div class="mt-3 flex items-center gap-2">
-              <div class="text-xs text-slate-300">Models:</div>
-            </div>
-
-            <div id="modelList" class="mt-2 flex flex-wrap gap-2"></div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
-            <h2 class="font-semibold mb-2">Shortcuts</h2>
-            <ul class="list-disc list-inside text-sm text-slate-300">
-              <li><kbd>Shift+Enter</kbd> for newline</li>
-              <li>Type <code>/reset</code> to clear UI history</li>
-              <li>Type <code>remember: ...</code> to explicitly store something</li>
-            </ul>
+          <div class="card" style="padding:12px;">
+            <div style="font-weight:700;margin-bottom:8px">Session & Info</div>
+            <div class="small">Started: <span id="sessStart">--</span></div>
+            <div class="small">History messages: <span id="histCount">0</span></div>
+            <div style="margin-top:8px;" class="small">System knowledge: (used to shape replies)</div>
+            <pre id="sysInfo" style="background:rgba(0,0,0,0.15);padding:8px;border-radius:6px;max-height:120px;overflow:auto;font-size:12px;">...</pre>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/40">
-            <h2 class="font-semibold mb-2">About</h2>
-            <p class="text-sm text-slate-300">This local backend is for testing and demo. Replace with a server if you need remote storage or real LLMs.</p>
-            <button id="helpBtn" class="mt-2 px-2 py-1 rounded bg-slate-800 text-xs">Commands</button>
+          <div class="card" style="padding:12px;">
+            <div style="font-weight:700;margin-bottom:8px">Shortcuts</div>
+            <div class="small">/reset — clear chat history session</div>
+            <div class="small">/memories — open memories viewer</div>
+            <div class="small">search memory: &lt;term&gt; — quick find</div>
+            <div class="small">remember: &lt;text&gt; — explicitly store a memory</div>
           </div>
-        </aside>
-      </div>
-    </main>
-
-    <footer class="border-t border-slate-800 text-center text-xs text-slate-500 py-4">© <span id="yr"></span> Gomega</footer>
-  </div>
-
-  <!-- modal for memories -->
-  <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/50 z-50">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-4">
-      <div class="flex items-center justify-between">
-        <div class="font-semibold">Memories</div>
-        <div class="flex gap-2">
-          <input id="memSearch" placeholder="search..." class="bg-slate-800 text-xs rounded p-1" />
-          <button id="closeModal" class="px-2 py-1 rounded bg-indigo-600 text-xs">Close</button>
         </div>
       </div>
-      <div id="memList" class="mt-3 max-h-80 overflow-auto text-sm prose prose-invert"></div>
+
+      <div class="footer-note">This runs locally in your browser. No external servers are called. Identity string for direct queries: <strong>GPT-5 Thinking mini</strong>.</div>
+    </div>
+  </div>
+
+  <!-- memories modal -->
+  <div id="modal" style="position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:50;">
+    <div style="width:90%;max-width:900px;background:var(--card);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:700">Memories</div>
+        <div><input id="memSearch" placeholder="search..." style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:6px;border-radius:8px;color:inherit"><button id="closeMem" style="margin-left:8px;" class="pill">Close</button></div>
+      </div>
+      <div id="memList" style="margin-top:12px;max-height:60vh;overflow:auto;"></div>
     </div>
   </div>
 
 <script>
-/* -------------------------
-   UI logic (works with in-page /api override above)
-   ------------------------- */
-const $ = (s,p=document)=>p.querySelector(s);
-const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
-      modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'),
-      clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
-      backendShortText = $('#backendShortText'), modelListEl = $('#modelList'),
-      backendNote = $('#backendNote'), toggleLearnBtn = $('#toggleLearn'),
-      currentKey = $('#currentKey'), keyStatus = $('#keyStatus'),
-      viewMem = $('#viewMem'), memModal = $('#modal'), memList = $('#memList'),
-      closeModal = $('#closeModal'), memSearch = $('#memSearch'),
-      exportMem = $('#exportMem'), importMemFile = $('#importMemFile'), clearMemBtn = $('#clearMem'),
-      helpBtn = $('#helpBtn');
+/* ---------- UI + client logic ---------- */
+const $ = (s, p=document)=>p.querySelector(s);
+const chatArea = $('#chatArea'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
+      modelSelect = $('#modelSelect'), tempRange = $('#tempRange'), tempVal = $('#tempVal'),
+      speedRange = $('#speedRange'), speedVal = $('#speedVal'), thinkToggle = $('#thinkToggle'),
+      sessionTimer = $('#sessionTimer'), sessStartEl = $('#sessStart'), histCount = $('#histCount'),
+      sysInfo = $('#sysInfo'), viewMem = $('#viewMem'), modal = $('#modal'), memList = $('#memList'),
+      closeMem = $('#closeMem'), memSearch = $('#memSearch'), exportMem = $('#exportMem'),
+      importFile = $('#importFile'), clearMem = $('#clearMem'), resetNow = $('#resetNow'), chatLimitDisplay = $('#chatLimitDisplay');
 
-$('#yr').textContent = new Date().getFullYear();
-tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
-function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(promptEl.scrollHeight,220)+'px'; }
-promptEl.addEventListener('input', fit); fit();
+let CHAT_LIMIT = 200;
+let SESSION_RESET_MS = 1000 * 60 * 60 * 2; // 2 hours
+let typingSpeed = Number(speedRange.value); // ms per char
+let temp = Number(tempRange.value);
+let thinkMode = thinkToggle.checked;
+let currentModel = null;
 
-let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
-function saveHistory(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-200))); }
+// initial load config from local api
+async function loadConfig(){
+  try{
+    const r = await fetch('/api/config', { cache: 'no-store' });
+    const cfg = r.ok ? await r.json() : {};
+    const models = cfg.models || [{id:'gomega-4.o',label:'gomega-4.o'}];
+    modelSelect.innerHTML = '';
+    for(const m of models){ const o = document.createElement('option'); o.value = m.id; o.textContent = m.label||m.id; modelSelect.appendChild(o); }
+    currentModel = modelSelect.value;
+    temp = tempRange.value = cfg.temperature || temp;
+    tempVal.textContent = tempRange.value;
+    sysInfo.textContent = (cfg.systemKnowledge || '').slice(0,2000);
+    // show initial session info
+    updateSessionUI();
+  }catch(e){ console.warn('loadConfig err', e); }
+}
+loadConfig();
 
-function loadConfig(){
-  return fetch('/api/config', { cache: 'no-store' })
-    .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
-    .catch(()=> ({ models: [{id:'gomega-4.o',label:'gomega-4.o (local)'}], provider:'local', learn: true }));
+// session & history kept in localStorage by internal fetch override; provide local mirror
+function getSession(){
+  try{ return JSON.parse(localStorage.getItem('gomega_session_v4') || JSON.stringify({ startedAt: Date.now(), history: [] })); }
+  catch(e){ return { startedAt: Date.now(), history: [] }; }
+}
+function setSession(s){ localStorage.setItem('gomega_session_v4', JSON.stringify(s)); }
+
+function nowISO(ts) { return new Date(ts).toLocaleString(); }
+
+function addMessageToSession(role, content){
+  const s = getSession();
+  s.history.push({ role, content, ts: Date.now() });
+  // trim
+  if(s.history.length > CHAT_LIMIT) s.history = s.history.slice(-CHAT_LIMIT);
+  setSession(s);
+  updateSessionUI();
 }
 
-function populate(models, premiumAvailable, learn){
-  modelEl.innerHTML='';
-  modelListEl.innerHTML='';
-  for(const m of models){
-    const o=document.createElement('option');
-    o.value=m.id; o.textContent=m.label || m.id;
-    modelEl.appendChild(o);
-
-    const span = document.createElement('span');
-    span.className = 'model-badge mr-1';
-    span.textContent = m.id;
-    modelListEl.appendChild(span);
+function updateSessionUI(){
+  const s = getSession();
+  sessStartEl.textContent = nowISO(s.startedAt);
+  histCount.textContent = (s.history || []).length;
+  chatLimitDisplay.textContent = CHAT_LIMIT + ' messages';
+  // compute time until reset
+  const elapsed = Date.now() - (s.startedAt || Date.now());
+  const remain = Math.max(0, SESSION_RESET_MS - elapsed);
+  sessionTimer.textContent = msToHMS(remain);
+  // if expired, reset session automatically
+  if(remain <= 0){
+    resetSession();
   }
-  toggleLearnBtn.textContent = learn ? 'Learning: ON' : 'Learning: OFF';
-  toggleLearnBtn.classList.toggle('bg-rose-600', !learn);
-  toggleLearnBtn.classList.toggle('bg-indigo-600', !!learn);
 }
 
-function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:true}); }
-
-function addMsg(role, html, meta=''){
-  const wrap=document.createElement('div');
-  wrap.className='msg flex items-start gap-3';
-  const avatar = role==='user' ? 'U' : 'G';
-  wrap.innerHTML = `<div class="w-8 h-8 rounded-xl ${role==='user'?'bg-indigo-600':'bg-fuchsia-600'} flex items-center justify-center text-xs font-bold">${avatar}</div><div class="flex-1 prose prose-invert max-w-none text-sm">${html}${meta?`<div class="text-xs text-slate-400 mt-2">${meta}</div>`:''}</div>`;
-  chatEl.appendChild(wrap);
-  chatEl.scrollTop = chatEl.scrollHeight;
+function msToHMS(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 
-function renderHistory(){
-  chatEl.innerHTML='';
-  for(const m of history) addMsg(m.role, renderMarkdown(m.content), m.ts ? new Date(m.ts).toLocaleString() : '');
+// periodical timer
+setInterval(updateSessionUI, 1000);
+
+// reset session: clears session history and UI only
+function resetSession(){
+  const s = { startedAt: Date.now(), history: [] };
+  setSession(s);
+  // clear chat UI
+  chatArea.innerHTML = '';
+  updateSessionUI();
+  alert('Session reset: chat history cleared (2-hour limit). Memories are kept unless you clear them.');
 }
-renderHistory();
 
-loadConfig().then(cfg=>{
-  populate(cfg.models || [{id:'gomega-4.o',label:'gomega-4.o (local)'}], !!cfg.premiumAvailable, !!cfg.learn);
-  backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
-  backendShortText.textContent = cfg.provider||'local';
-  sendBtn.disabled = false;
-}).catch(e=>{
-  console.warn('loadConfig', e);
-  populate([{id:'gomega-4.o',label:'gomega-4.o (local)'}], false, true);
-  backendStatusEl.textContent = 'local fallback';
-  backendNote.textContent = 'Using built-in local backend.';
-  sendBtn.disabled = false;
-});
+// restore session messages to UI
+function renderSessionUI(){
+  chatArea.innerHTML = '';
+  const s = getSession();
+  for(const m of s.history){
+    appendMessageToUI(m.role, m.content, m.ts);
+  }
+}
+renderSessionUI();
 
-/* submit */
-form.addEventListener('submit', async e=>{
+// append static message (not streaming)
+function appendMessageToUI(role, content, ts){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + (role==='user' ? 'u' : 'g');
+  avatar.textContent = role==='user' ? 'U' : 'G';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = marked.parseInline(content) || content;
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = ts ? new Date(ts).toLocaleString() : '';
+  const container = document.createElement('div');
+  container.appendChild(bubble);
+  container.appendChild(meta);
+  wrap.appendChild(avatar);
+  wrap.appendChild(container);
+  chatArea.appendChild(wrap);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// create a typing element for assistant with streaming simulation
+function appendAssistantTypingElement(){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar g';
+  avatar.textContent = 'G';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  // think area first (invisible unless think mode)
+  const thinkDiv = document.createElement('div');
+  thinkDiv.className = 'think-dots';
+  thinkDiv.innerHTML = '<span></span><span></span><span></span>';
+  thinkDiv.style.marginBottom = '6px';
+  bubble.appendChild(thinkDiv);
+  const textEl = document.createElement('div');
+  textEl.style.whiteSpace = 'pre-wrap';
+  bubble.appendChild(textEl);
+  const meta = document.createElement('div'); meta.className = 'meta';
+  meta.textContent = '';
+  const container = document.createElement('div');
+  container.appendChild(bubble);
+  container.appendChild(meta);
+  wrap.appendChild(avatar);
+  wrap.appendChild(container);
+  chatArea.appendChild(wrap);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return { wrap, textEl, thinkDiv, meta };
+}
+
+// streaming type-out: returns a promise resolved when finished
+function streamTypeInto(element, text, speed){
+  return new Promise(resolve=>{
+    let i = 0;
+    element.textContent = '';
+    const step = ()=>{
+      if(i >= text.length){ resolve(); return; }
+      element.textContent += text[i++];
+      chatArea.scrollTop = chatArea.scrollHeight;
+      setTimeout(step, speed);
+    };
+    step();
+  });
+}
+
+// high-level send flow
+form.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const content = promptEl.value.trim(); if(!content) return;
+  const content = promptEl.value.trim();
+  if(!content) return;
 
   // commands
-  if(content === '/reset'){ history=[]; saveHistory(); renderHistory(); promptEl.value=''; return; }
-  if(content === '/memories'){ await showMemories(); promptEl.value=''; return; }
+  if(content === '/reset'){ resetSession(); promptEl.value=''; return; }
+  if(content === '/memories'){ openMemViewer(); promptEl.value=''; return; }
   if(content.toLowerCase().startsWith('remember:')){
+    // store explicit memory by sending to /api/chat (server stores it)
     const note = content.slice(9).trim();
-    if(note) {
-      try{
-        await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ messages: [{role:'user', content:`remember: ${note}`}], temperature:0.2, modelId: modelEl.value }) });
-        alert('Saved to memories.');
-      }catch(e){ alert('Failed to save memory.'); }
-    } else alert('Provide text after "remember:"');
+    if(note){
+      await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages:[{role:'user', content:`remember: ${note}`}], temperature: 0.2, modelId: modelSelect.value })});
+      alert('Saved note to memories.');
+    } else alert('Provide text after remember:');
     promptEl.value=''; return;
   }
 
-  history.push({ role:'user', content, ts: Date.now() });
-  addMsg('user', renderMarkdown(content), new Date().toLocaleString());
-  promptEl.value=''; fit();
-  saveHistory();
-
-  const placeholder = document.createElement('div');
-  placeholder.className = 'msg flex items-start gap-3';
-  placeholder.innerHTML = `<div class="w-8 h-8 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xs font-bold">G</div><div class="flex-1 prose prose-invert max-w-none text-sm"><span class="blinker">▍</span></div>`;
-  const bodyEl = placeholder.children[1];
-  chatEl.appendChild(placeholder);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  // push user msg to session & UI
+  addMessageToSession('user', content);
+  appendMessageToUI('user', content, Date.now());
+  promptEl.value = '';
+  // prepare assistant placeholder
+  const typingNode = appendAssistantTypingElement();
+  // call /api/chat
   sendBtn.disabled = true;
-
   try{
-    const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), messages: history.slice(-40), stream: false };
-    const resp = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const payload = { messages: getSession().history.slice(-180), temperature: Number(tempRange.value), modelId: modelSelect.value, thinkMode: thinkToggle.checked };
+    // call local API
+    const resp = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if(!resp.ok){
-      const txt = await resp.text().catch(()=>null);
-      bodyEl.innerHTML = renderMarkdown(`**Error:** server returned ${resp.status} ${resp.statusText}\n\n${txt||''}`);
+      typingNode.textEl.textContent = `**Error: server ${resp.status}**`;
       sendBtn.disabled = false;
       return;
     }
     const j = await resp.json();
-    const reply = j.text || JSON.stringify(j);
-    bodyEl.innerHTML = renderMarkdown(reply);
-    history.push({ role:'assistant', content: reply, ts: Date.now() });
-    saveHistory();
+    const reply = j.text || String(j);
+    // show think animation for a short while if thinkMode enabled
+    const thinkDelay = thinkToggle.checked ? 600 + Math.random()*1200 : 80 + Math.random()*260;
+    // show the dots (already shown), wait then type
+    await new Promise(r=>setTimeout(r, thinkDelay));
+    // remove dots area
+    typingNode.thinkDiv.style.display = 'none';
+    // simulated typing
+    typingSpeed = Number(speedRange.value);
+    await streamTypeInto(typingNode.textEl, reply, typingSpeed);
+    // set meta
+    typingNode.meta.textContent = `model: ${j.model || modelSelect.value}`;
+    // commit to session store
+    addMessageToSession('assistant', reply);
   }catch(err){
-    console.error('chat error', err);
-    bodyEl.innerHTML = renderMarkdown('**Error:** ' + (err.message || String(err)));
+    console.error('chat err', err);
+    typingNode.textEl.textContent = '**Error:** ' + (err.message || String(err));
   }finally{
     sendBtn.disabled = false;
   }
 });
 
-clearBtn.addEventListener('click', ()=>{ history=[]; saveHistory(); renderHistory(); });
+// helper to add to session store and keep UI counts
+function addMessageToSession(role, content){
+  const s = getSession();
+  s.history.push({ role, content, ts: Date.now() });
+  if(s.history.length > CHAT_LIMIT) s.history = s.history.slice(-CHAT_LIMIT);
+  setSession(s);
+  histCount.textContent = s.history.length;
+}
 
-promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
+// event handlers for settings
+modelSelect.addEventListener('change', ()=> currentModel = modelSelect.value);
+tempRange.addEventListener('input', ()=> tempVal.textContent = tempRange.value);
+speedRange.addEventListener('input', ()=> speedVal.textContent = speedRange.value);
+thinkToggle.addEventListener('change', ()=> thinkMode = thinkToggle.checked);
+resetNow.addEventListener('click', ()=> { if(confirm('Reset now?')) resetSession(); });
 
-/* memories modal */
-async function showMemories(filter=''){
-  try{
+// memory viewer
+function openMemViewer(){
+  modal.style.display = 'flex';
+  renderMemList();
+}
+viewMem.addEventListener('click', openMemViewer);
+closeMem.addEventListener('click', ()=> modal.style.display = 'none');
+
+async function renderMemList(query=''){
+  memList.innerHTML = '';
+  try {
     const r = await fetch('/api/memories');
-    if(!r.ok){ alert('Failed to fetch memories'); return; }
+    if(!r.ok) throw new Error('failed');
     const j = await r.json();
-    const mems = (j.memories || []).slice().reverse();
-    memList.innerHTML = '';
-    const q = (filter || '').toLowerCase();
+    const arr = (j.memories || []).slice().reverse();
     const frag = document.createDocumentFragment();
-    for(const m of mems){
-      if(q && !((m.text||'').toLowerCase().includes(q))) continue;
+    for(const m of arr){
+      if(query && !m.text.toLowerCase().includes(query.toLowerCase())) continue;
       const div = document.createElement('div');
-      div.className = 'mb-3 p-2 rounded bg-slate-800/40 border border-slate-800';
-      div.innerHTML = `<div class="text-xs text-slate-400">${m.role.toUpperCase()} • ${new Date(m.ts || Date.now()).toLocaleString()}</div><div class="mt-1">${renderMarkdown(m.text||'')}</div>`;
+      div.className = 'card';
+      div.style.marginBottom = '8px';
+      div.style.padding = '8px';
+      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">${m.role.toUpperCase()} • ${new Date(m.ts).toLocaleString()}</div><div style="margin-top:6px">${marked.parseInline(m.text)}</div>`;
       frag.appendChild(div);
     }
     memList.appendChild(frag);
-    memModal.classList.remove('hidden');
-    memModal.classList.add('flex');
-  }catch(e){ console.log('memories error', e); alert('Failed to fetch memories'); }
+  } catch(e){ memList.textContent = 'Failed to load memories.'; }
 }
-viewMem.addEventListener('click', ()=> showMemories());
-closeModal.addEventListener('click', ()=> { memModal.classList.add('hidden'); memModal.classList.remove('flex'); });
-memSearch.addEventListener('input', ()=> showMemories(memSearch.value));
+memSearch.addEventListener('input', ()=> renderMemList(memSearch.value));
 
-/* toggle learning */
-toggleLearnBtn.addEventListener('click', async ()=>{
-  try{
-    const st = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
-    const current = st ? !!st.learn : true;
-    window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.setLearn(!current);
-    populate((await fetch('/api/config').then(r=>r.json()).catch(()=>({models:[{id:'gomega-4.o'}], provider:'local', learn:!current}))).models, false, !current);
-  }catch(e){ console.warn(e); }
-});
-
-/* export/import/clear memories */
+// export/import/clear memories
 exportMem.addEventListener('click', async ()=>{
   try{
     const r = await fetch('/api/memories');
+    if(!r.ok) throw new Error('export failed');
     const j = await r.json();
-    const data = j.memories || [];
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(j.memories || [], null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `gomega-memories-${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = `gomega-memories-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }catch(e){ alert('Export failed'); }
 });
 
-importMemFile.addEventListener('change', async (ev)=>{
+importFile.addEventListener('change', async (ev)=>{
   const f = ev.target.files && ev.target.files[0];
   if(!f) return;
   try{
     const txt = await f.text();
     const arr = JSON.parse(txt);
-    if(!Array.isArray(arr)) throw new Error('Expected array');
-    const state = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
-    if(state){
-      for(const it of arr){
-        const m = { role: it.role||'assistant', text: it.text||'', ts: it.ts || Date.now(), keywords: it.keywords || [] };
-        state.memories = (state.memories || []).concat([m]).slice(-2000);
-      }
-      localStorage.setItem('gomega_local_state_v3', JSON.stringify(state));
-      alert('Imported. Reload page to view updated memories.');
-    }
-  }catch(e){ alert('Import failed: '+ (e.message||e)); }
+    if(!Array.isArray(arr)) throw new Error('expected array');
+    // merge by calling internal storeMemory via /api? we will push into local storage directly for speed:
+    const st = (await fetch('/api/memories').then(r=>r.ok?r.json():{memories:[]}).catch(()=>({memories:[]}))).memories || [];
+    const merged = (st.concat(arr)).slice(-2000);
+    // store merged by writing to local storage persistence key (note: internal state is saved under gomega_local_state_v4 by the override)
+    const stateRaw = JSON.parse(localStorage.getItem('gomega_local_state_v4') || '{}');
+    stateRaw.memories = merged.map(m=>({ role:m.role||'assistant', text:m.text||m, ts:m.ts||Date.now(), tokens:[], tf:{} }));
+    localStorage.setItem('gomega_local_state_v4', JSON.stringify(stateRaw));
+    alert('Imported memories. Reload page to refresh.');
+  }catch(e){ alert('Import failed: '+(e.message||e)); }
   ev.target.value = '';
 });
 
-clearMemBtn.addEventListener('click', async ()=>{
-  if(!confirm('Clear all local memories? This cannot be undone.')) return;
+clearMem.addEventListener('click', async ()=>{
+  if(!confirm('Clear all memories permanently?')) return;
   try{
-    const r = await fetch('/api/clear-memories', { method: 'POST' });
+    const r = await fetch('/api/clear-memories', { method:'POST' });
     if(!r.ok) throw new Error('clear failed');
     alert('Memories cleared.');
   }catch(e){ alert('Failed to clear memories'); }
 });
 
-/* help */
-helpBtn.addEventListener('click', ()=> {
-  alert("Commands:\n\n/reset — clear chat UI history\n/memories — view local memories\nsearch memory: <term> — search stored memories\nremember: <text> — explicitly add a memory\n\nMemories are stored locally in your browser (localStorage). Use Export/Import to move them.");
-});
-
-/* initial render */
-(function syncHistoryToUI(){
-  if(history.length) renderHistory();
+// load initial model selection & system info periodically
+(async function init(){
+  await loadConfig();
+  // refresh sys info periodically
+  setInterval(async ()=>{
+    const r = await fetch('/api/config', {cache:'no-store'}).catch(()=>null);
+    if(r && r.ok){ const j = await r.json(); sysInfo.textContent = (j.systemKnowledge || '').slice(0,2000); }
+  }, 60000);
 })();
+
+// auto reset session every 2 hours handled by updateSessionUI interval
+// and manual reset button available
+
+// expose helper for dev
+window.GOMEGA_UI = { resetSession, getSession: ()=>getSession(), renderSessionUI };
+
 </script>
 </body>
 </html>
