@@ -11,7 +11,7 @@
     const origFetch = window.fetch.bind(window);
 
     // Local persistent state (persisted to localStorage)
-    const PKEY = 'gomega_local_state_v2';
+    const PKEY = 'gomega_local_state_v3';
     let LOCAL = {
       key: "local-key-123456",
       memories: [], // { role: 'user'|'assistant', text: '...', ts: 0, keywords: [] }
@@ -23,13 +23,10 @@
       learn: true
     };
 
-    // Load from localStorage if available
+    // Load persisted state
     try{
       const raw = localStorage.getItem(PKEY);
-      if(raw) {
-        const parsed = JSON.parse(raw);
-        Object.assign(LOCAL, parsed);
-      }
+      if(raw) Object.assign(LOCAL, JSON.parse(raw));
     }catch(e){ console.warn('failed load local state', e); }
 
     function persist(){ try{ localStorage.setItem(PKEY, JSON.stringify(LOCAL)); }catch(e){console.warn('persist failed',e);} }
@@ -42,30 +39,61 @@
       });
     }
 
-    // simple tokenizer & keyword extractor (remove short/common words)
+    // ---------------------
+    // small NLP helpers
+    // ---------------------
+    const STOP = new Set(['the','is','in','on','and','a','an','of','to','for','i','you','me','it','that','this','with','are','was','be','have','has','do','did','not','but','my','your','we','they','he','she','as','at','by']);
+
     function extractKeywords(s){
       if(!s) return [];
-      const stop = new Set(['the','is','in','on','and','a','an','of','to','for','i','you','me','it','that','this','with','are','was','be','have','has','do','did','not','but']);
       return Array.from(new Set(String(s).toLowerCase()
         .replace(/[^\w\s]/g,' ')
         .split(/\s+/)
-        .filter(w => w.length>2 && !stop.has(w))
-        .slice(0,20)
+        .filter(w => w.length>2 && !STOP.has(w))
+        .slice(0,30)
       ));
     }
 
-    // similarity: number of keyword overlaps
-    function overlapScore(qKeys, mKeys){
-      if(!qKeys.length || !mKeys.length) return 0;
-      let s=0;
-      const set = new Set(mKeys);
-      for(const k of qKeys) if(set.has(k)) s++;
+    function overlapScore(aKeys, bKeys){
+      if(!aKeys.length || !bKeys.length) return 0;
+      let s=0; const set=new Set(bKeys);
+      for(const k of aKeys) if(set.has(k)) s++;
       return s;
     }
 
-    // local generation: use memories + templates
+    function smartShortReply(q, modelId){
+      const greetings = ['hi','hello','hey','yo','hiya'];
+      const lq = q.toLowerCase().trim();
+      // greeting
+      if(greetings.includes(lq) || /^hi\b|^hello\b|^hey\b/i.test(q)) {
+        return ["Hey! 👋 How can I help today?","Hello — what would you like to do?","Hi there — ask me anything!"][Math.floor(Math.random()*3)];
+      }
+      // day chit
+      if(/\bhow (are|is) (you|your day)\b/i.test(q) || /\bhow's your day\b/i.test(q)) {
+        return ["I'm a local assistant — running smoothly! How's yours?","Doing great — ready to help. What do you want to ask?"][Math.floor(Math.random()*2)];
+      }
+      // short fallback
+      if(q.length < 40) {
+        return `Quick thought: ${q}. Ask for more detail or examples.`;
+      }
+      return null;
+    }
+
+    function paraphraseShort(text){
+      // simple paraphrase templates
+      const templates = [
+        `I recall: ${text}`,
+        `From earlier: ${text}`,
+        `${text} — does that help?`
+      ];
+      return templates[Math.floor(Math.random()*templates.length)];
+    }
+
+    // ---------------------
+    // Local generator (improved)
+    // ---------------------
     function localGenerate(messages, temperature=0.7, modelId='gomega-4.o'){
-      // find last user content
+      // last user
       let lastUser = "";
       for (let i = messages.length - 1; i >= 0; --i) {
         if (messages[i].role === 'user') { lastUser = (messages[i].content || ""); break; }
@@ -73,84 +101,92 @@
       const q = (lastUser || "").trim();
       const ql = q.toLowerCase();
 
-      // built-in direct helpers
-      if (/\bdate\b|\btoday\b/.test(ql)) {
+      // 1) Built-in helpers (date/time)
+      if (/\bdate\b|\btoday\b/.test(ql) && /\bwhat\b|\bwhich\b|\bcurrent\b|^\b/i.test(ql)) {
         const d = new Date(); return `Today is ${d.toDateString()}.`;
       }
-      if (/\btime\b/.test(ql)) {
+      if (/\btime\b/.test(ql) && /\bwhat\b|\bcurrent\b/.test(ql)) {
         const d = new Date(); return `Current time: ${d.toLocaleTimeString()}.`;
       }
-      if (/\bwho are you\b|\bwhat are you\b/.test(ql)) {
-        return "I am Gomega (local demo) — a lightweight local assistant running inside your browser. I learn from our conversations and keep memories locally.";
+
+      // 2) Identity/model questions
+      if(/\bwhat (model|version) (are you|are you running)\b/i.test(ql) || /\bwhich model (are you|is this)\b/i.test(ql)){
+        // If the generator was called with modelId, state that
+        if(modelId) return `I am the local model **${modelId}** (running in your browser).`;
+        return `I am a local Gomega model (running in-browser).`;
+      }
+      if(/\bwhat model am i using\b|\bwhat model am i using right now\b|\bwhich model am i using\b/i.test(ql)){
+        if(modelId) return `You're using **${modelId}** right now.`;
+        return `You're using the local model configured in the UI.`;
       }
 
+      // 3) Direct "who are you" -> friendly description
+      if (/\bwho are you\b|\bwhat are you\b/i.test(ql)) {
+        return "I am Gomega — a lightweight local assistant running inside your browser. (Note: ChatGPT identity: GPT-5 Thinking mini)";
+      }
+
+      // 4) explicit memory search command
       if (ql.startsWith('search memory:')) {
-        const term = q.slice('search memory:'.length).trim().toLowerCase();
+        const term = q.slice(14).trim().toLowerCase();
         if(!term) return 'Provide a term after "search memory:".';
         const hits = LOCAL.memories.filter(m => (m.text||'').toLowerCase().includes(term));
         if (!hits.length) return "No memories matched that query.";
         return "Memory matches:\n\n" + hits.slice(-8).map(h => `${h.role.toUpperCase()} (${new Date(h.ts).toLocaleString()}): ${h.text.slice(0,300)}`).join("\n\n");
       }
 
-      // extract keywords for query and score memories
+      // 5) explicit remember command — store handled elsewhere, but acknowledge
+      if(ql.startsWith('remember:')) {
+        const note = q.slice(9).trim();
+        if(!note) return 'Provide text after "remember:".';
+        return `Okay — I'll keep that in memory: "${note.slice(0,200)}"`;
+      }
+
+      // 6) short chit / greetings / small questions
+      const short = smartShortReply(q, modelId);
+      if(short) return short;
+
+      // 7) Memory retrieval: score and only return when useful
       const qkeys = extractKeywords(q);
       const scored = LOCAL.memories.map(m => ({m,score: overlapScore(qkeys, m.keywords || extractKeywords(m.text||''))}));
       scored.sort((a,b) => b.score - a.score);
 
-      // if we have a strong match, return that memory (assistant messages)
-      if(scored.length && scored[0].score >= Math.max(1, Math.floor(qkeys.length/2))){
+      if(scored.length && scored[0].score >= Math.max(2, Math.floor(qkeys.length/3))){
         const best = scored[0].m;
-        if(best.role === 'assistant' && best.text && best.text.length>20){
-          // vary phrasing slightly by temperature
-          if(Math.random() < Math.min(0.9,temperature+0.2)){
-            return `I recall: ${best.text}`;
-          } else {
-            return `Related memory: ${best.text}`;
-          }
+        // don't just echo the user's exact question; ensure memory helpfulness
+        if(best.role === 'assistant' && best.text && best.text.length > 20 && !best.text.toLowerCase().includes(q.toLowerCase())){
+          return paraphraseShort(best.text);
         }
       }
 
-      // try to synthesize from multiple recent relevant memories
-      const relevant = scored.filter(s => s.score>0).slice(0,6).map(s => s.m.text);
+      // 8) Synthesize from multiple relevant memories if available
+      const relevant = scored.filter(s => s.score>0).slice(0,6).map(s => s.m.text).filter(Boolean);
       if(relevant.length){
-        // pick a sentence from relevant memories and combine
-        const take = relevant.map(r => r.split(/[.\n]/).map(p => p.trim()).filter(Boolean)).flat();
-        if(take.length){
-          const pick = take[Math.floor(Math.random()*take.length)];
-          // small paraphrase
-          const opens = [
-            `Based on earlier chats, here's a thought:`,
-            `From what I remember:`,
-            `I can combine past notes:`
-          ];
-          const opener = opens[Math.floor(Math.random()*opens.length)];
-          return `${opener} ${pick}${Math.random()<0.3 ? ' — does that help?' : ''}`;
+        const parts = relevant.map(r => r.split(/[\.\n]/).map(p => p.trim()).filter(Boolean)).flat();
+        if(parts.length){
+          const pick = parts[Math.floor(Math.random()*parts.length)];
+          return `Combining earlier notes: ${pick}${Math.random()<0.25 ? ' — want more detail?' : ''}`;
         }
       }
 
-      // fallback canned replies influenced by modelId and temperature
-      const baseCanned = [
-        `I got: "${lastUser}". Could you give a bit more detail?`,
-        `Local reply — you asked: "${lastUser}". I can help structure an answer or provide steps.`,
-        `Here's a quick reply: "${lastUser}". Try asking for examples or an explanation.`,
+      // 9) fallback canned replies (temperature influences creativity)
+      const base = [
+        `I understood: "${lastUser}". Could you add a little more detail so I can give a better answer?`,
+        `Here's a local response to "${lastUser}" — I can format this as steps or an example if you'd like.`,
+        `Quick local reply: "${lastUser}". Try asking for "explain like I'm five" or "give steps".`
       ];
-
-      // model personality: gomega-3 conservative, gomega-4 balanced, gomega-5 creative
-      let personalityFactor = 0.7;
-      if(modelId && modelId.includes('3.o')) personalityFactor = 0.25;
-      if(modelId && modelId.includes('5.o')) personalityFactor = 1.0;
-
       const t = Math.max(0, Math.min(1, Number(temperature) || 0.7));
-      // choose index influenced by temperature and personality
-      const idx = Math.floor((Math.random() * (0.3 + t*personalityFactor)) * baseCanned.length) % baseCanned.length;
-      let canned = baseCanned[idx];
+      // model personality
+      let personality = 0.7;
+      if(modelId && modelId.includes('3.o')) personality = 0.25;
+      if(modelId && modelId.includes('5.o')) personality = 1.0;
+      const idx = Math.floor(Math.random() * base.length * (0.5 + t*personality)) % base.length;
+      let canned = base[idx];
 
-      // add a helpful hint sometimes
-      if(Math.random() < 0.4 + (t*0.2)) {
+      if(Math.random() < 0.45 + 0.2*t) {
         const hints = [
-          "You can ask me to `search memory: <term>` to look through what I remember.",
-          "Tip: include examples or what format you'd like the answer in (list, steps, code).",
-          "If you want me to remember something for later, say: `remember: <something>`."
+          "Tip: ask for 'examples', 'step-by-step', or 'code' to get structured answers.",
+          "You can use search memory: <term> to look up what I remember.",
+          "Use remember: <text> to explicitly store an item in memory."
         ];
         canned += `\n\n${hints[Math.floor(Math.random()*hints.length)]}`;
       }
@@ -158,7 +194,9 @@
       return canned;
     }
 
-    // Override fetch: intercept requests where pathname starts with /api
+    // ---------------------
+    // fetch override
+    // ---------------------
     window.fetch = async function(input, init) {
       try {
         const urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
@@ -166,8 +204,7 @@
         const pathname = parsed.pathname || '/';
         if (pathname.startsWith('/api')) {
           // emulate small latency
-          await new Promise(r => setTimeout(r, 60 + Math.random() * 200));
-
+          await new Promise(r => setTimeout(r, 50 + Math.random() * 220));
           const sub = pathname.slice('/api'.length) || '/';
 
           // GET /api/config
@@ -190,7 +227,7 @@
 
           // GET /api/memories
           if (sub === '/memories' && (!init || (init.method||'GET').toUpperCase() === 'GET')) {
-            return jsonResp({ memories: LOCAL.memories.slice(-200).map(m => ({ role: m.role, text: m.text, ts: m.ts })) });
+            return jsonResp({ memories: LOCAL.memories.slice(-500).map(m => ({ role: m.role, text: m.text, ts: m.ts, keywords: m.keywords })) });
           }
 
           // POST /api/clear-memories
@@ -207,21 +244,26 @@
             const messages = body.messages || [];
             const temperature = Number(body.temperature || 0.7);
             const modelId = body.modelId || (LOCAL.models[0] && LOCAL.models[0].id);
-            // store the user message as memory if learning enabled
+
+            // store the user message as memory (only if it's not a tiny greeting and learning enabled)
             try {
               const lastUser = messages.slice().reverse().find(m => m.role==='user');
-              if(LOCAL.learn && lastUser && lastUser.content) {
-                LOCAL.memories.push({ role:'user', text: lastUser.content, ts: Date.now(), keywords: extractKeywords(lastUser.content) });
+              if(LOCAL.learn && lastUser && lastUser.content){
+                const txt = lastUser.content.trim();
+                const isTiny = txt.length < 30 && (/^(hi|hello|hey|how are you|what's up|sup)$/i.test(txt));
+                if(!isTiny){
+                  const mem = { role:'user', text: txt, ts: Date.now(), keywords: extractKeywords(txt) };
+                  LOCAL.memories.push(mem);
+                }
               }
             } catch(e){ console.warn('store user memory err', e); }
 
             const reply = localGenerate(messages, temperature, modelId);
 
-            // store assistant reply
-            if(LOCAL.learn && reply) {
+            // store assistant reply (only if helpful / not too short)
+            if(LOCAL.learn && reply && reply.length>20){
               LOCAL.memories.push({ role:'assistant', text: reply, ts: Date.now(), keywords: extractKeywords(reply) });
-              // keep memories bounded
-              if(LOCAL.memories.length > 1000) LOCAL.memories = LOCAL.memories.slice(-1000);
+              if(LOCAL.memories.length > 2000) LOCAL.memories = LOCAL.memories.slice(-2000);
               persist();
             }
 
@@ -238,7 +280,7 @@
       return origFetch(input, init);
     };
 
-    // expose a small debug inspector on window for dev convenience
+    // small debug inspector
     window.__GOMEGA_LOCAL = {
       getState: () => JSON.parse(JSON.stringify(LOCAL)),
       persist,
@@ -247,7 +289,7 @@
   })();
   </script>
 
-  <!-- Tailwind CDN & marked (UI libs) -->
+  <!-- Tailwind & marked -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -262,7 +304,6 @@
     .model-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:999px; font-size:11px; background:rgba(255,255,255,0.03); color:#cbd5e1; border:1px solid rgba(255,255,255,0.03); }
     .small-muted { font-size: 12px; color: #94a3b8; }
     .kv { display:flex; gap:0.5rem; align-items:center; }
-    /* slightly nicer scrollbar for the chat area */
     #chat::-webkit-scrollbar { width: 10px; }
     #chat::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius:10px; }
   </style>
@@ -288,7 +329,7 @@
 
           <form id="composer" class="mt-3" onsubmit="event.preventDefault()">
             <div class="flex items-end gap-2">
-              <textarea id="prompt" rows="1" placeholder="Ask anything… (or use commands: /reset, /memories, search memory: <term>, remember: <text>)" class="flex-1 resize-none bg-slate-800/60 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
+              <textarea id="prompt" rows="1" placeholder="Ask anything… (commands: /reset, /memories, search memory:, remember: )" class="flex-1 resize-none bg-slate-800/60 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-indigo-500/60"></textarea>
               <button id="send" type="submit" class="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-medium">Send</button>
             </div>
 
@@ -367,7 +408,7 @@
     <footer class="border-t border-slate-800 text-center text-xs text-slate-500 py-4">© <span id="yr"></span> Gomega</footer>
   </div>
 
-  <!-- modal container for viewing memories -->
+  <!-- modal for memories -->
   <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/50 z-50">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-4">
       <div class="flex items-center justify-between">
@@ -403,8 +444,8 @@ function fit(){ promptEl.style.height='auto'; promptEl.style.height=Math.min(pro
 promptEl.addEventListener('input', fit); fit();
 
 let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
-
 function saveHistory(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-200))); }
+
 function loadConfig(){
   return fetch('/api/config', { cache: 'no-store' })
     .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
@@ -424,7 +465,6 @@ function populate(models, premiumAvailable, learn){
     span.textContent = m.id;
     modelListEl.appendChild(span);
   }
-  // set learn button state
   toggleLearnBtn.textContent = learn ? 'Learning: ON' : 'Learning: OFF';
   toggleLearnBtn.classList.toggle('bg-rose-600', !learn);
   toggleLearnBtn.classList.toggle('bg-indigo-600', !!learn);
@@ -469,7 +509,6 @@ form.addEventListener('submit', async e=>{
   if(content === '/reset'){ history=[]; saveHistory(); renderHistory(); promptEl.value=''; return; }
   if(content === '/memories'){ await showMemories(); promptEl.value=''; return; }
   if(content.toLowerCase().startsWith('remember:')){
-    // store explicit memory via /api call (so it follows same storage process)
     const note = content.slice(9).trim();
     if(note) {
       try{
@@ -504,9 +543,7 @@ form.addEventListener('submit', async e=>{
     }
     const j = await resp.json();
     const reply = j.text || JSON.stringify(j);
-    // replace placeholder with content
     bodyEl.innerHTML = renderMarkdown(reply);
-    // store assistant in history and persist
     history.push({ role:'assistant', content: reply, ts: Date.now() });
     saveHistory();
   }catch(err){
@@ -521,7 +558,7 @@ clearBtn.addEventListener('click', ()=>{ history=[]; saveHistory(); renderHistor
 
 promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 
-/* memory modal and actions */
+/* memories modal */
 async function showMemories(filter=''){
   try{
     const r = await fetch('/api/memories');
@@ -543,15 +580,12 @@ async function showMemories(filter=''){
     memModal.classList.add('flex');
   }catch(e){ console.log('memories error', e); alert('Failed to fetch memories'); }
 }
-
 viewMem.addEventListener('click', ()=> showMemories());
 closeModal.addEventListener('click', ()=> { memModal.classList.add('hidden'); memModal.classList.remove('flex'); });
-
 memSearch.addEventListener('input', ()=> showMemories(memSearch.value));
 
 /* toggle learning */
 toggleLearnBtn.addEventListener('click', async ()=>{
-  // flip in local api state
   try{
     const st = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
     const current = st ? !!st.learn : true;
@@ -581,18 +615,14 @@ importMemFile.addEventListener('change', async (ev)=>{
     const txt = await f.text();
     const arr = JSON.parse(txt);
     if(!Array.isArray(arr)) throw new Error('Expected array');
-    // merge into existing via the fetch override's persistence
-    for(const it of arr){
-      // push as-is but ensure fields
-      const m = { role: it.role||'assistant', text: it.text||'', ts: it.ts || Date.now(), keywords: [] };
-      try{ m.keywords = (it.keywords || []).slice(0,20); }catch(e){}
-      // we'll call internal setter
-      const state = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
-      if(state){
-        state.memories = (state.memories || []).concat([m]).slice(-1000);
-        localStorage.setItem('gomega_local_state_v2', JSON.stringify(state));
-        alert('Imported. Reload page to view updated memories.');
+    const state = window.__GOMEGA_LOCAL && window.__GOMEGA_LOCAL.getState();
+    if(state){
+      for(const it of arr){
+        const m = { role: it.role||'assistant', text: it.text||'', ts: it.ts || Date.now(), keywords: it.keywords || [] };
+        state.memories = (state.memories || []).concat([m]).slice(-2000);
       }
+      localStorage.setItem('gomega_local_state_v3', JSON.stringify(state));
+      alert('Imported. Reload page to view updated memories.');
     }
   }catch(e){ alert('Import failed: '+ (e.message||e)); }
   ev.target.value = '';
@@ -612,7 +642,7 @@ helpBtn.addEventListener('click', ()=> {
   alert("Commands:\n\n/reset — clear chat UI history\n/memories — view local memories\nsearch memory: <term> — search stored memories\nremember: <text> — explicitly add a memory\n\nMemories are stored locally in your browser (localStorage). Use Export/Import to move them.");
 });
 
-/* quick load existing history into UI */
+/* initial render */
 (function syncHistoryToUI(){
   if(history.length) renderHistory();
 })();
