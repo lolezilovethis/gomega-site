@@ -13,10 +13,11 @@
     .msg code:not(pre code) { background:#0f172a; color:#e2e8f0; padding:0.2rem 0.3rem; border-radius:0.3rem; }
     .blinker { animation: blink 1s step-start 0s infinite; }
     @keyframes blink { 50% { opacity: 0; } }
-
     header .logo { font-weight: 700; letter-spacing: -0.5px; }
     .model-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:999px; font-size:11px; background:rgba(255,255,255,0.03); color:#cbd5e1; border:1px solid rgba(255,255,255,0.03); }
     .prose-invert img { border-radius: 6px; }
+    .status-error { color: #fca5a5; }
+    .small-muted { font-size: 12px; color: #94a3b8; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
@@ -66,6 +67,7 @@
 
           <div class="mt-2 text-xs text-slate-400">
             <div>Status: <span id="backendStatus">checking...</span></div>
+            <div id="backendNote" class="small-muted mt-1"></div>
             <div class="mt-2 text-xs text-slate-500">Tip: append <code>?api=https://api.example.com</code> to override API URL.</div>
           </div>
         </section>
@@ -74,6 +76,10 @@
           <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">Session</h2>
             <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">checking...</span></div>
+            <div class="mt-3 flex items-center gap-2">
+              <button id="toggleFallback" class="px-2 py-1 rounded bg-slate-800 text-xs">Use local fallback</button>
+              <button id="clearSavedApi" class="px-2 py-1 rounded bg-slate-800 text-xs">Clear saved API</button>
+            </div>
           </div>
 
           <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
@@ -97,15 +103,37 @@
   </div>
 
 <script>
+/* -------------------------
+   CONFIG / API selection
+   ------------------------- */
 const DEFAULT_BASE = "/api";
 const QS = new URLSearchParams(location.search);
-const BASE_URL = (QS.get('api') || DEFAULT_BASE).replace(/\/+$/,'');
 
+// If user passed ?api=... then prefer that and persist it to localStorage.
+// Otherwise if there's a saved API in localStorage use that.
+// Finally fall back to DEFAULT_BASE.
+const SAVED_API_KEY = 'gomega_api_base';
+const apiFromQS = QS.get('api');
+if(apiFromQS){
+  try{ localStorage.setItem(SAVED_API_KEY, apiFromQS); }catch(e){ /* ignore */ }
+}
+const savedApi = localStorage.getItem(SAVED_API_KEY);
+const BASE_URL_RAW = (apiFromQS || savedApi || DEFAULT_BASE);
+const BASE_URL = String(BASE_URL_RAW).replace(/\/+$/,''); // remove trailing slash
+
+/* small flags */
+let userProvidedApi = Boolean(apiFromQS || savedApi);
+let fallbackEnabled = !userProvidedApi; // default: allow fallback only when user did not explicitly set an API
+
+/* -------------------------
+   DOM refs
+   ------------------------- */
 const $ = (s,p=document)=>p.querySelector(s);
 const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
       modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
       clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
-      backendShort = $('#backendShort'), viewMem = $('#viewMem'), modelListEl = $('#modelList');
+      backendShort = $('#backendShort'), viewMem = $('#viewMem'), modelListEl = $('#modelList'),
+      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'), clearSavedApiBtn = $('#clearSavedApi');
 
 $('#yr').textContent = new Date().getFullYear();
 tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
@@ -127,6 +155,7 @@ function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:tru
 function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
 renderHistory();
 
+/* Fallback models */
 const FALLBACK = [
   {id:'gomega-5', label:'gomega-5 (best)'},
   {id:'gomega-4o', label:'gomega-4o (balanced)'},
@@ -138,32 +167,61 @@ const FALLBACK = [
 ];
 
 let backendAvailable = false;
+
+/* helper: fetch with timeout */
+async function fetchWithTimeout(url, opts = {}, timeout = 6000){
+  const ac = new AbortController();
+  const id = setTimeout(()=> ac.abort(), timeout);
+  try{
+    const r = await fetch(url, Object.assign({}, opts, {signal: ac.signal}));
+    clearTimeout(id);
+    return r;
+  }catch(e){
+    clearTimeout(id);
+    throw e;
+  }
+}
+
 async function loadConfig(){
   try{
     const url = BASE_URL + '/config';
     console.log('loading config from', url);
-    const r = await fetch(url, { cache: 'no-store' });
+    const r = await fetchWithTimeout(url, { cache: 'no-store' }, 6000);
     if(!r.ok){
       const txt = await r.text().catch(()=>null);
-      console.log('config fetch failed', r.status, r.statusText, txt);
+      console.warn('config fetch failed', r.status, r.statusText, txt);
       throw new Error('config fetch failed '+r.status);
     }
     const cfg = await r.json();
     populate(cfg.models || FALLBACK, !!cfg.premiumAvailable);
     backendAvailable = true;
-    backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
-    backendShort.textContent = cfg.provider||'local';
+    backendStatusEl.textContent = `provider=${cfg.provider||'remote'}`;
+    backendShort.textContent = cfg.provider||'remote';
+    backendNote.textContent = `Using ${BASE_URL}`;
     sendBtn.disabled = false;
   }catch(e){
-    console.warn('config load failed — using fallback', e);
+    console.warn('config load failed', e);
     populate(FALLBACK,false);
-    backendStatusEl.textContent = 'unavailable (using local fallback)';
-    backendShort.textContent = 'none';
     backendAvailable = false;
+    backendShort.textContent = 'none';
+
+    // If user explicitly provided an API (via ?api or saved), don't silently fallback.
+    if(userProvidedApi && !fallbackEnabled){
+      backendStatusEl.innerHTML = `<span class="status-error">Failed to contact provided backend</span>`;
+      backendNote.textContent = `Tried: ${BASE_URL}/config — request failed or CORS blocked. Click "Use local fallback" to run a local demo, or clear the saved API.`;
+      sendBtn.disabled = true;
+      console.log('User provided API unreachable; not using local fallback (disabled). BASE_URL =', BASE_URL);
+      return;
+    }
+
+    // Otherwise allow local fallback but indicate that it's a fallback
+    backendStatusEl.textContent = 'unavailable — using local fallback';
+    backendNote.textContent = `No remote backend found at ${BASE_URL}. Using local demo reply.`;
     sendBtn.disabled = false;
     console.log('Config load failed — using fallback models. BASE_URL =', BASE_URL);
   }
 }
+
 function populate(models,premiumAvailable){
   modelEl.innerHTML='';
   modelListEl.innerHTML = '';
@@ -172,13 +230,16 @@ function populate(models,premiumAvailable){
     o.value=m.id; o.textContent=m.label||m.id;
     if(m.premium && !premiumAvailable) o.disabled=true;
     modelEl.appendChild(o);
+
     const span = document.createElement('span');
     span.className = 'model-badge mr-1';
     span.textContent = m.id;
     modelListEl.appendChild(span);
   }
 }
-loadConfig().catch(e=>console.warn('loadConfig',e));
+
+/* initial load */
+loadConfig().catch(e=>console.warn('loadConfig', e));
 
 function isTextEventStream(ct){ return ct && ct.includes('text/event-stream'); }
 function isNDJson(ct){ return ct && (ct.includes('ndjson') || ct.includes('application/json') || ct.includes('application/x-ndjson')); }
@@ -235,6 +296,8 @@ async function streamToText(resp, onChunk){
     onChunk(chunk);
   }
 }
+
+/* Local fallback streaming simulation (used when fallbackEnabled is true) */
 function simulateLocalStreaming(prompt, opts, onChunk, onDone){
   const replyIntro = `Gomega (${opts.model}) — local demo reply:\n\n`;
   const core = `I can't reach a remote backend. This is a local demo reply summarizing your message:\n\n"${prompt}"\n\nTry adding ?api=https://your.api.endpoint to connect a real backend.`;
@@ -250,6 +313,9 @@ function simulateLocalStreaming(prompt, opts, onChunk, onDone){
   }, 25);
 }
 
+/* -------------------------
+   SUBMIT / UI interactions
+   ------------------------- */
 form.addEventListener('submit', async e=>{
   e.preventDefault();
   const content = promptEl.value.trim(); if(!content) return;
@@ -270,6 +336,14 @@ form.addEventListener('submit', async e=>{
   try{
     const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value || undefined, messages: history.slice(-20), stream: true };
 
+    // If no backend reachable and fallback is disabled (because user explicitly provided API), error out.
+    if(!backendAvailable && userProvidedApi && !fallbackEnabled){
+      bodyEl.innerHTML = renderMarkdown('**Error:** Provided API unreachable. Check console and network (CORS / HTTPS).');
+      sendBtn.disabled = false;
+      return;
+    }
+
+    // Local fallback mode
     if(!backendAvailable){
       let acc = '';
       await new Promise((resolve) => {
@@ -311,7 +385,6 @@ form.addEventListener('submit', async e=>{
   }catch(err){
     console.error('chat error', err);
     bodyEl.innerHTML = renderMarkdown('**Error:** ' + (err.message || String(err)));
-    console.log('chat error: ' + (err.message || String(err)));
   }finally{
     sendBtn.disabled = false;
   }
@@ -334,6 +407,36 @@ viewMem.addEventListener('click', async ()=>{
     alert(display || 'No memories returned from backend.');
   }catch(e){ console.log('memories error', e); alert('Failed to fetch memories (see console)'); }
 });
+
+/* Toggle button: let user force local fallback even if they provided an API */
+toggleFallbackBtn.addEventListener('click', ()=>{
+  fallbackEnabled = !fallbackEnabled;
+  toggleFallbackBtn.textContent = fallbackEnabled ? 'Using local fallback' : 'Use local fallback';
+  toggleFallbackBtn.classList.toggle('bg-indigo-600', fallbackEnabled);
+  toggleFallbackBtn.classList.toggle('bg-slate-800', !fallbackEnabled);
+
+  // if currently backend is unreachable but user just enabled fallback, allow sending
+  if(fallbackEnabled && !backendAvailable){
+    backendStatusEl.textContent = 'using local fallback';
+    backendNote.textContent = `Local demo active. Clear saved API to stop trying remote backend.`;
+    sendBtn.disabled = false;
+  }else if(!fallbackEnabled && userProvidedApi && !backendAvailable){
+    backendStatusEl.innerHTML = `<span class="status-error">Provided API unreachable</span>`;
+    sendBtn.disabled = true;
+  }
+});
+
+/* Clear saved API */
+clearSavedApiBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(SAVED_API_KEY);
+  userProvidedApi = false;
+  backendNote.textContent = 'Cleared saved API. Reload the page to try default/local behavior.';
+  alert('Saved API cleared. Reload the page.');
+});
+
+/* show initial toggle state */
+toggleFallbackBtn.textContent = fallbackEnabled ? 'Using local fallback' : 'Use local fallback';
+if(fallbackEnabled) toggleFallbackBtn.classList.add('bg-indigo-600'); else toggleFallbackBtn.classList.add('bg-slate-800');
 </script>
 </body>
 </html>
