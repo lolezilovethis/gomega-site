@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gomega AI — ai.html</title>
+  <title>Gomega AI — ai.html (local-only)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
@@ -69,40 +69,28 @@
           <div class="mt-2 text-xs text-slate-400">
             <div>Status: <span id="backendStatus">checking...</span></div>
             <div id="backendNote" class="small-muted mt-1"></div>
-            <div class="mt-2 text-xs text-slate-500">Tip: append <code>?api=https://api.example.com</code> to override API URL.</div>
+            <div class="mt-2 text-xs text-slate-500">This page runs a built-in local backend — no <code>?api=</code> needed.</div>
           </div>
         </section>
 
         <aside class="space-y-3">
           <div id="sessionCard" class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">Session</h2>
-            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">checking...</span></div>
+            <div id="sessionMsg" class="text-sm text-slate-300">Backend: <span id="backendShort">local</span></div>
 
             <div class="mt-3 space-y-2">
-              <label class="text-xs text-slate-400">API override (optional)</label>
-              <div class="flex gap-2">
-                <input id="apiInput" type="text" placeholder="https://your-project.cloudfunctions.net/api" class="flex-1 rounded px-2 py-1 bg-slate-800 text-xs" />
-                <button id="saveApiBtn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Save</button>
-              </div>
-              <div class="text-xs small-muted">Current: <span id="currentApiDisplay">/api</span></div>
+              <div class="text-xs small-muted">No API required — local mock backend in this page.</div>
             </div>
 
             <div class="mt-3 flex flex-col gap-2">
               <div class="kv">
-                <button id="getKeyBtn" class="px-2 py-1 rounded bg-slate-800 text-xs">Show current key</button>
-                <div id="currentKey" class="text-xs text-slate-300 ml-2">—</div>
+                <div id="currentKey" class="text-xs text-slate-300 ml-2">local-key</div>
               </div>
-
-              <div class="kv">
-                <input id="keyInput" placeholder="Enter key to activate" class="rounded px-2 py-1 bg-slate-800 text-xs flex-1" />
-                <button id="verifyKeyBtn" class="px-2 py-1 rounded bg-indigo-600 text-xs">Verify</button>
-              </div>
-              <div id="keyResult" class="text-xs small-muted">Key status: <span id="keyStatus">unknown</span></div>
+              <div id="keyResult" class="text-xs small-muted">Key status: <span id="keyStatus">local</span></div>
             </div>
 
             <div class="mt-3 flex items-center gap-2">
-              <button id="toggleFallback" class="px-2 py-1 rounded bg-slate-800 text-xs">Use local fallback</button>
-              <button id="clearSavedApi" class="px-2 py-1 rounded bg-slate-800 text-xs">Clear saved API</button>
+              <button id="toggleFallback" class="px-2 py-1 rounded bg-slate-800 text-xs">Using local backend</button>
             </div>
           </div>
 
@@ -116,7 +104,7 @@
 
           <div class="rounded-2xl border border-slate-800 p-4 bg-slate-950/50">
             <h2 class="font-semibold mb-2">About</h2>
-            <p class="text-sm text-slate-300">Local-first AI — conversation history is stored in your browser localStorage and optionally on a remote server if configured.</p>
+            <p class="text-sm text-slate-300">This local backend is for development and testing only. Replace with a real server when you’re ready.</p>
             <button id="viewMem" class="mt-2 px-2 py-1 rounded bg-slate-800 text-xs">View recent memories</button>
           </div>
         </aside>
@@ -128,44 +116,146 @@
 
 <script>
 /* -------------------------
-   CONFIG / API selection
-   ------------------------- */
+   QUICK LOCAL-BACKEND PATCH
+   -------------------------
+   This code intercepts fetch calls that target /api and answers them locally.
+   You do NOT need to pass ?api=...; the UI will use /api by default and talk to this in-page backend.
+*/
 const DEFAULT_BASE = "/api";
-const QS = new URLSearchParams(location.search);
+const BASE_URL = DEFAULT_BASE;
 
-// Persist key for saved API
-const SAVED_API_KEY = 'gomega_api_base';
-let apiFromQS = QS.get('api');
-if(apiFromQS){
-  try{ localStorage.setItem(SAVED_API_KEY, apiFromQS); }catch(e){ /* ignore */ }
+// In-memory "server" state
+const LOCAL_STATE = {
+  key: "local-key-123456",
+  memories: [], // {role, text}
+  modelList: [{id:'gomega-5', label:'gomega-5 (local)'}]
+};
+
+// keep the original fetch
+const __origFetch = window.fetch.bind(window);
+
+// small helper to build Response with JSON
+function jsonResponse(obj, opts={status:200}) {
+  return new Response(JSON.stringify(obj), {
+    status: opts.status || 200,
+    headers: {'Content-Type': 'application/json'}
+  });
 }
-const savedApi = localStorage.getItem(SAVED_API_KEY);
-const BASE_URL_RAW = (apiFromQS || savedApi || DEFAULT_BASE);
 
-function normalizeApi(val){
-  if(!val) return val;
-  val = String(val).trim();
-  if(/^https?:\/\//i.test(val)) return val.replace(/\/+$/,'');
-  if(val.indexOf('.') !== -1 && !val.startsWith('/')) return 'https://' + val.replace(/\/+$/,'');
-  return val.replace(/\/+$/,'');
+// naive "AI" responder: rules + echo + basic retrieval from memories
+function localGenerate(messages, temperature=0.7) {
+  // find last user message
+  let last = "";
+  for(let i=messages.length-1;i>=0;i--){
+    if(messages[i].role === 'user'){ last = messages[i].content; break; }
+  }
+  // simple rules
+  const low = last.toLowerCase();
+  if(/\bdate\b|\btoday\b/.test(low)) {
+    const d = new Date();
+    return `Today is ${d.toDateString()}.`;
+  }
+  if(/\btime\b/.test(low)){
+    const d = new Date();
+    return `Current time: ${d.toLocaleTimeString()}.`;
+  }
+  if(/\bwho are you\b|\bwhat are you\b/.test(low)){
+    return "I am Gomega (local demo): a lightweight local assistant running inside your browser.";
+  }
+  if(low.startsWith("search memory:")) {
+    const q = last.slice(14).trim().toLowerCase();
+    const hits = LOCAL_STATE.memories.filter(m => m.text.toLowerCase().includes(q));
+    if(hits.length===0) return "No memories matched that query.";
+    return "Memory matches:\n\n" + hits.slice(-5).map(h=>`${h.role}: ${h.text.slice(0,240)}`).join("\n\n");
+  }
+  // trivial retrieval: check memories for an answer-like sentence
+  for(let i=LOCAL_STATE.memories.length-1;i>=0;i--){
+    const m = LOCAL_STATE.memories[i];
+    if(m.role === 'assistant' && m.text.toLowerCase().includes(last.slice(0,20).toLowerCase())){
+      return m.text; // repeat helpful answer from memory
+    }
+  }
+  // fallback: echo + basic paraphrase
+  const canned = [
+    `I got: "${last}". Can you add more detail?`,
+    `Here's a quick reply to "${last}": I don't have a deep model here, but I can help structure an answer.`,
+    `Local reply — you asked: "${last}". Try asking about the date or time to see built-in replies.`
+  ];
+  // mix in temperature a bit
+  const idx = Math.floor((Math.random() + (temperature/2)) * canned.length) % canned.length;
+  return canned[idx];
 }
-const BASE_URL = String(normalizeApi(BASE_URL_RAW) || DEFAULT_BASE).replace(/\/+$/,'');
 
-let userProvidedApi = Boolean(apiFromQS || savedApi);
-let fallbackEnabled = !userProvidedApi; // default: allow fallback only when user did not explicitly set an API
+// intercept fetch requests for BASE_URL endpoints
+window.fetch = async function(input, init){
+  try {
+    // normalize url string
+    const url = (typeof input === 'string') ? input : (input && input.url) || '';
+    // only intercept same-origin /api/* calls or absolute BASE_URL
+    const parsed = new URL(url, location.href);
+    if(parsed.pathname.startsWith(BASE_URL)){
+      // emulate small latency
+      await new Promise(r=>setTimeout(r, 120 + Math.random()*180));
+      const path = parsed.pathname.slice(BASE_URL.length);
+      // GET /config
+      if(path === '/config' || path === '' || path === '/'){
+        return jsonResponse({ models: LOCAL_STATE.modelList, provider: "local", premiumAvailable: false });
+      }
+      // GET /key
+      if(path === '/key' && (!init || init.method === 'GET')){
+        return jsonResponse({ key: LOCAL_STATE.key });
+      }
+      // POST /verify-key
+      if(path === '/verify-key' && init && init.method && init.method.toUpperCase() === 'POST'){
+        const bodyText = init.body ? (typeof init.body === 'string' ? init.body : JSON.stringify(init.body)) : null;
+        let j = {};
+        try { j = JSON.parse(bodyText); } catch(e){ try{ j = init.body || {}; }catch(_){} }
+        const ok = String(j.key || '') === String(LOCAL_STATE.key);
+        return jsonResponse({ valid: ok });
+      }
+      // GET /memories
+      if(path === '/memories' && (!init || init.method === 'GET')){
+        return jsonResponse({ memories: LOCAL_STATE.memories.slice(-50).map(m=>({role:m.role, text:m.text})) });
+      }
+      // POST /chat
+      if(path === '/chat' && init && init.method && init.method.toUpperCase() === 'POST'){
+        // parse body
+        let body = {};
+        try{
+          body = JSON.parse(init.body);
+        }catch(e){
+          try{ body = (typeof input === 'object' && input.json) ? await input.json() : {}; }catch(e){}
+        }
+        const messages = body.messages || [];
+        const temperature = Number(body.temperature || 0.7);
+        // generate reply
+        const reply = localGenerate(messages, temperature);
+        // store memory
+        LOCAL_STATE.memories.push({ role: 'assistant', text: reply });
+        return jsonResponse({ text: reply });
+      }
+
+      // Not found
+      return new Response('Not found', { status: 404 });
+    }
+  } catch(e){
+    console.warn("Local fetch patch error:", e);
+  }
+  // otherwise forward to real fetch
+  return __origFetch(input, init);
+};
 
 /* -------------------------
-   DOM refs
+   Rest of the original UI logic (unchanged core)
    ------------------------- */
+
 const $ = (s,p=document)=>p.querySelector(s);
 const chatEl = $('#chat'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
       modelEl = $('#model'), tempEl = $('#temp'), tempvEl = $('#tempv'), systemEl = $('#system'),
       clearBtn = $('#clear'), backendStatusEl = $('#backendStatus'),
       backendShort = $('#backendShort'), viewMem = $('#viewMem'), modelListEl = $('#modelList'),
-      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'), clearSavedApiBtn = $('#clearSavedApi'),
-      apiInput = $('#apiInput'), saveApiBtn = $('#saveApiBtn'), currentApiDisplay = $('#currentApiDisplay'),
-      getKeyBtn = $('#getKeyBtn'), currentKey = $('#currentKey'), keyInput = $('#keyInput'),
-      verifyKeyBtn = $('#verifyKeyBtn'), keyStatus = $('#keyStatus'), keyResult = $('#keyResult');
+      backendNote = $('#backendNote'), toggleFallbackBtn = $('#toggleFallback'),
+      getKeyBtn = null, currentKey = $('#currentKey'), keyStatus = $('#keyStatus');
 
 $('#yr').textContent = new Date().getFullYear();
 tempEl.addEventListener('input', ()=> tempvEl.textContent = tempEl.value);
@@ -176,12 +266,8 @@ let history = JSON.parse(localStorage.getItem('gomega_ai_history')||'[]');
 systemEl.value = localStorage.getItem('gomega_ai_system')||'';
 function save(){ localStorage.setItem('gomega_ai_history', JSON.stringify(history.slice(-50))); localStorage.setItem('gomega_ai_system', systemEl.value||''); }
 
-function refreshCurrentApiDisplay(){
-  const saved = localStorage.getItem(SAVED_API_KEY);
-  currentApiDisplay.textContent = saved ? normalizeApi(saved) : DEFAULT_BASE;
-  apiInput.value = saved ? normalizeApi(saved) : '';
-}
-refreshCurrentApiDisplay();
+function refreshCurrentApiDisplay(){ /* intentionally omitted in local version */ }
+refreshCurrentApiDisplay && refreshCurrentApiDisplay();
 
 function addMsg(role, html){
   const wrap=document.createElement('div');
@@ -193,72 +279,6 @@ function addMsg(role, html){
 function renderMarkdown(md){ return marked.parse(md || '', {breaks:true, gfm:true}); }
 function renderHistory(){ chatEl.innerHTML=''; for(const m of history) addMsg(m.role, renderMarkdown(m.content)); }
 renderHistory();
-
-/* Fallback models */
-const FALLBACK = [
-  {id:'gomega-5', label:'gomega-5 (best)'},
-  {id:'gomega-4o', label:'gomega-4o (balanced)'},
-  {id:'gomega-4mini', label:'gomega-4mini (small)'},
-  {id:'gomega-3.0', label:'gomega-3.0 (legacy)'},
-  {id:'gomega-3mini', label:'gomega-3mini (fast)'},
-  {id:'local-sm',label:'local-sm (fast)'},
-  {id:'local-md',label:'local-md (learning)'}
-];
-
-let backendAvailable = false;
-
-/* helper: fetch with timeout */
-async function fetchWithTimeout(url, opts = {}, timeout = 6000){
-  const ac = new AbortController();
-  const id = setTimeout(()=> ac.abort(), timeout);
-  try{
-    const r = await fetch(url, Object.assign({}, opts, {signal: ac.signal}));
-    clearTimeout(id);
-    return r;
-  }catch(e){
-    clearTimeout(id);
-    throw e;
-  }
-}
-
-/* load /config */
-async function loadConfig(){
-  try{
-    const url = BASE_URL + '/config';
-    console.log('loading config from', url);
-    const r = await fetchWithTimeout(url, { cache: 'no-store' }, 6000);
-    if(!r.ok){
-      const txt = await r.text().catch(()=>null);
-      console.warn('config fetch failed', r.status, r.statusText, txt);
-      throw new Error('config fetch failed '+r.status);
-    }
-    const cfg = await r.json();
-    populate(cfg.models || FALLBACK, !!cfg.premiumAvailable);
-    backendAvailable = true;
-    backendStatusEl.textContent = `provider=${cfg.provider||'remote'}`;
-    backendShort.textContent = cfg.provider||'remote';
-    backendNote.textContent = `Using ${BASE_URL}`;
-    sendBtn.disabled = false;
-  }catch(e){
-    console.warn('config load failed', e);
-    populate(FALLBACK,false);
-    backendAvailable = false;
-    backendShort.textContent = 'none';
-
-    if(userProvidedApi && !fallbackEnabled){
-      backendStatusEl.innerHTML = `<span class="status-error">Failed to contact provided backend</span>`;
-      backendNote.textContent = `Tried: ${BASE_URL}/config — request failed or CORS blocked. Click "Use local fallback" to run a local demo, or clear the saved API.`;
-      sendBtn.disabled = true;
-      console.log('User provided API unreachable; not using local fallback (disabled). BASE_URL =', BASE_URL);
-      return;
-    }
-
-    backendStatusEl.textContent = 'unavailable — using local fallback';
-    backendNote.textContent = `No remote backend found at ${BASE_URL}. Using local demo reply.`;
-    sendBtn.disabled = false;
-    console.log('Config load failed — using fallback models. BASE_URL =', BASE_URL);
-  }
-}
 
 function populate(models,premiumAvailable){
   modelEl.innerHTML='';
@@ -276,135 +296,30 @@ function populate(models,premiumAvailable){
   }
 }
 
+// load config from local backend
+async function loadConfig(){
+  try{
+    const r = await fetch(BASE_URL + '/config', {cache:'no-store'});
+    if(!r.ok) throw new Error('config fetch failed');
+    const cfg = await r.json();
+    populate(cfg.models || [], !!cfg.premiumAvailable);
+    backendStatusEl.textContent = `provider=${cfg.provider||'local'}`;
+    backendShort.textContent = cfg.provider||'local';
+    backendNote.textContent = `Using embedded local backend`;
+    sendBtn.disabled = false;
+  }catch(e){
+    console.warn('loadConfig', e);
+    populate([{id:'gomega-5',label:'gomega-5 (local)'}], false);
+    backendStatusEl.textContent = 'local fallback';
+    backendNote.textContent = 'Using built-in local backend.';
+    sendBtn.disabled = false;
+  }
+}
+
 loadConfig().catch(e=>console.warn('loadConfig', e));
 
-/* ----------  API override handlers ---------- */
-saveApiBtn.addEventListener('click', ()=> {
-  let val = apiInput.value.trim();
-  if(!val) {
-    alert('Enter a URL like https://us-central1-<proj>.cloudfunctions.net/api');
-    return;
-  }
-  val = normalizeApi(val);
-  try{ localStorage.setItem(SAVED_API_KEY, val); }catch(e){}
-  userProvidedApi = true;
-  fallbackEnabled = false;
-  refreshCurrentApiDisplay();
-  location.reload();
-});
-
-clearSavedApiBtn.addEventListener('click', ()=> {
-  localStorage.removeItem(SAVED_API_KEY);
-  userProvidedApi = false;
-  backendNote.textContent = 'Cleared saved API. Reload the page to try default/local behavior.';
-  alert('Saved API cleared. Reload the page.');
-});
-
-/* ----------  Key endpoints (GET /key and POST /verify-key) ---------- */
-getKeyBtn.addEventListener('click', async ()=> {
-  const target = normalizeApi(localStorage.getItem(SAVED_API_KEY) || QS.get('api') || DEFAULT_BASE);
-  try{
-    const r = await fetch(target + '/key', { cache: 'no-store' });
-    if(!r.ok) throw new Error(`status ${r.status}`);
-    const j = await r.json();
-    currentKey.textContent = j.key || '(no key returned)';
-  }catch(err){
-    console.error('get key error', err);
-    currentKey.textContent = 'error';
-    alert('Failed to fetch key. Check that API is set and reachable (CORS, HTTPS).');
-  }
-});
-
-verifyKeyBtn.addEventListener('click', async ()=> {
-  const k = keyInput.value.trim();
-  if(!k){ alert('Enter a key to verify'); return; }
-  const target = normalizeApi(localStorage.getItem(SAVED_API_KEY) || QS.get('api') || DEFAULT_BASE);
-  try{
-    const r = await fetch(target + '/verify-key', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ key: k }) });
-    if(!r.ok) throw new Error('verify failed ' + r.status);
-    const j = await r.json();
-    keyStatus.textContent = j.valid ? 'valid' : 'invalid';
-    keyStatus.style.color = j.valid ? '#86efac' : '#fca5a5';
-    if(j.valid) alert('Key valid — app activated.');
-  }catch(err){
-    console.error('verify key error', err);
-    keyStatus.textContent = 'error';
-    alert('Failed to verify key. Check API URL and network (CORS).');
-  }
-});
-
-/* Helpers to detect content types */
-function isSSE(ct){ return ct && ct.includes('text/event-stream'); }
-function isNDJson(ct){ return ct && (ct.includes('application/x-ndjson') || ct.includes('application/x-json-stream')); }
-function isJSON(ct){ return ct && ct.includes('application/json'); }
-
-/* Stream processing for SSE or NDJSON */
-async function streamToText(resp, onChunk){
-  const contentType = (resp.headers && resp.headers.get && resp.headers.get('content-type')) || '';
-  console.log('response content-type:', contentType);
-
-  if(isSSE(contentType)){
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    while(true){
-      const {value, done} = await reader.read();
-      if(done) break;
-      buf += dec.decode(value, {stream:true});
-      let lines = buf.split(/\r?\n/);
-      buf = lines.pop();
-      for(const line of lines) if(line.startsWith('data:')) onChunk(line.replace(/^data:\s*/, ''));
-    }
-    if(buf.trim().startsWith('data:')) onChunk(buf.replace(/^data:\s*/, ''));
-    return;
-  }
-
-  if(isNDJson(contentType)){
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let buffer = '';
-    while(true){
-      const {value, done} = await reader.read();
-      if(done) break;
-      buffer += dec.decode(value, {stream:true});
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop();
-      for(const line of lines){
-        if(!line.trim()) continue;
-        try{
-          const o = JSON.parse(line);
-          const chunk = o.delta || o.text || o.content || o.choices?.[0]?.delta?.content || o.choices?.[0]?.text;
-          onChunk(chunk || line);
-        }catch(e){ onChunk(line); }
-      }
-    }
-    if(buffer.trim()) { try{ const o=JSON.parse(buffer); onChunk(o.delta||o.text||o.content||buffer); }catch(e){ onChunk(buffer); } }
-    return;
-  }
-
-  // Not SSE/NDJSON: treat as non-streaming text (or JSON)
-  const text = await resp.text();
-  onChunk(text);
-}
-
-/* Local fallback streaming simulation */
-function simulateLocalStreaming(prompt, opts, onChunk, onDone){
-  const replyIntro = `Gomega (${opts.model}) — local demo reply:\n\n`;
-  const core = `I can't reach a remote backend. This is a local demo reply summarizing your message:\n\n"${prompt}"\n\nTry adding ?api=https://your.api.endpoint to connect a real backend.`;
-  const full = replyIntro + core;
-  let i = 0;
-  const interval = setInterval(()=> {
-    i += Math.max(1, Math.floor(Math.random()*6));
-    onChunk(full.slice(0, i));
-    if(i >= full.length){
-      clearInterval(interval);
-      onDone();
-    }
-  }, 25);
-}
-
-/* ----------  SUBMIT / UI interactions ---------- */
-form.addEventListener('submit', async e => {
+/* submit */
+form.addEventListener('submit', async e=>{
   e.preventDefault();
   const content = promptEl.value.trim(); if(!content) return;
   if(content==='/reset'){ history=[]; save(); renderHistory(); promptEl.value=''; return; }
@@ -424,66 +339,18 @@ form.addEventListener('submit', async e => {
   try{
     const payload = { modelId: modelEl.value, temperature: Number(tempEl.value), system: systemEl.value || undefined, messages: history.slice(-20), stream: false };
 
-    if(!backendAvailable && userProvidedApi && !fallbackEnabled){
-      bodyEl.innerHTML = renderMarkdown('**Error:** Provided API unreachable. Check console and network (CORS / HTTPS).');
-      sendBtn.disabled = false;
-      return;
-    }
-
-    if(!backendAvailable){
-      let acc = '';
-      await new Promise((resolve) => {
-        simulateLocalStreaming(content, { model: payload.modelId }, chunk => {
-          acc = chunk;
-          bodyEl.innerHTML = renderMarkdown(acc);
-          chatEl.scrollTop = chatEl.scrollHeight;
-        }, () => { resolve(); });
-      });
-      history.push({ role:'assistant', content: acc });
-      save();
-      return;
-    }
-
+    // call local /api/chat
     const resp = await fetch(BASE_URL + '/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-
-    if(resp.status === 402 || resp.status === 403){
-      const j = await resp.json().catch(()=>({error:'premium'}));
-      bodyEl.innerHTML = renderMarkdown('**Error:** ' + (j.error||'premium'));
-      sendBtn.disabled = false;
-      return;
-    }
     if(!resp.ok){
       const txt = await resp.text().catch(()=>null);
-      console.log('chat non-ok', resp.status, resp.statusText, txt);
-      bodyEl.innerHTML = renderMarkdown(`**Error:** server returned ${resp.status} ${resp.statusText}\n\nSee console for details.`);
+      bodyEl.innerHTML = renderMarkdown(`**Error:** server returned ${resp.status} ${resp.statusText}\n\n${txt||''}`);
       sendBtn.disabled = false;
       return;
     }
-
-    const ct = resp.headers.get('content-type') || '';
-    // If JSON (standard), parse and extract text
-    if(ct.includes('application/json')){
-      const j = await resp.json();
-      // Try common fields
-      let reply = j.text || j.reply || j.output || (j.choices && j.choices[0] && (j.choices[0].text || (j.choices[0].message && j.choices[0].message.content)));
-      if(!reply && typeof j === 'string') reply = j;
-      if(!reply) reply = JSON.stringify(j);
-      bodyEl.innerHTML = renderMarkdown(reply);
-      history.push({ role:'assistant', content: reply });
-      save();
-      sendBtn.disabled = false;
-      return;
-    }
-
-    // Otherwise handle as stream or plain text
-    let acc = '';
-    await streamToText(resp, chunk => {
-      acc += chunk;
-      bodyEl.innerHTML = renderMarkdown(acc);
-      chatEl.scrollTop = chatEl.scrollHeight;
-    });
-
-    history.push({ role:'assistant', content: acc });
+    const j = await resp.json();
+    const reply = j.text || JSON.stringify(j);
+    bodyEl.innerHTML = renderMarkdown(reply);
+    history.push({ role:'assistant', content: reply });
     save();
   }catch(err){
     console.error('chat error', err);
@@ -496,41 +363,20 @@ form.addEventListener('submit', async e => {
 clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
 promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 
-viewMem.addEventListener('click', async ()=>{ 
-  if(!backendAvailable){
-    const list = history.slice(-10).map(h => `${h.role.toUpperCase()}: ${h.content.replace(/\n/g,' ').slice(0,120)}`).join('\n\n');
-    alert(list || 'No recent memories stored locally.');
-    return;
-  }
+viewMem.addEventListener('click', async ()=>{
   try{
     const r = await fetch(BASE_URL + '/memories');
-    if(!r.ok){ console.log('memories fetch failed', r.status); alert('Failed to fetch memories from backend.'); return; }
+    if(!r.ok){ alert('Failed to fetch memories'); return; }
     const j = await r.json();
-    const display = (j.memories || []).slice(-20).map(m => `${m.role.toUpperCase()}: ${String(m.text||'').slice(0,120)}`).join('\n\n');
-    alert(display || 'No memories returned from backend.');
-  }catch(e){ console.log('memories error', e); alert('Failed to fetch memories (see console)'); }
+    const display = (j.memories || []).slice(-20).map(m => `${m.role.toUpperCase()}: ${String(m.text||'').slice(0,240)}`).join('\n\n');
+    alert(display || 'No recent memories.');
+  }catch(e){ console.log('memories error', e); alert('Failed to fetch memories'); }
 });
 
-/* toggle fallback */
-toggleFallbackBtn.addEventListener('click', ()=>{
-  fallbackEnabled = !fallbackEnabled;
-  toggleFallbackBtn.textContent = fallbackEnabled ? 'Using local fallback' : 'Use local fallback';
-  toggleFallbackBtn.classList.toggle('bg-indigo-600', fallbackEnabled);
-  toggleFallbackBtn.classList.toggle('bg-slate-800', !fallbackEnabled);
+// initial UI state
+toggleFallbackBtn.textContent = 'Using local backend';
+toggleFallbackBtn.classList.add('bg-indigo-600');
 
-  if(fallbackEnabled && !backendAvailable){
-    backendStatusEl.textContent = 'using local fallback';
-    backendNote.textContent = `Local demo active. Clear saved API to stop trying remote backend.`;
-    sendBtn.disabled = false;
-  }else if(!fallbackEnabled && userProvidedApi && !backendAvailable){
-    backendStatusEl.innerHTML = `<span class="status-error">Provided API unreachable</span>`;
-    sendBtn.disabled = true;
-  }
-});
-toggleFallbackBtn.textContent = fallbackEnabled ? 'Using local fallback' : 'Use local fallback';
-if(fallbackEnabled) toggleFallbackBtn.classList.add('bg-indigo-600'); else toggleFallbackBtn.classList.add('bg-slate-800');
-
-setTimeout(()=>{ loadConfig().catch(e=>console.warn('loadConfig', e)); }, 300);
 </script>
 </body>
 </html>
