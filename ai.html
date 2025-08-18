@@ -393,7 +393,7 @@ form.addEventListener('submit', async e=>{
 clearBtn.addEventListener('click', ()=>{ history=[]; save(); renderHistory(); });
 promptEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); form.requestSubmit(); } });
 
-viewMem.addEventListener('click', async ()=>{
+viewMem.addEventListener('click', async ()=>{ 
   if(!backendAvailable){
     const list = history.slice(-10).map(h => `${h.role.toUpperCase()}: ${h.content.replace(/\n/g,' ').slice(0,120)}`).join('\n\n');
     alert(list || 'No recent memories stored locally.');
