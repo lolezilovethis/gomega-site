@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Math • Solver + Steps + Camera (Beta)</title>
-  <meta name="description" content="Solve math problems and see step-by-step solutions. Includes a Camera/Photo (Beta) mode that tries OCR on handwritten/printed problems." />
+  <title>Math • Solver + Steps + Camera (Beta) — Keyboard</title>
+  <meta name="description" content="Solve math problems and see step-by-step solutions. Includes a Camera/Photo (Beta) mode and an on-screen math keyboard with division templates and underline-below." />
   <link rel="icon" href="data:,"></link>
   <style>
     :root{ --bg:#0f1720; --card:#0b1220; --muted:#9aa4b2; --accent:#6ee7b7; --glass: rgba(255,255,255,0.03); }
@@ -28,6 +28,13 @@
     .step{padding:8px;border-left:3px solid rgba(255,255,255,0.03);margin-bottom:8px}
     .step strong{display:block}
 
+    /* keyboard */
+    .keyboard{margin-top:12px}
+    .kbd-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:8px}
+    .kbd-grid button{padding:10px;border-radius:8px;font-weight:700}
+    .kbd-wide{grid-column:span 4}
+    .kbd-ops{grid-column:span 3}
+
     /* Camera modal */
     .modal{position:fixed;inset:0;background:linear-gradient(180deg, rgba(1,2,6,0.7), rgba(1,2,6,0.85));display:none;align-items:center;justify-content:center;padding:24px}
     .modal.open{display:flex}
@@ -49,15 +56,18 @@
     .dot:nth-child(3){animation-delay:0.3s}
     @keyframes think{0%{opacity:0;transform:translateY(0)}40%{opacity:1;transform:translateY(-6px)}80%{opacity:0.3;transform:translateY(0)}100%{opacity:0}}
 
-    @media (max-width:700px){.row{flex-direction:column}}
+    /* monospace preview for division template */
+    .division-preview{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:16px; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px}
+
+    @media (max-width:700px){.row{flex-direction:column} .kbd-grid{grid-template-columns:repeat(5,1fr)}}
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <div>
-        <h1>Math • Solver (step-by-step)</h1>
-        <p class="lead">Type a math problem or use Camera (Beta) / Photo upload to extract it. Supports arithmetic, algebraic simplification and many expressions. Camera OCR is experimental.</p>
+        <h1>Math • Solver (step-by-step) + Keyboard</h1>
+        <p class="lead">Type a math problem, use the on-screen keyboard or the Camera/Photo (Beta). Includes long-division templates and an "underline below" feature (combining low line).</p>
       </div>
     </header>
 
@@ -67,14 +77,57 @@
           <label for="expr">Enter problem (example: 2/3 + 4*(5-1)  OR  x^2 + 2x + 1 )</label>
           <textarea id="expr" rows="4" placeholder="Type a math problem...">2/3 + 4*(5-1)</textarea>
 
-          <div style="display:flex;gap:8px;margin-top:10px;">
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
             <button id="solveBtn">Solve — Show steps</button>
             <button id="cameraBtn" class="secondary">Camera / Photo (Beta)</button>
             <input id="fileInput" type="file" accept="image/*" style="display:none" />
             <button id="uploadBtn" class="secondary">Upload Photo</button>
+            <button id="underlineBtn" class="secondary" title="Underline below selected character(s)">Underline below ⎯</button>
+            <button id="longDivBtn" class="secondary" title="Insert long-division template">Insert Long Division</button>
+            <button id="longDivExample" class="secondary" title="Insert sample: 38 ) 1127">Insert Example (38 ) 1127)</button>
+            <button id="ex222" class="secondary" title="Insert 222 with underline under middle 2">EX: 222 (underline middle)</button>
           </div>
 
-          <div class="note">Tips: Use ^ for power (e.g. 2^3). For equations try forms like <code>2x+3=7</code> — equation solving is limited; we'll attempt best-effort steps.</div>
+          <div class="note">Tips: Use ^ for power (e.g. 2^3). Use the on-screen keyboard below for symbols and quick templates. "Underline below" uses a Unicode combining low line (may render differently across fonts).</div>
+
+          <!-- On-screen keyboard -->
+          <div class="keyboard card">
+            <label class="small">On-screen keyboard — tap to insert</label>
+            <div class="kbd-grid" id="kbd">
+              <!-- digits -->
+              <button data-insert="7">7</button>
+              <button data-insert="8">8</button>
+              <button data-insert="9">9</button>
+              <button data-insert="/">÷</button>
+              <button data-insert="sqrt()">√()</button>
+
+              <button data-insert="4">4</button>
+              <button data-insert="5">5</button>
+              <button data-insert="6">6</button>
+              <button data-insert="*">×</button>
+              <button data-insert="^">^</button>
+
+              <button data-insert="1">1</button>
+              <button data-insert="2">2</button>
+              <button data-insert="3">3</button>
+              <button data-insert="-">−</button>
+              <button data-insert="( )">( )</button>
+
+              <button data-insert="0">0</button>
+              <button data-insert=".">.</button>
+              <button data-insert=",">,</button>
+              <button data-insert="+">+</button>
+              <button data-insert="=">=</button>
+
+              <!-- wide operators -->
+              <button class="kbd-wide" data-insert="pi">π</button>
+              <button class="kbd-wide" data-insert="theta">θ</button>
+              <button class="kbd-ops" data-insert="sum()">∑()</button>
+              <button class="kbd-ops" data-insert="int()">∫()</button>
+            </div>
+            <div style="margin-top:8px" class="small">Tips: Cursor position is preserved when inserting. Click a pair like <code>( )</code> and it will place the cursor inside the parentheses.</div>
+          </div>
+
         </div>
 
         <div class="col">
@@ -93,7 +146,7 @@
 
     </section>
 
-    <footer class="small">Camera mode requires HTTPS (or localhost). OCR is powered by Tesseract.js — handwritten text may be inaccurate. This page uses math.js and mathsteps for steps.</footer>
+    <footer class="small">Camera mode requires HTTPS (or localhost). OCR is experimental — handwritten problems may not always be recognized correctly. This page uses math.js and mathsteps for steps.</footer>
   </div>
 
   <!-- Camera modal -->
@@ -117,7 +170,7 @@
   </div>
 
   <!-- Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js" integrity="" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/mathsteps/dist/mathsteps.min.js"></script>
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
 
@@ -139,12 +192,114 @@
     const ocrProgress = document.getElementById('ocrProgress');
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('fileInput');
+    const underlineBtn = document.getElementById('underlineBtn');
+    const longDivBtn = document.getElementById('longDivBtn');
+    const longDivExample = document.getElementById('longDivExample');
+    const ex222 = document.getElementById('ex222');
+    const kbd = document.getElementById('kbd');
 
     let stream = null;
     let lastImageDataUrl = null;
 
     function showThinking(on){thinking.style.display = on ? 'inline-block' : 'none'}
 
+    // Insert text at cursor in textarea
+    function insertAtCursor(text){
+      const el = exprEl;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const before = el.value.substring(0,start);
+      const after = el.value.substring(end);
+      el.value = before + text + after;
+      // move cursor inside parentheses if we inserted ()
+      if(text.endsWith('()')){
+        const pos = start + text.indexOf('()') + 1; // position inside
+        el.selectionStart = el.selectionEnd = pos;
+      } else if(text.endsWith('( )')){
+        const pos = start + text.indexOf('( )') + 2;
+        el.selectionStart = el.selectionEnd = pos;
+      } else {
+        const pos = start + text.length;
+        el.selectionStart = el.selectionEnd = pos;
+      }
+      el.focus();
+    }
+
+    // Keyboard button clicks
+    kbd.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button');
+      if(!btn) return;
+      const t = btn.getAttribute('data-insert');
+      if(!t) return;
+      if(t==='pi') insertAtCursor('pi');
+      else if(t==='theta') insertAtCursor('theta');
+      else insertAtCursor(t);
+    });
+
+    // Underline-below: combining low line U+0332
+    underlineBtn.addEventListener('click', ()=>{
+      const low = '\u0332';
+      const el = exprEl;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      if(start !== end){
+        // apply combining low line after every selected char
+        const selected = el.value.substring(start,end);
+        let transformed = '';
+        for(const ch of selected){ transformed += ch + low; }
+        insertAtSelection(transformed, start, end);
+      } else {
+        // if nothing selected, underline previous character if exists
+        if(start>0){
+          const before = el.value.substring(0,start-1);
+          const char = el.value.charAt(start-1);
+          const after = el.value.substring(start);
+          el.value = before + char + low + after;
+          el.selectionStart = el.selectionEnd = start + 1; // keep cursor after inserted low line
+          el.focus();
+        } else {
+          // insert a blank underline marker
+          insertAtCursor('_');
+        }
+      }
+    });
+
+    function insertAtSelection(text, s, e){
+      const el = exprEl;
+      const before = el.value.substring(0,s);
+      const after = el.value.substring(e);
+      el.value = before + text + after;
+      el.selectionStart = s + text.length;
+      el.selectionEnd = el.selectionStart;
+      el.focus();
+    }
+
+    // Long division template insertion (simple textual template similar to the images)
+    longDivBtn.addEventListener('click', ()=>{
+      const divisor = prompt('Enter divisor (number to the left of the parenthesis):');
+      if(divisor===null) return;
+      const dividend = prompt('Enter dividend (the number under/after the parenthesis):');
+      if(dividend===null) return;
+      // Insert formatted as: "38 ) 1127" with non-breaking spaces for stability
+      const text = divisor + ' ) ' + dividend;
+      insertAtCursor(text);
+    });
+
+    longDivExample.addEventListener('click', ()=>{
+      insertAtCursor('38 ) 1127');
+    });
+
+    // Example: EX 222 with underline under middle 2
+    ex222.addEventListener('click', ()=>{
+      const low = '\u0332';
+      const text = '2' + '2' + low + '2';
+      // careful: we want underline under middle 2 only
+      // build string: '2' + '2' + low + '2' => actually low must follow the char to combine
+      const ex = '2' + '2' + low + '2';
+      insertAtCursor(ex);
+    });
+
+    // Solve function (same as before) — uses mathsteps or math.js fallback
     async function solveExpression(input){
       stepsEl.innerHTML = '';
       resultEl.textContent = '';
@@ -153,12 +308,9 @@
       showThinking(true);
 
       try{
-        // If mathsteps is available, prefer it for human-readable steps
         if(window.mathsteps){
-          // detect equation
           if(input.includes('=')){
             try{
-              // mathsteps has solveEquation in some builds; attempt it
               if(typeof mathsteps.solveEquation === 'function'){
                 const eqSteps = mathsteps.solveEquation(input);
                 if(eqSteps && eqSteps.length){
@@ -168,18 +320,14 @@
                   return;
                 }
               }
-            }catch(e){
-              console.warn('mathsteps equation attempt failed',e);
-            }
+            }catch(e){ console.warn('mathsteps equation attempt failed',e); }
           }
 
-          // fallback: simplify expression
           try{
             const s = mathsteps.simplifyExpression(input);
             if(s && s.length){
               renderMathSteps(s);
               const last = s[s.length-1];
-              // mathsteps step objects can have 'newNode' or 'newInput'
               resultEl.textContent = last && (last.newNode ? last.newNode.toString() : last.newExpression || '') ;
               showThinking(false);
               return;
@@ -187,41 +335,24 @@
           }catch(e){ console.warn('mathsteps simplify failed', e) }
         }
 
-        // If mathsteps not available or failed, fallback to math.js numeric evaluation with simple step extraction
-        // Try parse with math.js
         const node = math.parse(input);
         const steps = [];
 
         function evalNode(n){
-          if(n.isConstantNode){
-            return {value: n.value, repr: n.toString()};
-          }
-          if(n.isSymbolNode){
-            // symbolic, can't evaluate to number
-            return {value: null, repr: n.toString()};
-          }
+          if(n.isConstantNode){ return {value: n.value, repr: n.toString()}; }
+          if(n.isSymbolNode){ return {value: null, repr: n.toString()}; }
           if(n.isOperatorNode){
-            // evaluate children
             const childs = n.args.map(evalNode);
-            // if any child is non-numeric, we can't fully evaluate; just return repr
-            if(childs.some(c=>c.value===null)){
-              return {value:null, repr: '(' + childs.map(c=>c.repr).join(' ' + n.op + ' ') + ')'};
-            }
-            // compute using math.js
+            if(childs.some(c=>c.value===null)){ return {value:null, repr: '(' + childs.map(c=>c.repr).join(' ' + n.op + ' ') + ')'}; }
             const values = childs.map(c=>c.value);
             const exprStr = '(' + childs.map(c=>c.repr).join(' ' + n.op + ' ') + ')';
-            // compute
             let val;
             try{ val = math.evaluate(exprStr); }catch(e){ val = null }
-            // push a step
             steps.push({before: exprStr, after: String(val)});
             return {value: val, repr: String(val)};
           }
-          if(n.isParenthesisNode){
-            return evalNode(n.content);
-          }
+          if(n.isParenthesisNode){ return evalNode(n.content); }
           if(n.isFunctionNode){
-            // attempt to evaluate numeric functions like sqrt, sin, etc
             const args = n.args.map(evalNode);
             if(args.some(a=>a.value===null)) return {value:null, repr: n.toString()};
             try{
@@ -231,12 +362,10 @@
               return {value:v, repr:String(v)};
             }catch(e){ return {value:null, repr:n.toString()} }
           }
-          // unknown node
           return {value:null, repr: n.toString()};
         }
 
         const final = evalNode(node);
-        // render steps
         if(steps.length===0){
           stepsEl.textContent = 'Could not generate numeric steps. Showing parsed expression.';
           stepsEl.innerHTML += '<div class="step">' + node.toString() + '</div>';
@@ -277,7 +406,6 @@
 
     // Camera / Photo handlers
     cameraBtn.addEventListener('click', async ()=>{
-      // open modal and start camera
       modal.classList.add('open');
       modal.setAttribute('aria-hidden','false');
       try{
@@ -289,23 +417,15 @@
       }
     });
 
-    closeCam.addEventListener('click', ()=>{
-      stopStream();
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden','true');
-    });
-
+    closeCam.addEventListener('click', ()=>{ stopStream(); modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); });
     function stopStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; video.srcObject = null; } }
 
     captureBtn.addEventListener('click', ()=>{
-      // draw video frame to canvas
       const ctx = snap.getContext('2d');
-      // size canvas to video
       snap.width = video.videoWidth || 1280;
       snap.height = video.videoHeight || 720;
       ctx.drawImage(video,0,0,snap.width,snap.height);
       lastImageDataUrl = snap.toDataURL('image/png');
-      // show preview by opening in new window or replacing video temporarily
       video.pause();
       ocrProgress.textContent = 'Captured image — press Use Photo to run OCR or Retake to try again.';
     });
@@ -325,7 +445,6 @@
         const text = res && res.data && res.data.text ? res.data.text.trim() : '';
         ocrProgress.textContent = 'OCR done.';
         if(text){
-          // place result in input and auto-solve
           exprEl.value = text.replace(/[^0-9a-zA-Z\^\+\-\*\/=().\s]/g,'');
           modal.classList.remove('open');
           stopStream();
@@ -344,7 +463,6 @@
       const reader = new FileReader();
       reader.onload = async function(e){
         lastImageDataUrl = e.target.result;
-        // Run OCR directly
         ocrProgress.textContent = 'Running OCR on uploaded image...';
         try{
           const worker = Tesseract.createWorker({ logger: m => { /*progress*/ } });
@@ -367,7 +485,6 @@
 
     // initial sample
     (function init(){ /* nothing special */ })();
-
   </script>
 </body>
 </html>
