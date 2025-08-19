@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega Science — science.html</title>
+  <style>
+    :root{--accent:#0b5cff;--muted:#6b7280;--bg:#0f1724;--card:#0b1220;color-scheme:dark}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071022 0%, #081226 60%);color:#e6eef8}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:18px}
+    header h1{margin:0;font-size:20px}
+    header p{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:18px;margin-top:18px}
+    .card{background:rgba(255,255,255,0.02);padding:14px;border-radius:12px;box-shadow:0 6px 24px rgba(2,6,23,0.6)}
+    .side .module{margin-bottom:12px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text],textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    textarea{min-height:90px;resize:vertical}
+    .btn{display:inline-block;padding:8px 12px;border-radius:8px;background:var(--accent);color:white;border:none;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    .result{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);min-height:80px}
+    .small{font-size:12px;color:var(--muted)}
+    .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .module h3{margin:0 0 8px 0}
+    .formula{background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;margin-bottom:8px}
+    canvas{width:100%;height:300px;border-radius:8px;background:#061021}
+    .periodic-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+    .element{background:rgba(255,255,255,0.02);padding:6px;border-radius:6px;text-align:center}
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+    .thinking{display:inline-block;height:10px;width:120px;background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));border-radius:999px;position:relative;overflow:hidden}
+    .thinking::after{content:'';position:absolute;left:-40%;top:0;bottom:0;width:40%;background:linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.18), rgba(255,255,255,0.08));animation:move 1.2s linear infinite}
+    @keyframes move{to{left:120%}}
+    .row{display:flex;gap:8px;align-items:center}
+    .kbd{border:1px solid rgba(255,255,255,0.06);padding:3px 6px;border-radius:6px;background:rgba(255,255,255,0.02)}
+  </style>
+  <!-- math.js for expression parsing & evaluation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js" integrity="" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(180deg,var(--accent),#0047b3);display:flex;align-items:center;justify-content:center;font-weight:700">GS</div>
+      <div>
+        <h1>Gomega Science</h1>
+        <p>Offline, no-API science helper: calculators, converters, periodic table, formula reference, graphing and Q→A tools.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <aside class="side">
+        <div class="card module">
+          <h3>Ask anything</h3>
+          <label for="question">Question or task</label>
+          <textarea id="question" placeholder="E.g. 'Convert 5 miles to km', 'What's the molar mass of H2SO4?', 'Plot sin(x)/x from -20 to 20', or 'Explain photosynthesis simply'"></textarea>
+          <div style="margin-top:8px" class="row">
+            <button id="askBtn" class="btn">Ask</button>
+            <button id="clearBtn" class="btn ghost">Clear</button>
+            <div id="thinkBox" style="margin-left:6px"></div>
+          </div>
+          <p class="small" style="margin-top:8px">Note: This tool uses local logic and calculators. For wide web searches click the external search link shown in answers.</p>
+        </div>
+
+        <div class="card module">
+          <h3>Quick tools</h3>
+          <div class="tools">
+            <button class="btn" id="openCalc">Calculator</button>
+            <button class="btn" id="openConv">Unit Converter</button>
+            <button class="btn" id="openPlot">Plot Function</button>
+            <button class="btn" id="openPeriodic">Periodic Table</button>
+          </div>
+        </div>
+
+        <div class="card module">
+          <h3>Common formulas</h3>
+          <div class="formula"><strong>Mechanics</strong><br>F = m·a ·· KE = ½mv² ·· p = mv</div>
+          <div class="formula"><strong>Waves</strong><br>v = f·λ ·· T = 1/f</div>
+          <div class="formula"><strong>Electric</strong><br>V = I·R ·· P = V·I</div>
+        </div>
+
+        <div class="card module">
+          <h3>Periodic (quick)</h3>
+          <div class="periodic-grid" id="periodicQuick"></div>
+        </div>
+
+      </aside>
+
+      <main>
+        <div class="card">
+          <h3>Answer</h3>
+          <div id="answer" class="result">Ask a question to get started — the assistant will try to compute results, explain concepts, or point you to a web search if needed.</div>
+        </div>
+
+        <div style="margin-top:12px" class="card">
+          <h3>Tool output / Visuals</h3>
+          <canvas id="plotCanvas"></canvas>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="downloadPlot">Download PNG</button>
+            <button class="btn ghost" id="resetPlot">Reset</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="card">
+          <h3>Unit converter & calculator</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="convInput" type="text" placeholder="e.g. 5 miles to km" />
+            <button id="convBtn" class="btn">Convert</button>
+          </div>
+          <div style="margin-top:8px" id="convResult" class="small"></div>
+        </div>
+
+        <footer>
+          <div class="small">Made with ❤️ by Gomega — offline-first. Want more features? Ask and I'll add them.</div>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // --- Lightweight local database: a tiny periodic table (first 36 for quick lookups) ---
+    const PERIODIC = [
+      {z:1,s:'H',name:'Hydrogen',am:1.008}, {z:2,s:'He',name:'Helium',am:4.0026},
+      {z:3,s:'Li',name:'Lithium',am:6.94}, {z:4,s:'Be',name:'Beryllium',am:9.0122},
+      {z:5,s:'B',name:'Boron',am:10.81}, {z:6,s:'C',name:'Carbon',am:12.011},
+      {z:7,s:'N',name:'Nitrogen',am:14.007}, {z:8,s:'O',name:'Oxygen',am:15.999},
+      {z:9,s:'F',name:'Fluorine',am:18.998}, {z:10,s:'Ne',name:'Neon',am:20.180},
+      {z:11,s:'Na',name:'Sodium',am:22.990}, {z:12,s:'Mg',name:'Magnesium',am:24.305},
+      {z:13,s:'Al',name:'Aluminium',am:26.982}, {z:14,s:'Si',name:'Silicon',am:28.085},
+      {z:15,s:'P',name:'Phosphorus',am:30.974}, {z:16,s:'S',name:'Sulfur',am:32.06},
+      {z:17,s:'Cl',name:'Chlorine',am:35.45}, {z:18,s:'Ar',name:'Argon',am:39.948},
+      {z:19,s:'K',name:'Potassium',am:39.098}, {z:20,s:'Ca',name:'Calcium',am:40.078},
+      {z:21,s:'Sc',name:'Scandium',am:44.956}, {z:22,s:'Ti',name:'Titanium',am:47.867},
+      {z:23,s:'V',name:'Vanadium',am:50.942}, {z:24,s:'Cr',name:'Chromium',am:51.996},
+      {z:25,s:'Mn',name:'Manganese',am:54.938}, {z:26,s:'Fe',name:'Iron',am:55.845},
+      {z:27,s:'Co',name:'Cobalt',am:58.933}, {z:28,s:'Ni',name:'Nickel',am:58.693},
+      {z:29,s:'Cu',name:'Copper',am:63.546}, {z:30,s:'Zn',name:'Zinc',am:65.38},
+      {z:31,s:'Ga',name:'Gallium',am:69.723}, {z:32,s:'Ge',name:'Germanium',am:72.630},
+      {z:33,s:'As',name:'Arsenic',am:74.922}, {z:34,s:'Se',name:'Selenium',am:78.971},
+      {z:35,s:'Br',name:'Bromine',am:79.904}, {z:36,s:'Kr',name:'Krypton',am:83.798}
+    ];
+
+    // Fill small periodic grid
+    const periodicQuick = document.getElementById('periodicQuick');
+    PERIODIC.slice(0,18).forEach(el => {
+      const d = document.createElement('div'); d.className='element'; d.innerHTML=`<strong>${el.s}</strong><div class=small>${el.z}</div>`; d.title = `${el.name} — atomic mass ${el.am}`;
+      periodicQuick.appendChild(d);
+    });
+
+    // Elements map for lookups
+    const ELEM_BY_SYM = {};
+    PERIODIC.forEach(e=>{ELEM_BY_SYM[e.s.toLowerCase()] = e; ELEM_BY_SYM[e.name.toLowerCase()] = e});
+
+    // UI refs
+    const askBtn = document.getElementById('askBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const questionEl = document.getElementById('question');
+    const answerEl = document.getElementById('answer');
+    const thinkBox = document.getElementById('thinkBox');
+    const convInput = document.getElementById('convInput');
+    const convBtn = document.getElementById('convBtn');
+    const convResult = document.getElementById('convResult');
+
+    // Plot canvas
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 900; canvas.height = 360;
+
+    // Helpers
+    function showThinking(on=true){ thinkBox.innerHTML = on ? '<span class=thinking></span>' : '' }
+    function writeAnswer(text){ answerEl.textContent = text }
+
+    // Basic unit conversions (small set)
+    const UNITS = {
+      'mile->km': v=>v*1.609344, 'km->mile': v=>v/1.609344,
+      'm->cm': v=>v*100, 'cm->m': v=>v/100, 'm->km': v=>v/1000, 'kg->g': v=>v*1000,
+      'g->kg': v=>v/1000, 'lb->kg': v=>v*0.45359237, 'kg->lb': v=>v/0.45359237
+    };
+
+    function tryUnitConversion(text){
+      // Simple patterns: "5 miles to km" or "convert 3.2 kg to g"
+      const m = text.match(/([0-9.+\-eE]+)\s*(\w+)\s*(to|in)\s*(\w+)/i);
+      if(!m) return null;
+      let v = Number(m[1]); if(Number.isNaN(v)) return null;
+      const from = m[2].toLowerCase(); const to = m[4].toLowerCase();
+      const key1 = `${from}->${to}`;
+      if(UNITS[key1]) return `${v} ${from} = ${UNITS[key1](v)} ${to}`;
+      // try plural forms
+      const fromS = from.replace(/s$/,''); const toS = to.replace(/s$/,'');
+      const key2 = `${fromS}->${toS}`; if(UNITS[key2]) return `${v} ${from} = ${UNITS[key2](v)} ${to}`;
+      return null;
+    }
+
+    // Chemistry: molar mass simple parser: ex: H2SO4, C6H12O6
+    function molarMass(formula){
+      // Tokenize: element symbol (1-2 letters) followed by optional number
+      const tokens = formula.match(/([A-Z][a-z]?)(\d*)/g);
+      if(!tokens) return null;
+      let mass = 0; let details = [];
+      for(const t of tokens){
+        const m = t.match(/([A-Z][a-z]?)(\d*)/);
+        const sym = m[1]; const count = m[2] ? Number(m[2]) : 1;
+        const el = ELEM_BY_SYM[sym.toLowerCase()];
+        if(!el) return null;
+        mass += el.am * count; details.push(`${sym}(${el.am}×${count})`);
+      }
+      return {mass: +mass.toFixed(5), details: details.join(' + ')};
+    }
+
+    // Basic Q -> A engine (local heuristics)
+    function handleQuestion(q){
+      q = q.trim(); if(!q) return writeAnswer('Please type a question.');
+      showThinking(true);
+      writeAnswer('');
+      setTimeout(()=>{
+        // 1) If it's a math expression or contains = or operators, try mathjs
+        const mathLike = /[0-9\)\(\.\+\-\*\/\^]|sqrt\(|sin\(|cos\(|tan\(/i;
+        if(mathLike.test(q) && q.split('\n').length<=4){
+          try{
+            // attempt expression evaluation
+            const cleaned = q.replace(/[^0-9a-zA-Z()+\-\*\/\^\.\,\s]/g, '');
+            const res = math.evaluate(cleaned);
+            showThinking(false);
+            writeAnswer('Result: ' + JSON.stringify(res));
+            return;
+          }catch(e){ /* fallthrough */ }
+        }
+
+        // 2) Try unit conversion
+        const conv = tryUnitConversion(q);
+        if(conv){ showThinking(false); writeAnswer(conv); return; }
+
+        // 3) Molar mass request
+        const mmMatch = q.match(/molar mass of\s*([A-Za-z0-9()]+)/i) || q.match(/molar mass\s*[:]?\s*([A-Za-z0-9()]+)/i);
+        if(mmMatch){ const formula = mmMatch[1]; const mm = molarMass(formula); if(mm){ showThinking(false); writeAnswer(`Molar mass of ${formula} = ${mm.mass} g/mol\nBreakdown: ${mm.details}`); return } }
+
+        // 4) Element lookup: "oxygen" or "O"
+        const elMatch = q.match(/^(?:what is|tell me about|info on)?\s*([A-Za-z]{1,3})\s*(?:element)?$/i);
+        if(elMatch){ const key = elMatch[1].toLowerCase(); const el = ELEM_BY_SYM[key]; if(el){ showThinking(false); writeAnswer(`${el.name} (${el.s}) — Atomic number ${el.z}, atomic mass ${el.am}`); return; } }
+
+        // 5) Plot request pattern: "plot sin(x) from -10 to 10"
+        const plotMatch = q.match(/plot\s+(.+?)\s+(?:from|for)\s+([\-0-9.]+)\s*(?:to|,)\s*([\-0-9.]+)/i);
+        if(plotMatch){ const expr = plotMatch[1].trim(); const x0 = Number(plotMatch[2]); const x1 = Number(plotMatch[3]); try{ plotFunction(expr,x0,x1); showThinking(false); writeAnswer(`Plotted ${expr} from ${x0} to ${x1}`); return;}catch(e){/*fallthrough*/} }
+
+        // 6) Projectile simulation quick: "projectile 20 m/s at 40 degrees"
+        const proj = q.match(/projectile\s*([0-9.]+)\s*(m\/s)?\s*(?:at|@)\s*([0-9.]+)\s*degrees?/i);
+        if(proj){ const speed = Number(proj[1]); const angleDeg = Number(proj[3]); projectileSim(speed,angleDeg); showThinking(false); writeAnswer(`Projectile: speed ${speed} m/s, angle ${angleDeg}° — plotted trajectory (no air resistance).`); return; }
+
+        // 7) Molecule formula parse when user inputs only formula like H2O
+        const onlyFormula = q.match(/^([A-Z][a-z]?\d*)+$/);
+        if(onlyFormula){ const mm = molarMass(q); if(mm){ showThinking(false); writeAnswer(`Molar mass of ${q} = ${mm.mass} g/mol\nBreakdown: ${mm.details}`); return } }
+
+        // 8) If none matched, try to answer conceptually using a local simple knowledge base
+        const simpleKB = {
+          'photosynthesis': 'Photosynthesis is the process by which plants turn light energy into chemical energy — they use sunlight to convert carbon dioxide and water into glucose and oxygen.',
+          'gravity': 'Gravity is a force that attracts two masses toward each other; on Earth it gives objects weight. Acceleration near Earth\'s surface is about 9.81 m/s².'
+        };
+        const key = q.toLowerCase().replace(/[?.!]/g,'').split(' ').slice(0,3).join(' ');
+        for(const k in simpleKB){ if(q.toLowerCase().includes(k)){ showThinking(false); writeAnswer(simpleKB[k]); return } }
+
+        // Default fallback: provide a suggested web search (opens in new tab if user clicks) but do not perform web requests
+        showThinking(false);
+        answerEl.innerHTML = 'I don\'t have a precise answer stored. You can try a web search: <a id="searchLink" href="#">Search the web for this question</a>.';
+        document.getElementById('searchLink').addEventListener('click', (e)=>{ e.preventDefault(); window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank'); });
+
+      }, 650 + Math.random()*300);
+    }
+
+    // Graphing helper: sample expression via mathjs and draw
+    function plotFunction(expr, xmin=-10,xmax=10){
+      // clear canvas
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const samples = 800;
+      const scope = {};
+      const compiled = math.compile(expr);
+      let values = [];
+      for(let i=0;i<=samples;i++){
+        const x = xmin + (xmax-xmin)*(i/samples);
+        try{ const y = compiled.evaluate({x}); values.push({x,y}); }catch(e){ throw new Error('Invalid expression'); }
+      }
+      // find y range
+      let ymin = Math.min(...values.map(v=>v.y)); let ymax = Math.max(...values.map(v=>v.y));
+      if(!isFinite(ymin) || !isFinite(ymax)){ ymin=-1; ymax=1 }
+      if(Math.abs(ymax-ymin) < 1e-6){ ymax = ymin + 1 }
+      // map to canvas
+      function mx(x){ return (x - xmin)/(xmax-xmin)*canvas.width }
+      function my(y){ return canvas.height - (y - ymin)/(ymax-ymin)*canvas.height }
+      // axes
+      ctx.strokeStyle = '#264b87'; ctx.lineWidth=1; ctx.beginPath(); // x axis
+      const y0 = (0>=ymin && 0<=ymax) ? my(0) : null;
+      if(y0!==null){ ctx.moveTo(0,y0); ctx.lineTo(canvas.width,y0); }
+      // y axis
+      const x0 = (0>=xmin && 0<=xmax) ? mx(0) : null;
+      if(x0!==null){ ctx.moveTo(x0,0); ctx.lineTo(x0,canvas.height); }
+      ctx.stroke();
+      // function line
+      ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle='#66a3ff';
+      values.forEach((v,i)=>{ const px=mx(v.x); const py=my(v.y); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+      ctx.stroke();
+    }
+
+    function projectileSim(speed,angleDeg){
+      // simple projectile with g=9.81, no air resistance. Plots trajectory
+      const g = 9.81; const theta = angleDeg*Math.PI/180;
+      const vx = speed*Math.cos(theta); const vy = speed*Math.sin(theta);
+      const tFlight = (2*vy)/g; const dt = tFlight/500; const points = [];
+      for(let t=0;t<=tFlight;t+=dt){ const x = vx*t; const y = vy*t - 0.5*g*t*t; points.push({x,y}); }
+      // draw scaled
+      const xmax = Math.max(...points.map(p=>p.x)); const ymax = Math.max(...points.map(p=>p.y));
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // axes
+      ctx.strokeStyle = '#22334a'; ctx.beginPath(); ctx.moveTo(0,canvas.height-20); ctx.lineTo(canvas.width,canvas.height-20); ctx.stroke();
+      // plot
+      ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle='#7bd389';
+      points.forEach((p,i)=>{ const px = p.x/xmax*canvas.width; const py = canvas.height - 20 - (p.y/ymax)*(canvas.height-40); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }); ctx.stroke();
+    }
+
+    // Event listeners
+    askBtn.addEventListener('click', ()=>{ handleQuestion(questionEl.value); });
+    clearBtn.addEventListener('click', ()=>{ questionEl.value=''; writeAnswer(''); convResult.textContent=''; ctx.clearRect(0,0,canvas.width,canvas.height); });
+    convBtn.addEventListener('click', ()=>{ const r = tryUnitConversion(convInput.value); convResult.textContent = r || 'Could not convert locally — try phrasing like "5 miles to km" or use web search.' });
+
+    // Quick tool buttons
+    document.getElementById('openCalc').addEventListener('click', ()=>{ questionEl.value='2+2*3'; handleQuestion(questionEl.value); });
+    document.getElementById('openConv').addEventListener('click', ()=>{ convInput.value='5 miles to km'; convBtn.click(); });
+    document.getElementById('openPlot').addEventListener('click', ()=>{ questionEl.value='plot sin(x)/x from -20 to 20'; askBtn.click(); });
+    document.getElementById('openPeriodic').addEventListener('click', ()=>{ questionEl.value='Oxygen'; askBtn.click(); });
+
+    // Download plot
+    document.getElementById('downloadPlot').addEventListener('click', ()=>{ const url = canvas.toDataURL('image/png'); const a = document.createElement('a'); a.href=url; a.download='plot.png'; a.click(); });
+    document.getElementById('resetPlot').addEventListener('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); });
+
+    // Accept Enter for ask when focused
+    questionEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ askBtn.click(); } });
+
+    // Small UX: double-click formula to try molar mass
+    periodicQuick.addEventListener('dblclick', (ev)=>{ const t = ev.target.closest('.element'); if(!t) return; const txt = t.textContent.trim().split('\n')[0]; questionEl.value = txt; askBtn.click(); });
+
+  </script>
+</body>
+</html>
