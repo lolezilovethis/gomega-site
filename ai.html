@@ -6,7 +6,6 @@
 <title>Gomega AI — ai.html (local)</title>
 <style>
   :root{
-    /* Light / friendly theme (removed black) */
     --bg-1: #eaf8ff;
     --bg-2: #dff4ff;
     --card: rgba(255,255,255,0.95);
@@ -16,8 +15,6 @@
     --glass: rgba(11,37,64,0.06);
     --glass-2: rgba(11,37,64,0.03);
     --text: #072033;
-    --success:#0f8c4a;
-    --danger:#b00020;
     --bubble-bg-user: linear-gradient(90deg,#7c3aed,#ec4899);
     --bubble-bg-assistant: linear-gradient(90deg,var(--accent2),var(--accent1));
   }
@@ -28,12 +25,10 @@
   .brand{display:flex;align-items:center;gap:12px}
   .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(90deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:white;box-shadow:0 8px 28px rgba(6,182,212,0.12);transition:transform .3s ease}
   .logo.floating{animation:floaty 6s infinite ease-in-out;}
-  .logo.gradient-anim{background: linear-gradient(90deg,#7c3aed,#06b6d4); background-size:200% 200%; animation:gradShift 6s ease infinite;}
-  @keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  @keyframes floaty{0%{transform:none}50%{transform:translateY(-6px)}100%{transform:none}}
   .title{font-weight:800;font-size:18px}
   .subtitle{font-size:13px;color:var(--muted)}
   .grid{display:grid;grid-template-columns:1fr 360px;gap:14px;margin-top:14px}
-  /* chat */
   .chat-col .scroll{max-height:66vh;overflow:auto;padding-right:8px;display:flex;flex-direction:column;gap:12px}
   .msg{display:flex;gap:12px;align-items:flex-start;opacity:0;transform:translateY(8px);animation:fadeIn .22s forwards}
   @keyframes fadeIn { to{opacity:1;transform:none} }
@@ -54,7 +49,6 @@
   .send{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:white;box-shadow:0 10px 24px rgba(7,10,30,0.06);transition:transform .14s ease}
   .send:hover{transform:translateY(-4px)}
   .pill{background:rgba(15,140,74,0.05);padding:6px 8px;border-radius:999px;border:1px solid var(--glass);font-size:13px;color:var(--text)}
-  /* side UI */
   .side .card{padding:12px}
   .small{font-size:12px;color:var(--muted)}
   .tools{display:flex;gap:8px;flex-wrap:wrap}
@@ -63,47 +57,30 @@
   .suggestions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
   .suggestion{background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,249,255,0.98));padding:8px;border-radius:8px;border:1px solid var(--glass);cursor:pointer;transition:transform .12s}
   .suggestion:hover{transform:translateY(-4px)}
-  /* animations */
-  .floating{animation:floaty 6s infinite ease-in-out}
-  @keyframes floaty{0%{transform:none}50%{transform:translateY(-6px)}100%{transform:none}}
-  .ghost-fade{animation:ghostEnter .9s ease-in-out}
-  @keyframes ghostEnter{0%{opacity:0;transform:translateY(8px)}50%{opacity:.6;transform:translateY(-6px)}100%{opacity:1;transform:none}}
-  .badge{font-size:12px;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,0.98);border:1px solid var(--glass);color:var(--text)}
-  pre{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:13px;color:var(--text)}
-  .notice{background:rgba(6,182,212,0.06);padding:8px;border-radius:8px;border:1px solid rgba(6,182,212,0.06);color:var(--muted)}
-  .strip{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px}
-  .big-cta{background:linear-gradient(90deg,var(--accent2),var(--accent1));padding:10px;border-radius:10px;color:white;font-weight:800;cursor:pointer}
-  .footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
-  /* typing cursor effect for assistant bubble */
   .typing-dot{display:inline-block;width:6px;height:6px;margin:0 2px;background:rgba(7,10,30,0.12);border-radius:50%;animation:typing 1s infinite}
   @keyframes typing{0%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-6px)}100%{opacity:.2;transform:translateY(0)}}
-  /* message entrance */
   .msg-enter{animation:msgPop .24s ease}
   @keyframes msgPop{0%{transform:translateY(8px) scale(.995);opacity:0}100%{transform:none;opacity:1}}
-  /* responsive */
   @media (max-width:980px){ .grid{grid-template-columns:1fr} .side{order:2} }
-  /* subtle glass border on card */
-  .card .headerSmall{color:var(--muted);font-size:12px;margin-top:6px}
 </style>
 </head>
 <body>
   <div class="container">
     <div class="card top">
       <div class="brand">
-        <div class="logo floating gradient-anim">GA</div>
+        <div class="logo floating">GA</div>
         <div>
           <div class="title">Gomega AI <span class="small">— local assistant</span></div>
           <div class="subtitle" id="subtitle">Identity: GPT-5 Thinking mini • Local only</div>
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <div class="badge" id="modelBadge">Model: gomega-4.o</div>
-        <div class="badge">Chats left: <span id="chatLimitDisplay">200</span></div>
+        <div class="pill" id="modelBadge">Model: gomega-4.o</div>
+        <div class="pill">Chats left: <span id="chatLimitDisplay">80</span></div>
       </div>
     </div>
 
     <div class="grid">
-      <!-- chat column -->
       <div class="card chat-col">
         <div class="scroll" id="chatArea"></div>
 
@@ -144,7 +121,6 @@
         </div>
       </div>
 
-      <!-- side column -->
       <div class="side">
         <div class="card">
           <div style="font-weight:700">Model & Settings</div>
@@ -179,12 +155,7 @@
         <div class="card">
           <div style="font-weight:700">About gomega.watch</div>
           <div class="small" style="margin-top:8px">
-            Gomega.watch — contains School Games, Music, Scripts, and more. Try:
-            <div style="margin-top:6px">
-              <div class="small"><a href="https://gomega.watch/schoolgames" target="_blank" rel="noopener noreferrer">gomega.watch/schoolgames</a></div>
-              <div class="small"><a href="https://gomega.watch/music" target="_blank" rel="noopener noreferrer">gomega.watch/music</a></div>
-              <div class="small"><a href="https://gomega.watch/scripts" target="_blank" rel="noopener noreferrer">gomega.watch/scripts</a></div>
-            </div>
+            Gomega.watch — contains School Games, Music, Scripts, and more.
           </div>
         </div>
 
@@ -194,7 +165,7 @@
     <div class="footer">This runs locally. Identity string: <strong>GPT-5 Thinking mini</strong>.</div>
   </div>
 
-  <!-- modals -->
+  <!-- modal skeletons (same as earlier) -->
   <div id="modal" style="position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(7,10,30,0.08);z-index:80">
     <div style="width:92%;max-width:900px;background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--glass);">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -205,38 +176,10 @@
     </div>
   </div>
 
-  <div id="calcModal" style="position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(7,10,30,0.08);z-index:90">
-    <div style="width:90%;max-width:640px;background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--glass)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">Calculator (safe)</div>
-        <div><button id="closeCalc" class="pill">Close</button></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input id="calcInput" placeholder="(12+5)*3/2" style="flex:1;background:transparent;border:1px solid var(--glass);padding:8px;border-radius:8px;color:var(--text)">
-        <button id="calcRun" class="pill">Run</button>
-      </div>
-      <pre id="calcOut" style="background:rgba(240,248,255,0.8);padding:10px;border-radius:8px;min-height:80px;white-space:pre-wrap"></pre>
-    </div>
-  </div>
-
-  <div id="safeRunModal" style="position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(7,10,30,0.08);z-index:100">
-    <div style="width:90%;max-width:820px;background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--glass)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-weight:700">Safe Runner</div>
-        <div><button id="closeSafeRun" class="pill">Close</button></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <textarea id="safeCode" rows="6" placeholder="Math or safe JSON expression" style="flex:1;background:transparent;border:1px solid var(--glass);padding:8px;border-radius:8px;color:var(--text)"></textarea>
-        <div style="display:flex;flex-direction:column;gap:8px"><button id="safeRun" class="pill">Run</button><button id="safeExplain" class="pill">Explain Math</button></div>
-      </div>
-      <pre id="safeOut" style="background:rgba(240,248,255,0.8);padding:10px;border-radius:8px;min-height:100px;white-space:pre-wrap"></pre>
-    </div>
-  </div>
-
 <script>
-/* ---------------------------
-   SMALL INLINE MD FOR UI
-   --------------------------- */
+/* ===========================
+   Utilities / UI helpers
+   =========================== */
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function mdInline(s){
   if(s==null) return '';
@@ -248,364 +191,6 @@ function mdInline(s){
   return out;
 }
 
-/* ---------------------------
-   LOCAL API + MEMORY + GENERATOR
-   - kept your generator logic with small, safe modifications
-   --------------------------- */
-(function(){
-  const origFetch = window.fetch.bind(window);
-
-  const LS_STATE = 'gomega_local_state_v9';
-  const LS_SESSION = 'gomega_session_v9';
-
-  const DEFAULT = {
-    key: 'local-key-xyz',
-    learn: true,
-    models: [
-      { id: 'gomega-1.o', label: 'gomega-1.o (legacy)' },
-      { id: 'gomega-2.o', label: 'gomega-2.o (concise)' },
-      { id: 'gomega-3.o-mini', label: 'gomega-3.o-mini (mini)' },
-      { id: 'gomega-4.o', label: 'gomega-4.o (smart)' },
-      { id: 'gomega-5.o', label: 'gomega-5.o (insane)' }
-    ],
-    systemKnowledge: `Gomega.watch is a community site with sections:
-- gomega.watch/schoolgames (playable, school-friendly games)
-- gomega.watch/music (music lessons & resources)
-- gomega.watch/scripts (scripts & snippets, including Roblox examples)
-There are also unblocked browsers, small executors, and other utilities. Use this to answer questions about gomega.watch.`,
-    memory: { maxEntries: 5000, chunkSize: 480 },
-    profiles: {
-      'assistant.concise': { desc: 'Short & exact' },
-      'assistant.balanced': { desc: 'Balanced help' },
-      'assistant.dev': { desc: 'Developer mode' }
-    }
-  };
-
-  let STATE = Object.assign({}, DEFAULT);
-  try{ const raw = localStorage.getItem(LS_STATE); if(raw){ const parsed = JSON.parse(raw); STATE = Object.assign({}, DEFAULT, parsed); STATE.models = STATE.models || DEFAULT.models; STATE.profiles = Object.assign({}, DEFAULT.profiles, STATE.profiles||{}); } }catch(e){ console.warn('load state', e); }
-
-  // ensure presence of 4.o-mini per your earlier request
-  if(!STATE.models.find(m=>m.id==='gomega-4.o-mini')) STATE.models.push({ id: 'gomega-4.o-mini', label: 'gomega-4.o-mini (smart mini)' });
-
-  let SESSION = { startedAt: Date.now(), history: [] };
-  try{ const rawS = localStorage.getItem(LS_SESSION); if(rawS) SESSION = JSON.parse(rawS); }catch(e){}
-
-  function persist(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(STATE)); }catch(e){ console.warn('persist', e); } }
-  function persistSession(){ try{ localStorage.setItem(LS_SESSION, JSON.stringify(SESSION)); }catch(e){ console.warn('persistSession', e); } }
-
-  // tokenizers / retrieval
-  function tokenize(s){
-    if(!s) return [];
-    return String(s).toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).map(x=>x.trim()).filter(Boolean).filter(w=>w.length>2);
-  }
-  function tfMap(tokens){ const m={}; for(const t of tokens) m[t]=(m[t]||0)+1; return m; }
-  function ngrams(tokens){ const out=[]; for(let n=1;n<=3;n++) for(let i=0;i+n<=tokens.length;i++) out.push(tokens.slice(i,i+n).join(' ')); return out; }
-  function analyzeText(text){ const t=tokenize(text); const ng=ngrams(t); return { tokens: t.concat(ng), tf: tfMap(t.concat(ng)) }; }
-  function chunkText(text, size){ const out=[]; text=(text||'').trim(); if(!text) return out; for(let i=0;i<text.length;i+=size) out.push(text.slice(i,i+size)); return out; }
-
-  STATE.memories = STATE.memories || [];
-  function storeMemory(role, text){
-    if(!STATE.learn) return;
-    const txt = String(text||'').trim();
-    if(!txt) return;
-    if(txt.length < 30 && /^(hi|hello|hey)$/i.test(txt)) return;
-    const pieces = chunkText(txt, STATE.memory.chunkSize || 480);
-    const ts = Date.now();
-    for(const p of pieces){ const a = analyzeText(p); STATE.memories.push({ role, text: p, ts, tokens: a.tokens, tf: a.tf }); }
-    if(STATE.memories.length > (STATE.memory.maxEntries||3000)) STATE.memories = STATE.memories.slice(-STATE.memory.maxEntries);
-    persist();
-  }
-
-  function idfMap(docs){
-    const df={}; for(const d of docs){ const ks = Object.keys(d); const seen = new Set(ks); for(const k of seen) df[k] = (df[k]||0) + 1; }
-    const idf = {}; const N = docs.length || 1; for(const k in df) idf[k] = Math.log(1 + N / (df[k]||1)); return idf;
-  }
-  function dot(a,b,idf){ let s=0; for(const k in a){ if(!b[k]) continue; const ai=a[k], bi=b[k]; const w = idf && idf[k] ? idf[k] : 1; s += ai * bi * w * w; } return s; }
-  function norm(v,idf){ let s=0; for(const k in v){ const w = idf && idf[k] ? idf[k] : 1; s += (v[k]*w)*(v[k]*w); } return Math.sqrt(s||1); }
-
-  function retrieveRelevant(query, topN=6){
-    if(!STATE.memories.length) return [];
-    const qTokens = tokenize(query);
-    const qTF = tfMap(ngrams(qTokens).concat(qTokens));
-    const docsTF = STATE.memories.map(m=>m.tf||{});
-    const idf = idfMap(docsTF.concat([qTF]));
-    const qNorm = norm(qTF, idf);
-    const now = Date.now();
-    const scored = STATE.memories.map(m=>{
-      let sc = dot(qTF, m.tf||{}, idf) / (qNorm * norm(m.tf||{}, idf) || 1);
-      const ageHours = (now - (m.ts||now)) / (1000*60*60);
-      const recencyBoost = Math.max(0, 1 - Math.min(1, ageHours / (24*7)));
-      sc = sc * (0.6 + 0.8 * recencyBoost);
-      if(m.role === 'assistant') sc *= 1.05;
-      return { m, score: sc||0 };
-    });
-    scored.sort((a,b)=>b.score-a.score);
-    return scored.filter(s=>s.score>0.02).slice(0,topN);
-  }
-
-  // safe math & runner
-  function isSafeMathExpr(expr){ if(/[A-Za-z]/.test(expr)) return false; return /^[\d\s+\-*/^().%,]+$/.test(expr); }
-  function mathSteps(expr){
-    const steps = []; const sanitized = expr.replace(/,/g,'').replace(/\s+/g,'');
-    if(!isSafeMathExpr(sanitized)) return { error: 'Expression contains unsafe characters.' };
-    const tokens = []; let i=0;
-    while(i<sanitized.length){
-      const ch = sanitized[i];
-      if(/\d|\./.test(ch)){ let num=ch; i++; while(i<sanitized.length && /[\d.]/.test(sanitized[i])) num += sanitized[i++]; tokens.push({type:'num', value:num}); continue; }
-      if(/[+\-*/^()%]/.test(ch)){ tokens.push({type:'op', value:ch}); i++; continue; }
-      return { error:'Unexpected char' };
-    }
-    const prec = {'+':1,'-':1,'*':2,'/':2,'%':2,'^':3}; const right = {'^':true};
-    const outQ = []; const ops = [];
-    for(const t of tokens){
-      if(t.type==='num') outQ.push(t);
-      else {
-        if(t.value==='('){ ops.push(t); continue; }
-        if(t.value===')'){ let found=false; while(ops.length){ const top = ops.pop(); if(top.value==='('){ found=true; break; } outQ.push(top); } if(!found) return { error:'Mismatched parentheses' }; continue; }
-        while(ops.length){
-          const top = ops[ops.length-1];
-          if(top.value==='(') break;
-          const p1 = prec[t.value] || 0, p2 = prec[top.value] || 0;
-          if((!right[t.value] && p1 <= p2) || (right[t.value] && p1 < p2)) outQ.push(ops.pop()); else break;
-        }
-        ops.push(t);
-      }
-    }
-    while(ops.length){ const top = ops.pop(); if(top.value==='('||top.value===')') return { error:'Mismatched parentheses' }; outQ.push(top); }
-    const stack = [];
-    for(const t of outQ){
-      if(t.type==='num') stack.push(parseFloat(t.value));
-      else { const b = stack.pop(), a = stack.pop(); if(typeof a === 'undefined' || typeof b === 'undefined') return { error:'Invalid expression' }; let res;
-        switch(t.value){ case '+': res = a + b; steps.push(`${a} + ${b} = ${res}`); break; case '-': res = a - b; steps.push(`${a} - ${b} = ${res}`); break;
-          case '*': res = a * b; steps.push(`${a} × ${b} = ${res}`); break; case '/': if(b===0) return { error:'Division by zero' }; res = a / b; steps.push(`${a} ÷ ${b} = ${res}`); break;
-          case '%': res = a % b; steps.push(`${a} % ${b} = ${res}`); break; case '^': res = Math.pow(a,b); steps.push(`${a} ^ ${b} = ${res}`); break;
-          default: return { error:'Unknown operator' } } stack.push(res);
-      }
-    }
-    if(stack.length !== 1) return { error:'Invalid expression after evaluation' };
-    return { result: stack[0], steps };
-  }
-
-  function safeJsRun(code){
-    const forbid = /\b(document|window|fetch|XMLHttpRequest|localStorage|eval|Function|require|import|process|globalThis|postMessage|self|Worker)\b/;
-    if(forbid.test(code)) return { error:'Forbidden globals' };
-    const allowed = /^[\s0-9\[\]\{\}\:\,\"\'.\-+*\/\%\^\(\)A-Za-z_]+$/;
-    if(!allowed.test(code)) return { error:'Contains disallowed chars' };
-    if(/\b(Math|JSON)\b/.test(code)===false && /[A-Za-z_]{2,}/.test(code)) return { error:'Only Math/JSON allowed' };
-    try{ const fn = new Function('"use strict"; return (' + code + ')'); const v = fn(); return { result: v }; }catch(err){ return { error: 'Runtime: ' + (err && err.message) }; }
-  }
-
-  /* ---------------------------
-     localGenerate - unchanged behavior for replies (greetings, code parse, etc.)
-     We simply rely on it and avoid web lookups for greetings.
-     --------------------------- */
-  function parseModelStrength(modelId){
-    if(!modelId) return 4;
-    const m = (''+modelId).toLowerCase();
-    const found = m.match(/gomega-(\d+)/);
-    const n = found ? Number(found[1]) : (m.includes('4')?4:5);
-    return n;
-  }
-
-  function inferFollowUpIntent(lastAssistantText, userReply){
-    const lower = (lastAssistantText||'').toLowerCase();
-    const affirm = /^(yes|sure|please|do it|ok|yeah|yep|please do|go ahead)$/i;
-    if(affirm.test(userReply.trim())) {
-      if(lower.includes('would you like me to search') || lower.includes('search for specifics')) return 'search';
-      if(lower.includes('want me to expand') || lower.includes('which step to expand')) return 'expand';
-      if(lower.includes('want me to produce')) return 'patch';
-    }
-    return null;
-  }
-
-  function localGenerate(messages, temperature=0.7, modelId='gomega-4.o', thinkMode=false, options={}){
-    let lastUser = '';
-    let lastAssistant = '';
-    for(let i=messages.length-1;i>=0;i--){ if(messages[i].role==='user' && !lastUser) lastUser = messages[i].content||''; if(messages[i].role==='assistant' && !lastAssistant) lastAssistant = messages[i].content||''; }
-    const q = String(lastUser||'').trim();
-    const lq = q.toLowerCase();
-
-    const strength = parseModelStrength(modelId);
-    const powerful = strength >= 4; // 4 & 5 are "insanely smart"
-
-    // identity responses
-    if(/\bwhat model (are you|is this)\b|\bwhich model (are you|is this)\b/i.test(lq)) return 'I am GPT-5 Thinking mini, running as Gomega AI (local).';
-
-    // smart greetings: vary
-    if(/^(hi|hello|hey|hiya|sup)[\!\.\s]*$/i.test(q)){
-      if(powerful){
-        const variants = ["Hi — I'm Gomega AI. I can help with code, games, music pages on gomega.watch, and quick calculations. What would you like to do?", "Hello! Gomega AI here — I know about gomega.watch/schoolgames, /music, and /scripts. Ask me anything."];
-        return variants[Math.floor(Math.random()*variants.length)];
-      } else {
-        return "Hi — how can I help?";
-      }
-    }
-
-    // small helper: follow-up
-    if(q.length < 40){
-      const follow = inferFollowUpIntent(lastAssistant, q);
-      if(follow === 'search'){
-        return `Okay — I will look for specifics. (Expert mode may fetch web info; if unavailable I will suggest how to search.)`;
-      }
-      if(follow === 'expand'){
-        return `Which step would you like me to expand? 1) Clarify goal 2) Break down tasks 3) Example 4) Test & iterate`;
-      }
-    }
-
-    // calculator trigger
-    if(lq.startsWith('calc:') || /^calc\s*:/.test(lq) || lq.startsWith('calculate:')){
-      const expr = q.split(':').slice(1).join(':').trim();
-      if(!expr) return 'Provide expression after calc:';
-      const res = mathSteps(expr);
-      if(res.error) return `Calculator error: ${res.error}`;
-      return `Calculation (step-by-step):\n\n${(res.steps||[]).join('\n')}\n\nResult: ${res.result}`;
-    }
-
-    // gomega.watch specific queries
-    if(/\bgomega\.watch\b|\bschoolgames\b|\bmusic\b|\bscripts\b|\broblox\b/i.test(lq)){
-      const items = [];
-      if(/schoolgames/i.test(lq)) items.push('School Games: gomega.watch/schoolgames — curated school-friendly titles and quickplay links.');
-      if(/music/i.test(lq)) items.push('Music: gomega.watch/music — lessons, playlists, and beginner-friendly resources.');
-      if(/script|roblox/i.test(lq)) items.push('Scripts: gomega.watch/scripts — snippets, Roblox examples, and small utilities.');
-      if(items.length===0) items.push('Gomega.watch contains School Games, Music, Scripts, and more. Try the subpages for details.');
-      if(powerful){
-        return items.join('\n') + '\n\nI can search specific pages for titles, code examples, or resources — say "Yes please" to let me look (Expert mode will try web lookups).';
-      } else {
-        return items.join('\n') + '\n\nWould you like a short list or an example?';
-      }
-    }
-
-    // detect code blocks -> offer diagnostics
-    const codeBlock = q.match(/```([\w-]*)\n([\s\S]*?)```/);
-    if(codeBlock){
-      const lang = codeBlock[1] || 'unknown';
-      const code = codeBlock[2];
-      const hints = [];
-      if(/console\.log\(/.test(code)) hints.push('If this is asynchronous, check that promises are awaited.');
-      if(/==[^=]/.test(code)) hints.push('Use === instead of == to avoid coercion in JS.');
-      if(/document\.getElementById|querySelector/.test(code)) hints.push('Ensure DOM access runs after DOMContentLoaded.');
-      if(!hints.length) hints.push('Paste the exact error message and I will propose a minimal fix.');
-      if(powerful){
-        return `Detected ${lang} code. Quick diagnostic:\n- ${hints.join('\n- ')}\n\nIf you want, I will propose a small patch and explain the fix line-by-line.`;
-      } else {
-        return `Detected ${lang} code. Try checking these: ${hints.join('; ')}`;
-      }
-    }
-
-    const hits = retrieveRelevant(q, 8);
-    if(hits.length && hits[0].score > (powerful ? 0.06 : 0.12)){
-      if(powerful){
-        const lines = hits.map(h=>`• ${h.m.role}: ${h.m.text.slice(0,220).replace(/\n/g,' ')} (${new Date(h.m.ts).toLocaleDateString()})`);
-        return `I found related notes and combined them into an answer:\n\n${lines.join('\n')}\n\nWould you like this expanded into steps or an example?`;
-      } else {
-        return `Related memory: ${hits[0].m.text.split('\n')[0].slice(0,300)}`;
-      }
-    }
-
-    const tokens = tokenize(q);
-    if(q.length < 80 && tokens.length >= 1){
-      if(tokens.includes('game') || tokens.includes('games')) {
-        return powerful ? 'Do you want recommended school-friendly games, or details about a particular title on gomega.watch/schoolgames?' : 'Do you want a short list of games or instructions?';
-      }
-      if(tokens.includes('music') || tokens.includes('song')) {
-        return powerful ? 'Would you like lessons, sheet links, or playlists from gomega.watch/music?' : 'Do you want song suggestions or lessons?';
-      }
-      if(tokens.includes('roblox') || tokens.includes('script')) {
-        return powerful ? 'I can show example Roblox scripts and explain them step-by-step — would you like a beginner example?' : 'Do you want a simple Roblox script example?';
-      }
-      if(tokens.includes('help') || tokens.includes('fix') || tokens.includes('error')) {
-        return powerful ? 'Paste the code or error — I will analyze and propose a minimal patch with reasoning.' : 'Paste code or error and I will suggest fixes.';
-      }
-      if(powerful){
-        const guess = tokens.slice(0,7).join(' ');
-        return `I think you mean: "${guess}...". Do you want a short summary, examples, or step-by-step instructions?`;
-      }
-      return `Can you add a little more detail so I can answer precisely?`;
-    }
-
-    if(powerful){
-      return `Plan:\n1) Clarify goal and constraints.\n2) Break problem into tasks.\n3) Provide an example or quick snippet.\n4) Test and iterate.\n\nTell me which step to expand, or paste details and I'll produce code/steps.`;
-    } else {
-      return `Start by clarifying the goal, then ask for an example or paste code to debug.`;
-    }
-  }
-
-  // override global fetch (keeps local /api endpoints)
-  window.fetch = async function(input, init){
-    try{
-      const urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
-      const u = new URL(urlStr, location.href);
-      const path = u.pathname || '/';
-      if(path.startsWith('/api')){
-        await new Promise(r=>setTimeout(r, 25 + Math.random()*170));
-        const sub = path.slice('/api'.length) || '/';
-
-        if((sub===''||sub==='/'||sub==='/config') && (!init || (init.method||'GET').toUpperCase()==='GET')){
-          return new Response(JSON.stringify({ models: STATE.models, provider: 'local', learn: !!STATE.learn, systemKnowledge: STATE.systemKnowledge, profiles: STATE.profiles }), { status:200, headers: {'Content-Type':'application/json'} });
-        }
-
-        if(sub==='/key' && (!init || (init.method||'GET').toUpperCase()==='GET')){
-          return new Response(JSON.stringify({ key: STATE.key }), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-
-        if(sub==='/memories' && (!init || (init.method||'GET').toUpperCase()==='GET')){
-          return new Response(JSON.stringify({ memories: STATE.memories.map(m=>({ role:m.role, text:m.text, ts:m.ts })) }), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-
-        if(sub==='/clear-memories' && init && (init.method||'').toUpperCase()==='POST'){
-          STATE.memories = []; persist();
-          return new Response(JSON.stringify({ ok:true }), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-
-        if(sub==='/chat' && init && (init.method||'').toUpperCase()==='POST'){
-          let body = {};
-          try{ body = JSON.parse(init.body||'{}'); }catch(e){}
-          const messages = body.messages || [];
-          const modelId = body.modelId || (STATE.models[3] && STATE.models[3].id);
-          const thinkMode = !!body.thinkMode;
-          try{
-            const lastUser = messages.slice().reverse().find(m=>m.role==='user');
-            if(lastUser && lastUser.content){
-              const txt = String(lastUser.content).trim();
-              if(!(txt.length<30 && /^(hi|hello|hey)$/i.test(txt))) storeMemory('user', txt);
-            }
-          }catch(e){}
-          const reply = localGenerate(messages, 0.7, modelId, thinkMode, {});
-          if(reply && reply.length>20) storeMemory('assistant', reply);
-          return new Response(JSON.stringify({ text: reply, model: modelId }), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-
-        if(sub==='/tools/math' && init && (init.method||'').toUpperCase()==='POST'){
-          let b={}; try{ b = JSON.parse(init.body||'{}'); }catch(e){}
-          const res = mathSteps(b.expr||'');
-          return new Response(JSON.stringify(res), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-        if(sub==='/tools/safe-run' && init && (init.method||'').toUpperCase()==='POST'){
-          let b={}; try{ b = JSON.parse(init.body||'{}'); }catch(e){}
-          const res = safeJsRun(b.code||'');
-          return new Response(JSON.stringify(res), { status:200, headers:{'Content-Type':'application/json'} });
-        }
-
-        return new Response('Not found', { status:404, headers:{'Content-Type':'text/plain'} });
-      }
-    }catch(err){ console.warn('fetch override err', err); }
-    return origFetch(input, init);
-  };
-
-  // expose debug helpers
-  window.__GOMEGA_LOCAL = {
-    getState: ()=>JSON.parse(JSON.stringify(STATE)),
-    persist, storeMemory, persistSession, mathSteps, safeJsRun
-  };
-})(); // end local module
-
-/* ---------------------------
-   UI WIRING
-   - fixes applied:
-     1) chats visible color + layout
-     2) greetings will not cause web lookups
-     3) typing speed slowed considerably
-   --------------------------- */
 const $ = (s,p=document)=>p.querySelector(s);
 const chatArea = $('#chatArea'), promptEl = $('#prompt'), form = $('#composer'), sendBtn = $('#send'),
       modelSelect = $('#modelSelect'), profileSelect = $('#profileSelect'), thinkToggle = $('#thinkToggle'), expertToggle = $('#expertToggle'),
@@ -617,55 +202,97 @@ const chatArea = $('#chatArea'), promptEl = $('#prompt'), form = $('#composer'),
       openRegex = $('#openRegex'), openMemViewerBtn = $('#openMemViewerBtn'), resetNow = $('#resetNow'), chatLimitDisplay = $('#chatLimitDisplay'),
       modelBadge = $('#modelBadge');
 
-let CHAT_LIMIT = 80;
-let currentModel = null;
+const LS_SESSION = 'gomega_session_v9';
+const LS_STATE = 'gomega_local_state_v9';
+const MAX_SESSION_HISTORY = 200;   // cap session stored items
+const MIN_SESSION_HISTORY = 8;     // minimal kept when trimming
+let IN_MEMORY_SESSION = null;      // fallback in-memory session (kept even if localStorage full)
+let CHAT_LIMIT = 80;               // chat limit as requested
 
-function getRemainingChats(){
-  const s = getSession();
-  const used = (s.history||[]).length || 0;
-  return Math.max(0, CHAT_LIMIT - used);
-}
-
-async function loadConfigUI(){
+/* ===========================
+   Safe localStorage wrapper
+   - setSession now trims and retries when quota exceeded
+   - addMessage uses in-memory-first so UI never blocks
+   =========================== */
+function getSession(){
   try{
-    const r = await fetch('/api/config'); const cfg = r.ok?await r.json():{};
-    const models = cfg.models || [{id:'gomega-4.o',label:'gomega-4.o'}];
-    modelSelect.innerHTML = '';
-    const pref = [{id:'gomega-1.o',label:'gomega-1.o (legacy)'},{id:'gomega-2.o',label:'gomega-2.o (concise)'},{id:'gomega-3.o-mini',label:'gomega-3.o-mini (mini)'}];
-    for(const p of pref) if(!models.find(m=>m.id===p.id)) models.unshift(p);
-    if(!models.find(m=>m.id==='gomega-4.o-mini')) models.push({ id:'gomega-4.o-mini', label: 'gomega-4.o-mini (smart mini)' });
-    if(!models.find(m=>m.id==='gomega-4.o')) models.push({ id:'gomega-4.o', label: 'gomega-4.o (smart)' });
-    if(!models.find(m=>m.id==='gomega-5.o')) models.push({ id:'gomega-5.o', label: 'gomega-5.o (insane)' });
-
-    const seen = new Set();
-    for(const m of models){ if(seen.has(m.id)) continue; const o = document.createElement('option'); o.value = m.id; o.textContent = m.label || m.id; modelSelect.appendChild(o); seen.add(m.id); }
-    currentModel = modelSelect.value; modelBadge.textContent = 'Model: ' + currentModel;
-    profileSelect.innerHTML = '';
-    const profs = cfg.profiles || {};
-    for(const k in profs){ const o = document.createElement('option'); o.value=k; o.textContent = `${k} — ${profs[k].desc||''}`; profileSelect.appendChild(o); }
-    sysInfo.textContent = (cfg.systemKnowledge || '').slice(0,2000);
-    updateSessionUI();
-  }catch(e){ console.warn('cfg err', e); }
+    const raw = localStorage.getItem(LS_SESSION);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      IN_MEMORY_SESSION = parsed; // sync into memory
+      return parsed;
+    }
+  }catch(e){
+    // ignore parse issues
+  }
+  if(IN_MEMORY_SESSION) return IN_MEMORY_SESSION;
+  const s = { startedAt: Date.now(), history: [] };
+  IN_MEMORY_SESSION = s;
+  return s;
 }
-loadConfigUI();
 
-function nowISO(ts){ return new Date(ts).toLocaleString(); }
-function getSession(){ try{ return JSON.parse(localStorage.getItem('gomega_session_v9')||JSON.stringify({startedAt:Date.now(),history:[]})); }catch(e){ return {startedAt:Date.now(),history:[]}; } }
-function setSession(s){ localStorage.setItem('gomega_session_v9', JSON.stringify(s)); }
+function setSession(session){
+  // update in-memory always
+  IN_MEMORY_SESSION = session;
+  // try to persist to localStorage, but handle quota gracefully
+  try{
+    localStorage.setItem(LS_SESSION, JSON.stringify(session));
+    return true;
+  }catch(err){
+    // If quota exceeded, progressively trim history and retry
+    try{
+      if(!session || !session.history) return false;
+      // Trim strategy: remove oldest half until we can save or we reach MIN_SESSION_HISTORY
+      let attempts = 0;
+      while(attempts < 6){
+        attempts++;
+        if(session.history.length > MIN_SESSION_HISTORY){
+          // remove oldest 25% each attempt
+          const removeCount = Math.max(1, Math.floor(session.history.length * 0.25));
+          session.history = session.history.slice(removeCount);
+        } else {
+          // if still failing, just keep minimal recent items
+          session.history = session.history.slice(-MIN_SESSION_HISTORY);
+        }
+        try{
+          localStorage.setItem(LS_SESSION, JSON.stringify(session));
+          IN_MEMORY_SESSION = session;
+          return true;
+        }catch(e2){
+          // continue trimming
+        }
+      }
+    }catch(inner){
+      // swallow
+    }
+    // if we couldn't persist, just keep it in memory (no throw)
+    console.warn('localStorage setSession failed, using in-memory session fallback', err && err.message);
+    return false;
+  }
+}
 
+/* Append to session in-memory first; then attempt persist asynchronously.
+   This avoids throwing Quota errors in UI event handlers. */
 function addMessageToSessionMirror(role, content){
-  const s = getSession(); s.history.push({ role, content, ts: Date.now() }); if(s.history.length > CHAT_LIMIT) s.history = s.history.slice(-CHAT_LIMIT); setSession(s); updateSessionUI();
+  const s = getSession();
+  s.history.push({ role, content, ts: Date.now() });
+  // enforce CHAT_LIMIT in-memory
+  if(s.history.length > CHAT_LIMIT){
+    s.history = s.history.slice(-CHAT_LIMIT);
+  }
+  // cap stored history to MAX_SESSION_HISTORY on persist
+  const toPersist = { startedAt: s.startedAt, history: s.history.slice(-MAX_SESSION_HISTORY) };
+  // update UI counts asap
+  setSession(toPersist); // safe: this will trim silently if needed
+  updateSessionUI();
 }
-function updateSessionUI(){ const s = getSession(); $('#sessStart') && ($('#sessStart').textContent = nowISO(s.startedAt)); $('#histCount') && ($('#histCount').textContent = (s.history||[]).length); chatLimitDisplay.textContent = getRemainingChats(); }
-function renderSessionUI(){ chatArea.innerHTML = ''; const s = getSession(); for(const m of s.history) appendMessageToUI(m.role, m.content, m.ts); }
-renderSessionUI();
 
+/* UI render functions */
 function appendMessageToUI(role, content, ts, opts){
   opts = opts || {};
   const wrap = document.createElement('div'); wrap.className = 'msg msg-enter';
   const av = document.createElement('div'); av.className = 'avatar ' + (role==='user' ? 'user' : 'g'); av.textContent = role==='user' ? 'U' : 'G';
   const cont = document.createElement('div'); cont.className = 'bubble' + (opts.ghost ? ' ghost' : '');
-  // We use mdInline for safe basic formatting
   cont.innerHTML = mdInline(content);
   const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = ts ? new Date(ts).toLocaleString() : '';
   const holder = document.createElement('div'); holder.className = 'msg-wrap'; holder.appendChild(cont); holder.appendChild(meta);
@@ -679,13 +306,13 @@ function appendAssistantTyping(){
   return { wrap, bubble, meta };
 }
 
+/* streamType: slower and safe (no unescaped injection) */
 function streamType(element, text, speed){
   return new Promise(resolve=>{
     const plain = String(text||'');
     let i = 0;
     element.innerHTML = '';
-    // chunk size 1 for slow readable type
-    const chunkSize = 1;
+    const chunkSize = 1; // slow, readable
     const step = ()=>{
       if(i >= plain.length){ resolve(); return; }
       const sub = plain.slice(i, i+chunkSize);
@@ -698,33 +325,274 @@ function streamType(element, text, speed){
   });
 }
 
-// strict chat filter
-const BANNED = ['fuck','shit','bitch','asshole'];
-function containsBanned(s){ if(!s) return false; const lower = s.toLowerCase(); for(const w of BANNED) if(w && lower.includes(w)) return true; return false; }
+/* ===========================
+   Memory & Local generator code (kept mostly as you had)
+   plus smarter web merging
+   =========================== */
 
-// helper to check last assistant question asking to search
-function lastAssistantAskedSearch(){
-  const s = getSession();
-  const rev = (s.history || []).slice().reverse();
-  for(const m of rev){ if(m.role === 'assistant'){ const t = String(m.content||'').toLowerCase(); if(t.includes('would you like me to search') || t.includes('say "yes please" to let me look') || t.includes('i can search specific pages')) return true; else return false; } }
-  return false;
+/* helper tokenizers */
+function tokenize(s){
+  if(!s) return [];
+  return String(s).toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).map(x=>x.trim()).filter(Boolean).filter(w=>w.length>2);
+}
+function tfMap(tokens){ const m={}; for(const t of tokens) m[t]=(m[t]||0)+1; return m; }
+function ngrams(tokens){ const out=[]; for(let n=1;n<=3;n++) for(let i=0;i+n<=tokens.length;i++) out.push(tokens.slice(i,i+n).join(' ')); return out; }
+function analyzeText(text){ const t=tokenize(text); const ng=ngrams(t); return { tokens: t.concat(ng), tf: tfMap(t.concat(ng)) }; }
+function chunkText(text, size){ const out=[]; text=(text||'').trim(); if(!text) return out; for(let i=0;i<text.length;i+=size) out.push(text.slice(i,i+size)); return out; }
+
+/* simple memory store (use existing LS_STATE pattern) */
+let STATE = (function(){
+  try{ const raw = localStorage.getItem(LS_STATE); if(raw) return JSON.parse(raw); }catch(e){}
+  return {
+    key: 'local-key-xyz',
+    learn: true,
+    models: [
+      { id: 'gomega-1.o', label: 'gomega-1.o (legacy)' },
+      { id: 'gomega-2.o', label: 'gomega-2.o (concise)' },
+      { id: 'gomega-3.o-mini', label: 'gomega-3.o-mini (mini)' },
+      { id: 'gomega-4.o', label: 'gomega-4.o (smart)' },
+      { id: 'gomega-5.o', label: 'gomega-5.o (insane)' }
+    ],
+    systemKnowledge: 'Gomega.watch local system knowledge',
+    memory: { maxEntries: 5000, chunkSize: 480 },
+    profiles: { 'assistant.concise': { desc:'Short & exact' }, 'assistant.balanced': { desc:'Balanced' }, 'assistant.dev': { desc:'Developer' } },
+    memories: []
+  };
+})();
+
+function persistState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(STATE)); }catch(e){ /* ignore state persist failure */ } }
+
+/* store memory with chunking like before */
+function storeMemory(role, text){
+  if(!STATE.learn) return;
+  const txt = String(text||'').trim();
+  if(!txt) return;
+  if(txt.length < 30 && /^(hi|hello|hey)$/i.test(txt)) return;
+  const pieces = chunkText(txt, STATE.memory.chunkSize || 480);
+  const ts = Date.now();
+  for(const p of pieces){ const a = analyzeText(p); STATE.memories.push({ role, text: p, ts, tokens: a.tokens, tf: a.tf }); }
+  if(STATE.memories.length > (STATE.memory.maxEntries||3000)) STATE.memories = STATE.memories.slice(-STATE.memory.maxEntries);
+  persistState();
 }
 
-// detect greeting -> prevent web search
-function isGreetingShort(text){
-  if(!text) return false;
-  const t = text.trim().toLowerCase();
-  if(t.length > 12) return false;
-  return /^(hi|hello|hey|hiya|sup)[\!\.\s]*$/i.test(t);
+/* retrieval (small) */
+function idfMap(docs){
+  const df={}; for(const d of docs){ const ks = Object.keys(d); const seen = new Set(ks); for(const k of seen) df[k] = (df[k]||0) + 1; }
+  const idf = {}; const N = docs.length || 1; for(const k in df) idf[k] = Math.log(1 + N / (df[k]||1)); return idf;
+}
+function dot(a,b,idf){ let s=0; for(const k in a){ if(!b[k]) continue; const ai=a[k], bi=b[k]; const w = idf && idf[k] ? idf[k] : 1; s += ai * bi * w * w; } return s; }
+function norm(v,idf){ let s=0; for(const k in v){ const w = idf && idf[k] ? idf[k] : 1; s += (v[k]*w)*(v[k]*w); } return Math.sqrt(s||1); }
+function retrieveRelevant(query, topN=6){
+  if(!STATE.memories.length) return [];
+  const qTokens = tokenize(query);
+  const qTF = tfMap(ngrams(qTokens).concat(qTokens));
+  const docsTF = STATE.memories.map(m=>m.tf||{});
+  const idf = idfMap(docsTF.concat([qTF]));
+  const qNorm = norm(qTF, idf);
+  const now = Date.now();
+  const scored = STATE.memories.map(m=>{
+    let sc = dot(qTF, m.tf||{}, idf) / (qNorm * norm(m.tf||{}, idf) || 1);
+    const ageHours = (now - (m.ts||now)) / (1000*60*60);
+    const recencyBoost = Math.max(0, 1 - Math.min(1, ageHours / (24*7)));
+    sc = sc * (0.6 + 0.8 * recencyBoost);
+    if(m.role === 'assistant') sc *= 1.05;
+    return { m, score: sc||0 };
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.filter(s=>s.score>0.02).slice(0,topN);
 }
 
-/* ---------------------
-   webSearch helper (DuckDuckGo instant answer)
-   skip for greetings and very short prompts
-   --------------------- */
-async function webSearch(query, maxTopics=3){
+/* Safe math / safe-run kept as before (no changes) */
+function isSafeMathExpr(expr){ if(/[A-Za-z]/.test(expr)) return false; return /^[\d\s+\-*/^().%,]+$/.test(expr); }
+function mathSteps(expr){
+  const steps = []; const sanitized = expr.replace(/,/g,'').replace(/\s+/g,'');
+  if(!isSafeMathExpr(sanitized)) return { error: 'Expression contains unsafe characters.' };
+  const tokens = []; let i=0;
+  while(i<sanitized.length){
+    const ch = sanitized[i];
+    if(/\d|\./.test(ch)){ let num=ch; i++; while(i<sanitized.length && /[\d.]/.test(sanitized[i])) num += sanitized[i++]; tokens.push({type:'num', value:num}); continue; }
+    if(/[+\-*/^()%]/.test(ch)){ tokens.push({type:'op', value:ch}); i++; continue; }
+    return { error:'Unexpected char' };
+  }
+  const prec = {'+':1,'-':1,'*':2,'/':2,'%':2,'^':3}; const right = {'^':true};
+  const outQ = []; const ops = [];
+  for(const t of tokens){
+    if(t.type==='num') outQ.push(t);
+    else {
+      if(t.value==='('){ ops.push(t); continue; }
+      if(t.value===')'){ let found=false; while(ops.length){ const top = ops.pop(); if(top.value==='('){ found=true; break; } outQ.push(top); } if(!found) return { error:'Mismatched parentheses' }; continue; }
+      while(ops.length){
+        const top = ops[ops.length-1];
+        if(top.value==='(') break;
+        const p1 = prec[t.value] || 0, p2 = prec[top.value] || 0;
+        if((!right[t.value] && p1 <= p2) || (right[t.value] && p1 < p2)) outQ.push(ops.pop()); else break;
+      }
+      ops.push(t);
+    }
+  }
+  while(ops.length){ const top = ops.pop(); if(top.value==='('||top.value===')') return { error:'Mismatched parentheses' }; outQ.push(top); }
+  const stack = [];
+  for(const t of outQ){
+    if(t.type==='num') stack.push(parseFloat(t.value));
+    else { const b = stack.pop(), a = stack.pop(); if(typeof a === 'undefined' || typeof b === 'undefined') return { error:'Invalid expression' }; let res;
+      switch(t.value){ case '+': res = a + b; steps.push(`${a} + ${b} = ${res}`); break; case '-': res = a - b; steps.push(`${a} - ${b} = ${res}`); break;
+        case '*': res = a * b; steps.push(`${a} × ${b} = ${res}`); break; case '/': if(b===0) return { error:'Division by zero' }; res = a / b; steps.push(`${a} ÷ ${b} = ${res}`); break;
+        case '%': res = a % b; steps.push(`${a} % ${b} = ${res}`); break; case '^': res = Math.pow(a,b); steps.push(`${a} ^ ${b} = ${res}`); break;
+        default: return { error:'Unknown operator' } } stack.push(res);
+    }
+  }
+  if(stack.length !== 1) return { error:'Invalid expression after evaluation' };
+  return { result: stack[0], steps };
+}
+function safeJsRun(code){
+  const forbid = /\b(document|window|fetch|XMLHttpRequest|localStorage|eval|Function|require|import|process|globalThis|postMessage|self|Worker)\b/;
+  if(forbid.test(code)) return { error:'Forbidden globals' };
+  const allowed = /^[\s0-9\[\]\{\}\:\,\"\'.\-+*\/\%\^\(\)A-Za-z_]+$/;
+  if(!allowed.test(code)) return { error:'Contains disallowed chars' };
+  if(/\b(Math|JSON)\b/.test(code)===false && /[A-Za-z_]{2,}/.test(code)) return { error:'Only Math/JSON allowed' };
+  try{ const fn = new Function('"use strict"; return (' + code + ')'); const v = fn(); return { result: v }; }catch(err){ return { error: 'Runtime: ' + (err && err.message) }; }
+}
+
+/* ===========================
+   Local generator: improved heuristics
+   - parseModelStrength unchanged
+   - localGenerate improved with more robust fallbacks and clearer replies
+   =========================== */
+function parseModelStrength(modelId){
+  if(!modelId) return 4;
+  const m = (''+modelId).toLowerCase();
+  const found = m.match(/gomega-(\d+)/);
+  const n = found ? Number(found[1]) : (m.includes('4')?4:5);
+  return n;
+}
+
+function inferFollowUpIntent(lastAssistantText, userReply){
+  const lower = (lastAssistantText||'').toLowerCase();
+  const affirm = /^(yes|sure|please|do it|ok|yeah|yep|please do|go ahead)$/i;
+  if(affirm.test(userReply.trim())) {
+    if(lower.includes('would you like me to search') || lower.includes('search for specifics')) return 'search';
+    if(lower.includes('want me to expand') || lower.includes('which step to expand')) return 'expand';
+    if(lower.includes('want me to produce')) return 'patch';
+  }
+  return null;
+}
+
+/* localGenerate - returns a helpful local answer */
+function localGenerate(messages, temperature=0.7, modelId='gomega-4.o', thinkMode=false, options={}){
+  let lastUser = '';
+  let lastAssistant = '';
+  for(let i=messages.length-1;i>=0;i--){ if(messages[i].role==='user' && !lastUser) lastUser = messages[i].content||''; if(messages[i].role==='assistant' && !lastAssistant) lastAssistant = messages[i].content||''; }
+  const q = String(lastUser||'').trim();
+  const lq = q.toLowerCase();
+  const strength = parseModelStrength(modelId);
+  const powerful = strength >= 4;
+
+  if(/\bwhat model (are you|is this)\b|\bwhich model (are you|is this)\b/i.test(lq)) return 'I am GPT-5 Thinking mini, running as Gomega AI (local).';
+
+  if(/^(hi|hello|hey|hiya|sup)[\!\.\s]*$/i.test(q)){
+    if(powerful){
+      const variants = ["Hi — I'm Gomega AI. I can help with code, games, gomega.watch pages, and quick calculations. What would you like to do?", "Hello! Gomega AI here — I know about gomega.watch/schoolgames, /music, and /scripts. Ask me anything."];
+      return variants[Math.floor(Math.random()*variants.length)];
+    } else {
+      return "Hi — how can I help?";
+    }
+  }
+
+  if(q.length < 40){
+    const follow = inferFollowUpIntent(lastAssistant, q);
+    if(follow === 'search'){
+      return `Okay — I will look for specifics. (Expert mode can fetch web info.)`;
+    }
+    if(follow === 'expand'){
+      return `Which step would you like me to expand? 1) Clarify goal 2) Break down tasks 3) Example 4) Test & iterate`;
+    }
+  }
+
+  if(lq.startsWith('calc:') || /^calc\s*:/.test(lq) || lq.startsWith('calculate:')){
+    const expr = q.split(':').slice(1).join(':').trim();
+    if(!expr) return 'Provide expression after calc:';
+    const res = mathSteps(expr);
+    if(res.error) return `Calculator error: ${res.error}`;
+    return `Calculation (step-by-step):\n\n${(res.steps||[]).join('\n')}\n\nResult: ${res.result}`;
+  }
+
+  if(/\bgomega\.watch\b|\bschoolgames\b|\bmusic\b|\bscripts\b|\broblox\b/i.test(lq)){
+    const items = [];
+    if(/schoolgames/i.test(lq)) items.push('School Games: gomega.watch/schoolgames — curated school-friendly titles and quickplay links.');
+    if(/music/i.test(lq)) items.push('Music: gomega.watch/music — lessons, playlists, and beginner-friendly resources.');
+    if(/script|roblox/i.test(lq)) items.push('Scripts: gomega.watch/scripts — snippets, Roblox examples, and small utilities.');
+    if(items.length===0) items.push('Gomega.watch contains School Games, Music, Scripts, and more. Try the subpages for details.');
+    if(powerful){
+      return items.join('\n') + '\n\nI can search specific pages for titles, code examples, or resources — say "Yes please" to let me look (Expert mode will try web lookups).';
+    } else {
+      return items.join('\n') + '\n\nWould you like a short list or an example?';
+    }
+  }
+
+  const codeBlock = q.match(/```([\w-]*)\n([\s\S]*?)```/);
+  if(codeBlock){
+    const lang = codeBlock[1] || 'unknown';
+    const code = codeBlock[2];
+    const hints = [];
+    if(/console\.log\(/.test(code)) hints.push('If this is asynchronous, check that promises are awaited.');
+    if(/==[^=]/.test(code)) hints.push('Use === instead of == to avoid coercion in JS.');
+    if(/document\.getElementById|querySelector/.test(code)) hints.push('Ensure DOM access runs after DOMContentLoaded.');
+    if(!hints.length) hints.push('Paste the exact error message and I will propose a minimal fix.');
+    if(powerful){
+      return `Detected ${lang} code. Quick diagnostic:\n- ${hints.join('\n- ')}\n\nIf you want, I will propose a small patch and explain the fix line-by-line.`;
+    } else {
+      return `Detected ${lang} code. Try checking these: ${hints.join('; ')}`;
+    }
+  }
+
+  const hits = retrieveRelevant(q, 8);
+  if(hits.length && hits[0].score > (powerful ? 0.06 : 0.12)){
+    if(powerful){
+      const lines = hits.map(h=>`• ${h.m.role}: ${h.m.text.slice(0,220).replace(/\n/g,' ')} (${new Date(h.m.ts).toLocaleDateString()})`);
+      return `I found related notes and combined them into an answer:\n\n${lines.join('\n')}\n\nWould you like this expanded into steps or an example?`;
+    } else {
+      return `Related memory: ${hits[0].m.text.split('\n')[0].slice(0,300)}`;
+    }
+  }
+
+  const tokens = tokenize(q);
+  if(q.length < 80 && tokens.length >= 1){
+    if(tokens.includes('game') || tokens.includes('games')) {
+      return powerful ? 'Do you want recommended school-friendly games, or details about a particular title on gomega.watch/schoolgames?' : 'Do you want a short list of games or instructions?';
+    }
+    if(tokens.includes('music') || tokens.includes('song')) {
+      return powerful ? 'Would you like lessons, sheet links, or playlists from gomega.watch/music?' : 'Do you want song suggestions or lessons?';
+    }
+    if(tokens.includes('roblox') || tokens.includes('script')) {
+      return powerful ? 'I can show example Roblox scripts and explain them step-by-step — would you like a beginner example?' : 'Do you want a simple Roblox script example?';
+    }
+    if(tokens.includes('help') || tokens.includes('fix') || tokens.includes('error')) {
+      return powerful ? 'Paste the code or error — I will analyze and propose a minimal patch with reasoning.' : 'Paste code or error and I will suggest fixes.';
+    }
+    if(powerful){
+      const guess = tokens.slice(0,7).join(' ');
+      return `I think you mean: "${guess}...". Do you want a short summary, examples, or step-by-step instructions?`;
+    }
+    return `Can you add a little more detail so I can answer precisely?`;
+  }
+
+  if(powerful){
+    return `Plan:\n1) Clarify goal and constraints.\n2) Break problem into tasks.\n3) Provide an example or quick snippet.\n4) Test and iterate.\n\nTell me which step to expand, or paste details and I'll produce code/steps.`;
+  } else {
+    return `Start by clarifying the goal, then ask for an example or paste code to debug.`;
+  }
+}
+
+/* ===========================
+   Web search helper + extractive summarizer
+   - webSearch uses DDG instant answer (like before)
+   - extractTopSentences picks best sentences by token overlap with query
+   =========================== */
+async function webSearch(query, maxTopics=4){
   try{
-    if(!query || isGreetingShort(query) || query.trim().length < 3) return '';
+    if(!query) return '';
+    // skip extremely short greetings
+    if(/^(hi|hello|hey|hiya|sup)[\!\.\s]*$/.test(query.trim().toLowerCase())) return '';
     const ddg = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
     const r = await fetch(ddg, { method:'GET' });
     if(!r.ok) return '';
@@ -744,9 +612,24 @@ async function webSearch(query, maxTopics=3){
   }catch(e){ return ''; }
 }
 
-/* ---------------------
-   shortenText (controlled)
-   --------------------- */
+function extractTopSentences(text, query, limit=3){
+  if(!text) return '';
+  const sentences = text.split(/(?<=[.?!])\s+/);
+  const qtokens = tokenize(query);
+  const scores = sentences.map(s=>{
+    const st = tokenize(s);
+    let score = 0;
+    for(const q of qtokens) if(st.includes(q)) score += 1;
+    score += Math.min(1, st.length/30); // slight bias for longer informative sentence
+    return { s, score };
+  });
+  scores.sort((a,b)=>b.score-a.score);
+  const picked = scores.filter(x=>x.score>0).slice(0,limit).map(x=>x.s);
+  if(picked.length) return picked.join(' ');
+  // fallback: first N sentences
+  return sentences.slice(0,limit).join(' ');
+}
+
 function shortenText(text, opts){
   opts = opts || {};
   const maxSentences = opts.maxSentences || 3;
@@ -759,45 +642,57 @@ function shortenText(text, opts){
   return trimmed.replace(/\s+\S*$/, '') + '…';
 }
 
-/* ---------------------------
-   FORM SUBMIT: main flow
-   - prevent web lookup for greetings
-   - slower typing
-   - ensure UI stays visible and readable
-   --------------------------- */
+/* ===========================
+   Form submit flow: robust
+   - uses safe setSession (won't throw)
+   - uses webSearch+extractTopSentences to improve replies
+   - disables input while assistant types
+   - slower typing (60ms for powerful)
+   =========================== */
+
 form.addEventListener('submit', async (ev)=>{
   ev.preventDefault();
-  const content = promptEl.value.trim();
+  const content = (promptEl.value||'').trim();
   if(!content) return;
 
-  if(containsBanned(content)){
+  // basic filter
+  if(/fuck|shit|bitch|asshole/i.test(content)){
     appendMessageToUI('assistant', 'Message blocked by chat filter: inappropriate language.', Date.now());
     promptEl.value=''; return;
   }
 
+  // chat limit check
   const s = getSession();
   if((s.history||[]).length >= CHAT_LIMIT){
-    appendMessageToUI('assistant', "Gomega AI chat limit reached — start a new chat using model 3 and below", Date.now());
+    appendMessageToUI('assistant', "Gomega AI chat limit reached — start a new chat or reset.", Date.now());
     promptEl.value=''; return;
   }
 
-  if(content === '/reset'){ setSession({startedAt:Date.now(),history:[]}); renderSessionUI(); promptEl.value=''; updateSessionUI(); return; }
+  // commands
+  if(content === '/reset'){ 
+    const newSess = { startedAt: Date.now(), history: [] };
+    setSession(newSess); IN_MEMORY_SESSION = newSess;
+    renderSessionUI(); promptEl.value=''; updateSessionUI(); return; 
+  }
   if(content === '/memories'){ openMemViewer(); promptEl.value=''; return; }
   if(content.toLowerCase().startsWith('remember:')){
     const note = content.slice(9).trim();
     if(note){
-      await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages:[{role:'user', content:`remember: ${note}`}], modelId: modelSelect.value })});
-      alert('Saved to memories.');
+      // store as memory via local chat endpoint to reuse existing storeMemory logic
+      try{
+        await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages:[{role:'user', content:`remember: ${note}`}], modelId: modelSelect.value })});
+        alert('Saved to memories.');
+      }catch(e){ alert('Failed to save memory'); }
     } else alert('Provide text after remember:');
     promptEl.value=''; return;
   }
 
-  // add user message
+  // append user message to UI and in-memory session
   addMessageToSessionMirror('user', content);
   appendMessageToUI('user', content, Date.now());
   promptEl.value='';
 
-  // thinking ghost
+  // show ghost thinking if enabled
   let ghost = null;
   if(thinkToggle.checked){
     try{
@@ -810,34 +705,16 @@ form.addEventListener('submit', async (ev)=>{
     }
   }
 
-  // typing placeholder
+  // show typing placeholder
   const typing = appendAssistantTyping();
 
-  // decide whether to run web search:
+  // decide forced web behavior
   const forcedWebModels = new Set(['gomega-5.o','gomega-4.o','gomega-4.o-mini']);
-  const selectedModel = (modelSelect.value || '').toLowerCase();
+  const selectedModel = (modelSelect.value||'gomega-4.o').toLowerCase();
   const shouldForceWeb = forcedWebModels.has(selectedModel);
-  // If content is a short greeting or extremely short, do NOT run web search even if model is forced
-  const skipWeb = isGreetingShort(content) || content.trim().length < 3;
+  const skipWebForShortGreetings = /^(hi|hello|hey|hiya|sup)[\!\.\s]*$/i.test(content);
 
-  // start web search (but skip for greetings/short inputs)
-  const webPromise = (async ()=>{
-    try{
-      if(skipWeb) return '';
-      let q = content;
-      if(/\bgomega\.watch\b|\bschoolgames\b|\bmusic\b|\bscripts\b/.test(content.toLowerCase())){
-        q = 'site:gomega.watch ' + content;
-      }
-      if(!shouldForceWeb && !expertToggle.checked) {
-        // user requested "make them all search the web" earlier, but we respect skipWeb
-        if(!shouldForceWeb) return '';
-      }
-      const res = await webSearch(q, 3);
-      return res;
-    }catch(e){ return ''; }
-  })();
-
-  // call local generator
+  // begin local generation in parallel
   let baseReply = '';
   try{
     const payload = { messages: getSession().history.slice(-180), modelId: modelSelect.value || 'gomega-4.o', thinkMode: thinkToggle.checked };
@@ -845,29 +722,42 @@ form.addEventListener('submit', async (ev)=>{
     if(resp.ok){ const j = await resp.json(); baseReply = j.text || String(j); } else baseReply = `Error: generator ${resp.status}`;
   }catch(err){ baseReply = `Local generation failed: ${err && err.message}`; }
 
-  // await web results
+  // run web search only if allowed (forced model or expertToggle) and not a short greeting
   let expertData = '';
-  try{ expertData = await webPromise; }catch(e){ expertData = ''; }
+  try{
+    if(!skipWebForShortGreetings && (shouldForceWeb || expertToggle.checked)){
+      let q = content;
+      if(/\bgomega\.watch\b|\bschoolgames\b|\bmusic\b|\bscripts\b/.test(content.toLowerCase())) q = 'site:gomega.watch ' + content;
+      const web = await webSearch(q, 4);
+      expertData = web || '';
+    }
+  }catch(e){
+    expertData = '';
+  }
 
+  // merge web + local with extractive summarization for web
+  let finalAnswer = '';
   function isLocalAnswerWeak(text){
     if(!text) return true;
     const t = text.toLowerCase();
-    const weakPhrases = ['i can search','i can look','would you like','plan:','clarify goal','start by clarifying'];
     if(t.length < 80) return true;
+    const weakPhrases = ['i can search','i can look','would you like','plan:','clarify goal','start by clarifying'];
     for(const p of weakPhrases) if(t.includes(p)) return true;
     return false;
   }
 
-  let finalAnswer = '';
-  if(expertData && expertData.length > 30){
-    const webShort = shortenText(expertData, { maxSentences: 3, maxChars: 650 });
-    const localShort = shortenText(baseReply, { maxSentences: 4, maxChars: 800 });
+  if(expertData && expertData.length > 40){
+    const webBest = extractTopSentences(expertData, content, 3);
+    const webShort = shortenText(webBest, { maxSentences: 3, maxChars: 700 });
+    const localShort = shortenText(baseReply, { maxSentences: 5, maxChars: 900 });
+
     if(isLocalAnswerWeak(baseReply)){
       finalAnswer = webShort;
     } else {
-      const webScore = (webShort||'').split(' ').length;
-      const localScore = (localShort||'').split(' ').length;
-      if(webScore >= localScore){
+      // if web offers strong focused info, prefer it then append concise local reasoning
+      const webWords = (webShort||'').split(/\s+/).length;
+      const localWords = (localShort||'').split(/\s+/).length;
+      if(webWords >= localWords){
         finalAnswer = webShort + (localShort ? '\n\n' + localShort : '');
       } else {
         finalAnswer = localShort + (webShort ? '\n\nReference: ' + webShort : '');
@@ -879,7 +769,7 @@ form.addEventListener('submit', async (ev)=>{
 
   // fade ghost
   if(ghost && ghost.bubble){
-    try{ ghost.bubble.innerHTML = mdInline('Now forming a good answer...'); }catch(e){} 
+    try{ ghost.bubble.innerHTML = mdInline('Now forming a solid answer...'); }catch(e){} 
     await new Promise(r=>setTimeout(r, 300 + Math.random()*350));
     ghost.wrap.style.opacity = '0.5';
   }
@@ -888,37 +778,74 @@ form.addEventListener('submit', async (ev)=>{
   promptEl.disabled = true;
   sendBtn.disabled = true;
 
-  // slower typing configured here:
-  const strength = (function(mid){ const m=(mid||'').toString().toLowerCase(); const found = m.match(/gomega-(\d+)/); return found?Number(found[1]):4; })(selectedModel);
-  // much slower readable speed: 40ms per char for powerful, 55ms for smaller
-  const typingSpeed = (strength >= 4) ? 40 : 55;
+  // typing speed: slower (60 ms per char for powerful)
+  const strength = parseModelStrength(selectedModel);
+  const typingSpeed = strength >= 4 ? 60 : 80;
 
   await streamType(typing.bubble, finalAnswer, typingSpeed);
-  typing.meta.textContent = `model: ${modelSelect.value || 'gomega-4.o'}`;
+  typing.meta.textContent = `model: ${modelSelect.value||'gomega-4.o'}`;
 
-  // done, add assistant to session and re-enable input
+  // store assistant memory and session safely
+  storeMemory('assistant', finalAnswer);
   addMessageToSessionMirror('assistant', finalAnswer);
+
+  // re-enable input
   promptEl.disabled = false;
   sendBtn.disabled = false;
   promptEl.focus();
   updateSessionUI();
 });
 
-// helper to add to session store (alias)
-function addMessageToSession(role, content){
-  const s = getSession(); s.history.push({ role, content, ts: Date.now() }); if(s.history.length > CHAT_LIMIT) s.history = s.history.slice(-CHAT_LIMIT); setSession(s); $('#histCount') && ($('#histCount').textContent = s.history.length);
+/* ===========================
+   UI / session helpers
+   =========================== */
+function updateSessionUI(){
+  const s = getSession();
+  $('#sessStart') && ($('#sessStart').textContent = new Date(s.startedAt).toLocaleString());
+  $('#histCount') && ($('#histCount').textContent = (s.history||[]).length);
+  chatLimitDisplay.textContent = Math.max(0, CHAT_LIMIT - (s.history||[]).length);
 }
-window.addMessageToSession = addMessageToSession;
 
-// model change
-modelSelect.addEventListener('change', ()=>{ currentModel = modelSelect.value; modelBadge.textContent = 'Model: ' + currentModel; });
+function renderSessionUI(){
+  chatArea.innerHTML = '';
+  const s = getSession();
+  for(const m of (s.history||[])) appendMessageToUI(m.role, m.content, m.ts);
+}
+renderSessionUI();
 
-// suggestion panel wiring
+/* ===========================
+   Config UI wiring (models, suggestions, mem viewer, tools)
+   Many parts kept similar to your previous file.
+   =========================== */
+async function loadConfigUI(){
+  try{
+    const r = await fetch('/api/config'); const cfg = r.ok?await r.json():{};
+    const models = cfg.models || [{id:'gomega-4.o',label:'gomega-4.o'}];
+    modelSelect.innerHTML = '';
+    const pref = [{id:'gomega-1.o',label:'gomega-1.o (legacy)'},{id:'gomega-2.o',label:'gomega-2.o (concise)'},{id:'gomega-3.o-mini',label:'gomega-3.o-mini (mini)'}];
+    for(const p of pref) if(!models.find(m=>m.id===p.id)) models.unshift(p);
+    if(!models.find(m=>m.id==='gomega-4.o-mini')) models.push({ id:'gomega-4.o-mini', label: 'gomega-4.o-mini (smart mini)' });
+    if(!models.find(m=>m.id==='gomega-4.o')) models.push({ id:'gomega-4.o', label: 'gomega-4.o (smart)' });
+    if(!models.find(m=>m.id==='gomega-5.o')) models.push({ id:'gomega-5.o', label: 'gomega-5.o (insane)' });
+
+    const seen = new Set();
+    for(const m of models){ if(seen.has(m.id)) continue; const o = document.createElement('option'); o.value = m.id; o.textContent = m.label || m.id; modelSelect.appendChild(o); seen.add(m.id); }
+    modelBadge.textContent = 'Model: ' + modelSelect.value;
+    profileSelect.innerHTML = '';
+    const profs = cfg.profiles || {};
+    for(const k in profs){ const o = document.createElement('option'); o.value=k; o.textContent = `${k} — ${profs[k].desc||''}`; profileSelect.appendChild(o); }
+    sysInfo.textContent = (cfg.systemKnowledge || '').slice(0,2000);
+    updateSessionUI();
+  }catch(e){ console.warn('cfg err', e); }
+}
+loadConfigUI();
+
+modelSelect.addEventListener('change', ()=>{ modelBadge.textContent = 'Model: ' + modelSelect.value; });
+
 document.querySelectorAll('.suggestion').forEach(el=>{
   el.addEventListener('click', ()=>{ const q = el.getAttribute('data-q'); promptEl.value = q; promptEl.focus(); });
 });
 
-// memories modal & utilities
 function openMemViewer(){ modal.style.display = 'flex'; renderMemList(); }
 viewMem.addEventListener('click', openMemViewer);
 openMemViewerBtn.addEventListener('click', openMemViewer);
@@ -934,33 +861,27 @@ async function renderMemList(query=''){
 }
 memSearch.addEventListener('input', ()=> renderMemList(memSearch.value));
 
-// export / import / clear
 $('#exportMem').addEventListener('click', async ()=>{
   try{ const r = await fetch('/api/memories'); if(!r.ok) throw new Error('export failed'); const j = await r.json(); const blob = new Blob([JSON.stringify(j.memories||[], null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `gomega-memories-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){ alert('Export failed'); }
 });
 $('#importFile').addEventListener('change', async (ev)=>{
   const f = ev.target.files && ev.target.files[0]; if(!f) return;
-  try{ const txt = await f.text(); const arr = JSON.parse(txt); if(!Array.isArray(arr)) throw new Error('expected array'); const st = (await fetch('/api/memories').then(r=>r.ok?r.json():{memories:[]}).catch(()=>({memories:[]}))).memories || []; const merged = (st.concat(arr)).slice(-2000); const raw = JSON.parse(localStorage.getItem('gomega_local_state_v9')||'{}'); raw.memories = merged.map(m=>({ role:m.role||'assistant', text:m.text||m, ts:m.ts||Date.now(), tokens:[], tf:{} })); localStorage.setItem('gomega_local_state_v9', JSON.stringify(raw)); alert('Imported memories. Reload page to refresh.'); }catch(e){ alert('Import failed: '+(e.message||e)); } ev.target.value='';
+  try{ const txt = await f.text(); const arr = JSON.parse(txt); if(!Array.isArray(arr)) throw new Error('expected array'); const st = (await fetch('/api/memories').then(r=>r.ok?r.json():{memories:[]}).catch(()=>({memories:[]}))).memories || []; const merged = (st.concat(arr)).slice(-2000); const raw = JSON.parse(localStorage.getItem(LS_STATE)||'{}'); raw.memories = merged.map(m=>({ role:m.role||'assistant', text:m.text||m, ts:m.ts||Date.now(), tokens:[], tf:{} })); localStorage.setItem(LS_STATE, JSON.stringify(raw)); alert('Imported memories. Reload page to refresh.'); }catch(e){ alert('Import failed: '+(e.message||e)); } ev.target.value='';
 });
 clearMem.addEventListener('click', async ()=>{ if(!confirm('Clear all memories permanently?')) return; try{ const r = await fetch('/api/clear-memories', { method:'POST' }); if(!r.ok) throw new Error('clear failed'); alert('Memories cleared.'); }catch(e){ alert('Failed to clear memories'); } });
 
-// calculator & safe-run wiring
-openCalc.addEventListener('click', ()=> { $('#calcModal').style.display='flex'; calcInput.focus(); });
-closeCalc.addEventListener('click', ()=> $('#calcModal').style.display='none');
-calcRun.addEventListener('click', async ()=>{ const expr = calcInput.value.trim(); if(!expr){ calcOut.textContent='Enter an expression.'; return; } try{ const r = await fetch('/api/tools/math', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ expr })}); const j = await r.json(); if(j.error) calcOut.textContent = 'Error: ' + j.error; else calcOut.textContent = 'Steps:\n' + (j.steps||[]).join('\n') + '\n\nResult: ' + j.result; }catch(e){ calcOut.textContent = 'Failed to run calculator.'; } });
+openCalc.addEventListener('click', ()=> { $('#calcModal').style.display='flex'; calcInput && calcInput.focus(); });
+closeCalc && closeCalc.addEventListener('click', ()=> $('#calcModal').style.display='none');
+calcRun && calcRun.addEventListener('click', async ()=>{ const expr = calcInput.value.trim(); if(!expr){ calcOut.textContent='Enter an expression.'; return; } try{ const r = await fetch('/api/tools/math', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ expr })}); const j = await r.json(); if(j.error) calcOut.textContent = 'Error: ' + j.error; else calcOut.textContent = 'Steps:\n' + (j.steps||[]).join('\n') + '\n\nResult: ' + j.result; }catch(e){ calcOut.textContent = 'Failed to run calculator.'; } });
 
-$('#openSafeRun').addEventListener('click', ()=>{ $('#safeRunModal').style.display='flex'; safeCode.focus(); });
-$('#closeSafeRun').addEventListener('click', ()=>{ $('#safeRunModal').style.display='none'; });
-safeRun.addEventListener('click', async ()=>{ const code = safeCode.value.trim(); if(!code){ safeOut.textContent='Enter code or expression.'; return; } try{ const r = await fetch('/api/tools/safe-run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code })}); const j = await r.json(); if(j.error) safeOut.textContent = 'Error: ' + j.error; else safeOut.textContent = 'Result:\n' + JSON.stringify(j.result, null, 2); }catch(e){ safeOut.textContent = 'Failed to run code.'; } });
+$('#openSafeRun') && $('#openSafeRun').addEventListener('click', ()=>{ $('#safeRunModal').style.display='flex'; safeCode && safeCode.focus(); });
+$('#closeSafeRun') && $('#closeSafeRun').addEventListener('click', ()=>{ $('#safeRunModal').style.display='none'; });
+safeRun && safeRun.addEventListener('click', async ()=>{ const code = safeCode.value.trim(); if(!code){ safeOut.textContent='Enter code or expression.'; return; } try{ const r = await fetch('/api/tools/safe-run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code })}); const j = await r.json(); if(j.error) safeOut.textContent = 'Error: ' + j.error; else safeOut.textContent = 'Result:\n' + JSON.stringify(j.result, null, 2); }catch(e){ safeOut.textContent = 'Failed to run code.'; } });
 
-// regex tester
-$('#openRegex').addEventListener('click', ()=>{ const pattern = prompt('Enter regex pattern (no flags):'); if(!pattern) return; const text = prompt('Enter text to test against:') || ''; try{ const re = new RegExp(pattern); const match = re.exec(text); alert(match ? 'Match found: ' + JSON.stringify(match) : 'No match.'); }catch(e){ alert('Invalid regex: ' + e.message); } });
+$('#openRegex') && $('#openRegex').addEventListener('click', ()=>{ const pattern = prompt('Enter regex pattern (no flags):'); if(!pattern) return; const text = prompt('Enter text to test against:') || ''; try{ const re = new RegExp(pattern); const match = re.exec(text); alert(match ? 'Match found: ' + JSON.stringify(match) : 'No match.'); }catch(e){ alert('Invalid regex: ' + e.message); } });
 
-// init UI
-(function init(){
-  const sess = getSession(); $('#sessStart') && ($('#sessStart').textContent = nowISO(sess.startedAt)); $('#histCount') && ($('#histCount').textContent = (sess.history||[]).length);
-  chatLimitDisplay.textContent = getRemainingChats();
-})();
+(function init(){ const sess = getSession(); $('#sessStart') && ($('#sessStart').textContent = new Date(sess.startedAt).toLocaleString()); $('#histCount') && ($('#histCount').textContent = (sess.history||[]).length); chatLimitDisplay.textContent = Math.max(0, CHAT_LIMIT - (sess.history||[]).length); })();
+
 </script>
 </body>
 </html>
