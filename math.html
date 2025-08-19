@@ -523,95 +523,86 @@
       replaceTypingWith(typing.msg, summary);
     });
 
-    // Word-problem parsing (best-effort lightweight parser)
+    // Improved word-problem parsing (more robust heuristics)
     function parseWordProblem(text){
-      // normalize
-      const t = text.toLowerCase();
-      // heuristic: look for keywords that indicate a word problem
-      const isWord = /\b(how many|how much|total|altogether|together|sum|difference|left|remaining|each|every|per|times|product|sum of|more than|less than)\b/.test(t);
-      if(!isWord) return null;
+      if(!text || !text.trim()) return null;
+      const raw = text.trim();
+      const t = raw.toLowerCase();
 
-      // try converting words to operators (common patterns)
-      let s = text;
-      const map = [
-        [/\bplus\b/g, '+'],
-        [/\bminus\b/g, '-'],
-        [/\bsubtracted by\b/g, '-'],
-        [/\bminus\b/g, '-'],
-        [/\badd(ed)?\b/g, '+'],
-        [/\band\b/g, '+'],
-        [/\btotal of\b/g, '+'],
-        [/\bover\b/g, '/'],
-        [/\bdivided by\b/g, '/'],
-        [/\bdivided\b/g, '/'],
-        [/\bper\b/g, '/'],
-        [/\bmultiplied by\b/g, '*'],
-        [/\btimes\b/g, '*'],
-        [/\bproduct of\b/g, '*'],
-        [/\bmore than\b/g, '+'],
-        [/\bless than\b/g, '-'],
-        [/\bremaining\b/g, '-'],
-        [/\bhalf of\b/g, '/2'],
-        [/\bthird of\b/g, '/3']
-      ];
-      for(const [p, r] of map) s = s.replace(p, r);
+      // quick check for numeric content
+      const numbers = (t.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+      // If no numbers, can't really compute
+      if(numbers.length === 0) return null;
 
-      // extract numbers and simple nearby structure
-      const numbers = s.match(/-?\d+(\.\d+)?/g);
-      if(!numbers || numbers.length===0) return null;
-
-      // attempt simple common patterns:
-      // "If Anna has 3 times as many apples as Ben and Ben has 4, how many do they have together?"
-      // -> detect "times" -> multiplication then addition for together
-      if(/times|multiplied|product/.test(t) && /together|altogether|sum|how many do they have together/.test(t)){
-        // find two numbers: ratio and base
-        const nums = numbers.map(Number);
-        if(nums.length>=2){
-          // assume pattern: A has r times B and B has n -> A = r * n ; total = (r+1)*n
-          const r = nums[0], n = nums[1];
-          const expr = '(' + r + ' + 1) * ' + n;
-          return expr;
+      // Priority 1: explicit division language (divide, divided, split, equally among, shared among, per basket, per box, how many each)
+      const divisionPhrases = /\b(divide|divided|split|equally among|shared among|shared between|each basket|each box|how many .* each|how many .* per|how many will each)\b/;
+      if(divisionPhrases.test(t)){
+        // If there's exactly two numbers and sentence mentions dividing among/each, pick total / groups
+        if(numbers.length >= 2){
+          // Heuristic: first number is total, second is groups -> total / groups
+          return numbers[0] + ' / ' + numbers[1];
         }
       }
 
-      // "each" pattern: "Each box has 12 candies and there are 5 boxes. How many candies?"
-      if(/\beach\b/.test(t) && numbers.length>=2){
-        const nums = numbers.map(Number);
-        // find likely pair: quantity per each and count
-        const expr = nums.slice(0,2).join(' * ');
-        return expr;
-      }
-
-      // "sum of" or "altogether": add all numbers
-      if(/\b(add|sum|altogether|total)\b/.test(t)){
-        const expr = numbers.join(' + ');
-        return expr;
-      }
-
-      // "left" or "remaining": assume subtraction
-      if(/\bleft|remaining|after\b/.test(t) && numbers.length>=2){
-        const expr = numbers[0] + ' - ' + numbers[1];
-        return expr;
-      }
-
-      // "per" or rate "miles per hour": maybe multiply
-      if(/\bper\b/.test(t) && numbers.length>=2){
+      // Priority 2: "each X has N and there are M X" -> multiply (each has -> multiply)
+      // e.g. "Each box has 12 candies and there are 5 boxes."
+      if(/\beach\b/.test(t) && /\b(has|have|contains|contain)\b/.test(t) && /\b(there (are|is)|total|boxes|baskets|bags|boxes)\b/.test(t) && numbers.length >= 2){
+        // try to choose the "per" number first: usually 'each' followed by number => per-unit then count
+        // crude approach: if sentence order shows 'each' before the first number, use numbers[0] * numbers[1], else fallback to numbers[0] * numbers[1]
         return numbers[0] + ' * ' + numbers[1];
       }
 
-      // fallback: if there are exactly two numbers and question asks difference or together
-      if(numbers.length===2){
-        if(/\b(together|altogether|total|sum)\b/.test(t)) return numbers[0] + ' + ' + numbers[1];
-        if(/\b(difference|less|left|remaining)\b/.test(t)) return numbers[0] + ' - ' + numbers[1];
-        if(/\b(product|times|multiplied)\b/.test(t)) return numbers[0] + ' * ' + numbers[1];
+      // Priority 3: ratio/ "times as many" problems -> handled as before: r times as many as B and B has n -> total (r+1)*n or specific depending on question
+      if(/\btimes as many\b|\btimes as\b|\bmore than\b/.test(t)){
+        if(numbers.length >= 2){
+          // detect pattern "A has r times as many as B and B has n" or "A has r times B and B has n"
+          // use r = numbers[0], n = numbers[1]
+          const r = numbers[0], n = numbers[1];
+          // If question asks "how many do they have together" or "total", return (r+1)*n
+          if(/\b(together|altogether|total|how many do they have together)\b/.test(t)) return '('+r+' + 1) * '+n;
+          // else default to r * n
+          return r + ' * ' + n;
+        }
       }
 
-      // otherwise try to convert any spelled-out operators and let the normal solver try
-      // remove words leaving numbers and operators
-      // crude transform: remove non-digit & operator characters except spaces and standard symbols
-      const filtered = s.replace(/[^\d\+\-\*\/\^\.\(\)\s]/g, ' ').replace(/\s+/g,' ').trim();
-      // if filtered looks like an expression with numbers and operators, return it
-      if(/[0-9]/.test(filtered) && /[\+\-\*\/]/.test(filtered)) return filtered;
+      // Priority 4: "together/altogether/total/sum of" => addition
+      if(/\b(together|altogether|total|sum|add|combined)\b/.test(t)){
+        if(numbers.length >= 2) return numbers.join(' + ');
+      }
+
+      // Priority 5: "left/remaining/after" => subtraction
+      if(/\b(left|remaining|after|left over)\b/.test(t) && numbers.length >= 2){
+        return numbers[0] + ' - ' + numbers[1];
+      }
+
+      // Priority 6: "per" in the sense of rate, often implies division when asking "how many per unit" or "each contains"
+      if(/\bper\b/.test(t) || /\bfor each\b/.test(t) || /\bfor every\b/.test(t)){
+        if(numbers.length >= 2){
+          // ambiguous: if sentence includes "each" or "per" and structure suggests per-unit, consider dividing total by count
+          // example: "24 apples, how many per 6 baskets?" -> 24 / 6
+          // choose total / groups
+          return numbers[0] + ' / ' + numbers[1];
+        }
+      }
+
+      // Fallback: if exactly two numbers and no clear language, attempt sensible guess:
+      if(numbers.length === 2){
+        // guess add if question mentions "how many" with "together", subtract if "left"/"remaining", multiply if "each" followed by 'has', otherwise default to addition? we'll prefer addition only if 'together' else try to infer from operator words
+        if(/\b(together|altogether|total)\b/.test(t)) return numbers[0] + ' + ' + numbers[1];
+        if(/\b(left|remaining|after)\b/.test(t)) return numbers[0] + ' - ' + numbers[1];
+        if(/\b(each has|each)\b/.test(t)) return numbers[0] + ' * ' + numbers[1];
+        // if contains 'divide' words earlier handled; if contains 'times' -> multiplication
+        if(/\btimes\b/.test(t)) return numbers[0] + ' * ' + numbers[1];
+        // if contains 'per' -> division
+        if(/\bper\b/.test(t)) return numbers[0] + ' / ' + numbers[1];
+      }
+
+      // Last-ditch: strip words leaving numbers and operators (crude) and let the numeric solver try
+      const cleaned = t.replace(/(each|apples|boxes|baskets|candies|has|have|there|are|the|a|an|wants|wants to|will|contain|contains|want|how many|how much|of|and|,)/g,' ')
+                        .replace(/[^\d\+\-\*\/\^\.\(\)\s]/g,' ')
+                        .replace(/\s+/g,' ')
+                        .trim();
+      if(/[0-9]/.test(cleaned) && /[\+\-\*\/]/.test(cleaned)) return cleaned;
 
       return null;
     }
