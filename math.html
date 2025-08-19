@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Math • Solver + Steps + Camera (Beta)</title>
+  <meta name="description" content="Solve math problems and see step-by-step solutions. Includes a Camera/Photo (Beta) mode that tries OCR on handwritten/printed problems." />
+  <link rel="icon" href="data:,"></link>
+  <style>
+    :root{ --bg:#0f1720; --card:#0b1220; --muted:#9aa4b2; --accent:#6ee7b7; --glass: rgba(255,255,255,0.03); }
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; background:linear-gradient(180deg,#071021 0%, #0b1220 100%); color:#e6eef6; padding:28px;}
+    .container{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6);}
+    .row{display:flex;gap:14px}
+    .col{flex:1}
+
+    label{font-size:13px;color:var(--muted)}
+    textarea,input{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:var(--glass);color:inherit;font-size:15px}
+    button{background:linear-gradient(90deg,#0ea5a8,#60a5fa);padding:10px 14px;border-radius:10px;border:0;color:#06202a;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.04);}
+
+    .steps{margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));min-height:120px}
+    .step{padding:8px;border-left:3px solid rgba(255,255,255,0.03);margin-bottom:8px}
+    .step strong{display:block}
+
+    /* Camera modal */
+    .modal{position:fixed;inset:0;background:linear-gradient(180deg, rgba(1,2,6,0.7), rgba(1,2,6,0.85));display:none;align-items:center;justify-content:center;padding:24px}
+    .modal.open{display:flex}
+    .cam-card{width:880px;max-width:95%;background:#071428;padding:14px;border-radius:12px}
+    video{width:100%;border-radius:8px;background:#000}
+    canvas{display:none}
+    .controls{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .note{font-size:12px;color:var(--muted);margin-top:6px}
+
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+
+    .small{font-size:13px;color:var(--muted)}
+
+    /* subtle typing animation */
+    .thinking{display:inline-block;vertical-align:middle;height:12px}
+    .dot{width:6px;height:6px;background:#9aa4b2;border-radius:50%;display:inline-block;margin:0 2px;opacity:0;animation:think 1s infinite}
+    .dot:nth-child(1){animation-delay:0s}
+    .dot:nth-child(2){animation-delay:0.15s}
+    .dot:nth-child(3){animation-delay:0.3s}
+    @keyframes think{0%{opacity:0;transform:translateY(0)}40%{opacity:1;transform:translateY(-6px)}80%{opacity:0.3;transform:translateY(0)}100%{opacity:0}}
+
+    @media (max-width:700px){.row{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Math • Solver (step-by-step)</h1>
+        <p class="lead">Type a math problem or use Camera (Beta) / Photo upload to extract it. Supports arithmetic, algebraic simplification and many expressions. Camera OCR is experimental.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="row">
+        <div class="col">
+          <label for="expr">Enter problem (example: 2/3 + 4*(5-1)  OR  x^2 + 2x + 1 )</label>
+          <textarea id="expr" rows="4" placeholder="Type a math problem...">2/3 + 4*(5-1)</textarea>
+
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button id="solveBtn">Solve — Show steps</button>
+            <button id="cameraBtn" class="secondary">Camera / Photo (Beta)</button>
+            <input id="fileInput" type="file" accept="image/*" style="display:none" />
+            <button id="uploadBtn" class="secondary">Upload Photo</button>
+          </div>
+
+          <div class="note">Tips: Use ^ for power (e.g. 2^3). For equations try forms like <code>2x+3=7</code> — equation solving is limited; we'll attempt best-effort steps.</div>
+        </div>
+
+        <div class="col">
+          <label>Step-by-step</label>
+          <div id="steps" class="steps small">No steps yet. Press <strong>Solve</strong>.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+        <div class="small">Result:</div>
+        <div id="result" style="font-weight:700"></div>
+        <div id="thinking" style="margin-left:8px;display:none" aria-hidden>
+          <span class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+        </div>
+      </div>
+
+    </section>
+
+    <footer class="small">Camera mode requires HTTPS (or localhost). OCR is powered by Tesseract.js — handwritten text may be inaccurate. This page uses math.js and mathsteps for steps.</footer>
+  </div>
+
+  <!-- Camera modal -->
+  <div id="modal" class="modal" role="dialog" aria-hidden="true">
+    <div class="cam-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>Camera / Photo (Beta)</strong>
+        <button id="closeCam" class="secondary">Close</button>
+      </div>
+      <video id="video" autoplay playsinline></video>
+      <canvas id="snap" width="1280" height="720"></canvas>
+      <div class="controls">
+        <button id="capture">Capture</button>
+        <button id="retake" class="secondary">Retake</button>
+        <button id="usePhoto">Use Photo</button>
+        <div style="flex:1"></div>
+        <div class="small">Switch to uploaded images with Upload on the main card.</div>
+      </div>
+      <div id="ocrProgress" class="note"></div>
+    </div>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js" integrity="" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/mathsteps/dist/mathsteps.min.js"></script>
+  <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+
+  <script>
+    // Elements
+    const exprEl = document.getElementById('expr');
+    const stepsEl = document.getElementById('steps');
+    const resultEl = document.getElementById('result');
+    const solveBtn = document.getElementById('solveBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const modal = document.getElementById('modal');
+    const video = document.getElementById('video');
+    const snap = document.getElementById('snap');
+    const captureBtn = document.getElementById('capture');
+    const closeCam = document.getElementById('closeCam');
+    const usePhoto = document.getElementById('usePhoto');
+    const retake = document.getElementById('retake');
+    const thinking = document.getElementById('thinking');
+    const ocrProgress = document.getElementById('ocrProgress');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    let stream = null;
+    let lastImageDataUrl = null;
+
+    function showThinking(on){thinking.style.display = on ? 'inline-block' : 'none'}
+
+    async function solveExpression(input){
+      stepsEl.innerHTML = '';
+      resultEl.textContent = '';
+
+      if(!input || !input.trim()){ stepsEl.textContent = 'Please enter a problem.'; return }
+      showThinking(true);
+
+      try{
+        // If mathsteps is available, prefer it for human-readable steps
+        if(window.mathsteps){
+          // detect equation
+          if(input.includes('=')){
+            try{
+              // mathsteps has solveEquation in some builds; attempt it
+              if(typeof mathsteps.solveEquation === 'function'){
+                const eqSteps = mathsteps.solveEquation(input);
+                if(eqSteps && eqSteps.length){
+                  renderMathSteps(eqSteps);
+                  showThinking(false);
+                  resultEl.textContent = eqSteps[eqSteps.length-1].newEquation ? eqSteps[eqSteps.length-1].newEquation : '';
+                  return;
+                }
+              }
+            }catch(e){
+              console.warn('mathsteps equation attempt failed',e);
+            }
+          }
+
+          // fallback: simplify expression
+          try{
+            const s = mathsteps.simplifyExpression(input);
+            if(s && s.length){
+              renderMathSteps(s);
+              const last = s[s.length-1];
+              // mathsteps step objects can have 'newNode' or 'newInput'
+              resultEl.textContent = last && (last.newNode ? last.newNode.toString() : last.newExpression || '') ;
+              showThinking(false);
+              return;
+            }
+          }catch(e){ console.warn('mathsteps simplify failed', e) }
+        }
+
+        // If mathsteps not available or failed, fallback to math.js numeric evaluation with simple step extraction
+        // Try parse with math.js
+        const node = math.parse(input);
+        const steps = [];
+
+        function evalNode(n){
+          if(n.isConstantNode){
+            return {value: n.value, repr: n.toString()};
+          }
+          if(n.isSymbolNode){
+            // symbolic, can't evaluate to number
+            return {value: null, repr: n.toString()};
+          }
+          if(n.isOperatorNode){
+            // evaluate children
+            const childs = n.args.map(evalNode);
+            // if any child is non-numeric, we can't fully evaluate; just return repr
+            if(childs.some(c=>c.value===null)){
+              return {value:null, repr: '(' + childs.map(c=>c.repr).join(' ' + n.op + ' ') + ')'};
+            }
+            // compute using math.js
+            const values = childs.map(c=>c.value);
+            const exprStr = '(' + childs.map(c=>c.repr).join(' ' + n.op + ' ') + ')';
+            // compute
+            let val;
+            try{ val = math.evaluate(exprStr); }catch(e){ val = null }
+            // push a step
+            steps.push({before: exprStr, after: String(val)});
+            return {value: val, repr: String(val)};
+          }
+          if(n.isParenthesisNode){
+            return evalNode(n.content);
+          }
+          if(n.isFunctionNode){
+            // attempt to evaluate numeric functions like sqrt, sin, etc
+            const args = n.args.map(evalNode);
+            if(args.some(a=>a.value===null)) return {value:null, repr: n.toString()};
+            try{
+              const code = n.toString();
+              const v = math.evaluate(code);
+              steps.push({before: code, after: String(v)});
+              return {value:v, repr:String(v)};
+            }catch(e){ return {value:null, repr:n.toString()} }
+          }
+          // unknown node
+          return {value:null, repr: n.toString()};
+        }
+
+        const final = evalNode(node);
+        // render steps
+        if(steps.length===0){
+          stepsEl.textContent = 'Could not generate numeric steps. Showing parsed expression.';
+          stepsEl.innerHTML += '<div class="step">' + node.toString() + '</div>';
+          resultEl.textContent = final.repr || '';
+        } else {
+          stepsEl.innerHTML = '';
+          steps.forEach((s,i)=>{
+            const el = document.createElement('div'); el.className='step';
+            el.innerHTML = '<strong>Step '+(i+1)+':</strong>' + '<div>'+escapeHtml(s.before)+' &nbsp;→&nbsp; '+escapeHtml(s.after)+'</div>';
+            stepsEl.appendChild(el);
+          });
+          resultEl.textContent = final.repr || '';
+        }
+
+      }catch(err){
+        console.error(err);
+        stepsEl.textContent = 'Sorry — failed to process the expression. Try a simpler expression or check your syntax.';
+        resultEl.textContent = '';
+      } finally{
+        showThinking(false);
+      }
+    }
+
+    function renderMathSteps(stepObjects){
+      stepsEl.innerHTML = '';
+      stepObjects.forEach((st,i)=>{
+        const el = document.createElement('div'); el.className='step';
+        const before = st.oldNode ? st.oldNode.toString() : st.oldExpression || st.changeType || '';
+        const after = st.newNode ? st.newNode.toString() : st.newExpression || '';
+        el.innerHTML = '<strong>Step '+(i+1)+':</strong> <div><code>'+escapeHtml(before)+'</code> &nbsp;→&nbsp; <code>'+escapeHtml(after)+'</code></div>';
+        stepsEl.appendChild(el);
+      });
+    }
+
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    solveBtn.addEventListener('click', ()=> solveExpression(exprEl.value.trim()));
+
+    // Camera / Photo handlers
+    cameraBtn.addEventListener('click', async ()=>{
+      // open modal and start camera
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+        video.srcObject = stream;
+        await video.play();
+      }catch(e){
+        ocrProgress.textContent = 'Unable to access camera: ' + (e.message || e);
+      }
+    });
+
+    closeCam.addEventListener('click', ()=>{
+      stopStream();
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden','true');
+    });
+
+    function stopStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; video.srcObject = null; } }
+
+    captureBtn.addEventListener('click', ()=>{
+      // draw video frame to canvas
+      const ctx = snap.getContext('2d');
+      // size canvas to video
+      snap.width = video.videoWidth || 1280;
+      snap.height = video.videoHeight || 720;
+      ctx.drawImage(video,0,0,snap.width,snap.height);
+      lastImageDataUrl = snap.toDataURL('image/png');
+      // show preview by opening in new window or replacing video temporarily
+      video.pause();
+      ocrProgress.textContent = 'Captured image — press Use Photo to run OCR or Retake to try again.';
+    });
+
+    retake.addEventListener('click', ()=>{ if(stream){ video.play(); ocrProgress.textContent = 'Retake ready.' } else { ocrProgress.textContent='No camera active.' } });
+
+    usePhoto.addEventListener('click', async ()=>{
+      if(!lastImageDataUrl){ ocrProgress.textContent='No photo captured.'; return }
+      ocrProgress.textContent = 'Running OCR (this may take a few seconds)...';
+      try{
+        const worker = Tesseract.createWorker({ logger: m => { /* optional: show progress */ } });
+        await worker.load();
+        await worker.loadLanguage('eng');
+        await worker.initialize('eng');
+        const res = await worker.recognize(lastImageDataUrl);
+        await worker.terminate();
+        const text = res && res.data && res.data.text ? res.data.text.trim() : '';
+        ocrProgress.textContent = 'OCR done.';
+        if(text){
+          // place result in input and auto-solve
+          exprEl.value = text.replace(/[^0-9a-zA-Z\^\+\-\*\/=().\s]/g,'');
+          modal.classList.remove('open');
+          stopStream();
+          solveExpression(exprEl.value);
+        } else {
+          ocrProgress.textContent = 'OCR returned no text. Try a clearer photo or upload an image.';
+        }
+      }catch(err){ console.error(err); ocrProgress.textContent = 'OCR failed: '+(err.message||err); }
+    });
+
+    // Upload image flow
+    uploadBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', async (ev)=>{
+      const f = ev.target.files && ev.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = async function(e){
+        lastImageDataUrl = e.target.result;
+        // Run OCR directly
+        ocrProgress.textContent = 'Running OCR on uploaded image...';
+        try{
+          const worker = Tesseract.createWorker({ logger: m => { /*progress*/ } });
+          await worker.load();
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
+          const res = await worker.recognize(lastImageDataUrl);
+          await worker.terminate();
+          const text = res && res.data && res.data.text ? res.data.text.trim() : '';
+          ocrProgress.textContent = 'OCR done.';
+          if(text){ exprEl.value = text.replace(/[^0-9a-zA-Z\^\+\-\*\/=().\s]/g,''); solveExpression(exprEl.value); }
+          else{ ocrProgress.textContent = 'No text found by OCR.' }
+        }catch(err){ console.error(err); ocrProgress.textContent = 'OCR error: '+(err.message||err) }
+      };
+      reader.readAsDataURL(f);
+    });
+
+    // small UX: press Ctrl+Enter to solve
+    exprEl.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ solveExpression(exprEl.value); } });
+
+    // initial sample
+    (function init(){ /* nothing special */ })();
+
+  </script>
+</body>
+</html>
