@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega — Reset Password</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--accent:#1976d2;--danger:#d32f2f;--muted:#6b7280}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      background:linear-gradient(180deg,#f4f6fb, #eef2fb); display:flex; align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .card{
+      width:100%; max-width:520px; background:var(--card); border-radius:12px; box-shadow:0 8px 30px rgba(20,30,60,0.08);
+      padding:28px;
+    }
+    h1{margin:0 0 6px; font-size:20px}
+    p.lead{margin:0 0 18px; color:var(--muted); font-size:14px}
+    label{display:block; font-size:13px; margin-top:12px; color:#111827}
+    input[type="email"], input[type="password"]{
+      width:100%; padding:10px 12px; margin-top:6px; border-radius:8px; border:1px solid #e6e9ef; font-size:14px;
+      box-sizing:border-box;
+    }
+    .row{display:flex; gap:8px; margin-top:18px; align-items:center}
+    button{
+      background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer;
+      font-size:14px;
+    }
+    button.secondary{background:#eef2fb; color:var(--accent); border:1px solid rgba(25,118,210,0.12)}
+    button[disabled]{opacity:0.6; cursor:default}
+    .muted{color:var(--muted); font-size:13px; margin-top:12px}
+    .msg{margin-top:12px; padding:10px 12px; border-radius:8px; font-size:13px}
+    .msg.ok{background:#eefcf3;color:#064e3b;border:1px solid #d1fae5}
+    .msg.err{background:#fff4f4;color:#7f1d1d;border:1px solid #fecaca}
+    .link{color:var(--accent); text-decoration:none}
+    .small{font-size:12px;color:var(--muted)}
+    .help{margin-top:12px; font-size:13px}
+  </style>
+  <!-- Firebase compat SDK (simple and reliable) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Reset your Gomega password</h1>
+    <p class="lead">Enter your email to receive a link to reset your password — or follow the link in your email to complete a reset here.</p>
+
+    <!-- Request-reset form -->
+    <div id="request-area">
+      <label for="email">Email address</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
+      <div class="row">
+        <button id="sendBtn">Send reset email</button>
+        <button id="backSignIn" class="secondary" type="button">Back to sign in</button>
+      </div>
+      <div id="requestMsg" class="msg" style="display:none"></div>
+      <p class="help small">If you don't get the email, check your spam folder or try again. Contact support: <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a>.</p>
+    </div>
+
+    <!-- Reset-password area (shown when oobCode present) -->
+    <div id="reset-area" style="display:none">
+      <p class="small">Please choose a new password for your account.</p>
+      <label for="newPass">New password</label>
+      <input id="newPass" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+      <label for="confirmPass">Confirm password</label>
+      <input id="confirmPass" type="password" autocomplete="new-password" placeholder="Repeat new password" />
+      <div class="row">
+        <button id="confirmBtn">Set new password</button>
+        <button id="cancelReset" class="secondary" type="button">Cancel</button>
+      </div>
+      <div id="resetMsg" class="msg" style="display:none"></div>
+    </div>
+
+    <p class="muted small" style="margin-top:18px">Need help? Email <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a></p>
+  </div>
+
+  <script>
+    // ---------- CONFIGURE ----------
+    // Replace with your Firebase project config
+    const firebaseConfig = {
+      apiKey: "REPLACE_WITH_YOUR_API_KEY",
+      authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+      projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+    };
+    // --------------------------------
+
+    // init
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // DOM
+    const emailEl = document.getElementById('email');
+    const sendBtn = document.getElementById('sendBtn');
+    const requestMsg = document.getElementById('requestMsg');
+    const backSignIn = document.getElementById('backSignIn');
+
+    const resetArea = document.getElementById('reset-area');
+    const requestArea = document.getElementById('request-area');
+    const newPassEl = document.getElementById('newPass');
+    const confPassEl = document.getElementById('confirmPass');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const resetMsg = document.getElementById('resetMsg');
+    const cancelReset = document.getElementById('cancelReset');
+
+    // helper UI functions
+    function showMsg(el, text, type='ok') {
+      el.textContent = text;
+      el.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
+      el.style.display = 'block';
+    }
+    function clearMsg(el) { el.style.display = 'none'; el.textContent = ''; }
+
+    // set actionCodeSettings so Firebase returns users to this page (include host & path)
+    const actionCodeSettings = {
+      url: window.location.origin + window.location.pathname, // reset.html
+      // If you have multiple domains, update above to the exact domain used in your email links
+    };
+
+    // utility: get URL params
+    function getParam(name) {
+      const p = new URLSearchParams(window.location.search);
+      return p.get(name);
+    }
+
+    // If page was opened with oobCode & mode=resetPassword -> show reset form
+    const oobCode = getParam('oobCode') || getParam('oobcode') || null;
+    const mode = getParam('mode') || null;
+
+    if (oobCode && mode === 'resetPassword') {
+      // switch UI
+      requestArea.style.display = 'none';
+      resetArea.style.display = 'block';
+      // verify code to optionally show the associated email (not required)
+      auth.verifyPasswordResetCode(oobCode)
+        .then(email => {
+          showMsg(resetMsg, 'Resetting password for: ' + email, 'ok');
+        })
+        .catch(err => {
+          showMsg(resetMsg, 'Invalid or expired reset link. Please request a new reset email.', 'err');
+          console.error('verifyPasswordResetCode error', err);
+        });
+    } else {
+      // show request form
+      requestArea.style.display = 'block';
+      resetArea.style.display = 'none';
+    }
+
+    // send reset email
+    sendBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      clearMsg(requestMsg);
+      const email = (emailEl.value || '').trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showMsg(requestMsg, 'Please enter a valid email address.', 'err');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        await auth.sendPasswordResetEmail(email, actionCodeSettings);
+        showMsg(requestMsg, 'Reset email sent to ' + email + '. Check your inbox (and spam).', 'ok');
+        emailEl.value = '';
+      } catch (err) {
+        console.error('sendPasswordResetEmail error', err);
+        let message = 'Unable to send reset email. Please try again later.';
+        if (err && err.code === 'auth/user-not-found') message = 'No account found with that email.';
+        showMsg(requestMsg, message, 'err');
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send reset email';
+      }
+    });
+
+    // confirm new password flow
+    confirmBtn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      clearMsg(resetMsg);
+      const p1 = newPassEl.value || '';
+      const p2 = confPassEl.value || '';
+      if (p1.length < 8) {
+        showMsg(resetMsg, 'Password must be at least 8 characters.', 'err');
+        return;
+      }
+      if (p1 !== p2) {
+        showMsg(resetMsg, 'Passwords do not match.', 'err');
+        return;
+      }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Setting…';
+      try {
+        await auth.confirmPasswordReset(oobCode, p1);
+        showMsg(resetMsg, 'Password updated successfully. You can now sign in with your new password.', 'ok');
+        // optional: offer a direct sign-in link
+        setTimeout(() => {
+          window.location.href = '/signin.html'; // change to your sign-in page
+        }, 2200);
+      } catch (err) {
+        console.error('confirmPasswordReset error', err);
+        let msg = 'Unable to reset password. The link may be expired or invalid.';
+        showMsg(resetMsg, msg, 'err');
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Set new password';
+      }
+    });
+
+    // back to sign-in cancel handlers
+    backSignIn.addEventListener('click', () => window.location.href = '/signin.html');
+    cancelReset.addEventListener('click', () => window.location.href = '/signin.html');
+  </script>
+</body>
+</html>
