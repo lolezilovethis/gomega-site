@@ -38,24 +38,16 @@
     .small{font-size:12px;color:var(--muted)}
     .help{margin-top:12px; font-size:13px}
     .strength{height:8px; width:100%; background:#f1f5f9; border-radius:6px; margin-top:8px; overflow:hidden}
-    .strength > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#f97316,#84cc16); transition:width .18s ease}
-    .hidden{display:none !important}
+    .strength > i{display:block; height:100%; width:0%; transition:width .18s ease}
   </style>
-
-  <!-- Firebase compat SDK (kept since your project uses compat in original file) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-
-  <!-- Your firebase config + init (must set up this file) -->
-  <script src="/js/firebase.js"></script>
+  <!-- DO NOT include compat SDKs here. Using modular imports below. -->
 </head>
 <body>
   <div class="card" role="main" aria-labelledby="title">
     <h1 id="title">Reset your Gomega password</h1>
     <p class="lead">Enter your email to receive a reset link — or, if you followed the reset email link, complete your reset on this page.</p>
 
-    <!-- Request-reset form -->
-    <form id="request-area" aria-labelledby="title" autocomplete="on">
+    <form id="request-area" autocomplete="on">
       <label for="email">Email address</label>
       <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
       <div class="row">
@@ -66,8 +58,7 @@
       <p class="help small">If you don't get the email, check your spam folder or try again. Contact support: <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a>.</p>
     </form>
 
-    <!-- Reset-password area (shown when oobCode present) -->
-    <form id="reset-area" style="display:none" autocomplete="off" aria-hidden="true">
+    <form id="reset-area" style="display:none" autocomplete="off">
       <p class="small">Please choose a new password for your account.</p>
       <label for="newPass">New password</label>
       <input id="newPass" name="newPass" type="password" autocomplete="new-password" placeholder="At least 8 characters" required />
@@ -84,19 +75,16 @@
     <p class="muted small" style="margin-top:18px">Need help? Email <a class="link" href="mailto:gomegaassist@gmail.com">gomegaassist@gmail.com</a></p>
   </div>
 
-  <script>
-    // --- REQUIRE: js/firebase.js must initialize firebase (e.g. firebase.initializeApp({...})) ---
-    if (!window.firebase || !firebase.auth) {
-      console.error('Firebase not available. Ensure /js/firebase.js initializes firebase before this script.');
-      document.getElementById('requestMsg').textContent = 'Configuration error: Firebase not loaded.';
-      document.getElementById('requestMsg').className = 'msg err';
-      document.getElementById('requestMsg').style.display = 'block';
-      throw new Error('Firebase not initialized');
-    }
+  <script type="module">
+    // Import your modular auth export and needed functions from firebase-auth
+    import { auth } from '/js/firebase.js'; // your file already exports `auth`
+    import {
+      sendPasswordResetEmail,
+      verifyPasswordResetCode,
+      confirmPasswordReset
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    const auth = firebase.auth();
-
-    // Elements
+    // DOM
     const requestArea = document.getElementById('request-area');
     const emailEl = document.getElementById('email');
     const sendBtn = document.getElementById('sendBtn');
@@ -111,7 +99,6 @@
     const cancelReset = document.getElementById('cancelReset');
     const strengthBar = document.getElementById('strengthBar');
 
-    // show / hide helpers
     function showMsg(el, text, type = 'ok') {
       el.textContent = text;
       el.className = 'msg ' + (type === 'ok' ? 'ok' : 'err');
@@ -119,128 +106,92 @@
     }
     function clearMsg(el) { el.style.display = 'none'; el.textContent = ''; el.className = 'msg'; }
 
-    // actionCodeSettings used when sending the reset email so the link returns here
+    // Make sure auth is available
+    if (!auth) {
+      showMsg(requestMsg, 'Firebase auth not initialized. Check /js/firebase.js', 'err');
+      throw new Error('Firebase auth not initialized');
+    }
+
     const actionCodeSettings = {
-      url: window.location.origin + window.location.pathname, // returns to this page
-      // add handleCodeInApp: true if you're using in-app flows; for web, this is fine.
+      url: window.location.origin + window.location.pathname
     };
 
-    // url params
     function getParam(name) {
       return new URLSearchParams(window.location.search).get(name);
     }
-
     const oobCode = getParam('oobCode') || getParam('oobcode') || null;
     const mode = getParam('mode') || null;
 
-    // If the page has oobCode & mode=resetPassword, show reset form and verify the code.
     if (oobCode && mode === 'resetPassword') {
       requestArea.style.display = 'none';
-      requestArea.setAttribute('aria-hidden', 'true');
       resetArea.style.display = 'block';
-      resetArea.setAttribute('aria-hidden', 'false');
-
-      auth.verifyPasswordResetCode(oobCode)
+      verifyPasswordResetCode(auth, oobCode)
         .then(email => {
-          // show a helpful non-sensitive message
           showMsg(resetMsg, 'Resetting password for: ' + email, 'ok');
         })
         .catch(err => {
           console.error('verifyPasswordResetCode error', err);
-          // Don't give too many details to the user — generic guidance
-          showMsg(resetMsg, 'This reset link is invalid or expired. Request a new reset email below.', 'err');
-          // swap UI back to request form after short delay
+          showMsg(resetMsg, 'This reset link is invalid or expired. Request a new reset email.', 'err');
           setTimeout(() => {
             resetArea.style.display = 'none';
-            resetArea.setAttribute('aria-hidden', 'true');
             requestArea.style.display = 'block';
-            requestArea.setAttribute('aria-hidden', 'false');
-          }, 2500);
+          }, 2000);
         });
     } else {
       requestArea.style.display = 'block';
       resetArea.style.display = 'none';
     }
 
-    // Generic message to avoid confirming whether an email exists (prevents enumeration)
     function genericSentMessage(email) {
       return 'If an account exists for ' + email + ', a password reset email has been sent. Check your inbox (and spam).';
     }
 
-    // SEND reset email
+    // Send reset email
     requestArea.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       clearMsg(requestMsg);
-
       const email = (emailEl.value || '').trim();
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         showMsg(requestMsg, 'Please enter a valid email address.', 'err');
         return;
       }
-
       sendBtn.disabled = true;
       sendBtn.textContent = 'Sending…';
-
       try {
-        // We intentionally present a generic success message to avoid revealing account existence.
-        await auth.sendPasswordResetEmail(email, actionCodeSettings);
+        await sendPasswordResetEmail(auth, email, actionCodeSettings);
         showMsg(requestMsg, genericSentMessage(email), 'ok');
         emailEl.value = '';
       } catch (err) {
         console.error('sendPasswordResetEmail error', err);
-        // Show generic message for most errors; only show actionable guidance for rate-limit or invalid-email.
-        if (err && (err.code === 'auth/invalid-email')) {
-          showMsg(requestMsg, 'Please enter a valid email address.', 'err');
-        } else if (err && (err.code === 'auth/too-many-requests' || err.code === 'auth/operation-not-allowed')) {
-          showMsg(requestMsg, 'Unable to send right now. Please try again later.', 'err');
-        } else {
-          // still show generic success to avoid enumeration — but log error in console for debugging
-          showMsg(requestMsg, genericSentMessage(email), 'ok');
-        }
+        if (err && err.code === 'auth/invalid-email') showMsg(requestMsg, 'Please enter a valid email address.', 'err');
+        else if (err && err.code === 'auth/too-many-requests') showMsg(requestMsg, 'Too many requests. Try again later.', 'err');
+        else showMsg(requestMsg, genericSentMessage(email), 'ok'); // generic to avoid enumeration
       } finally {
         sendBtn.disabled = false;
         sendBtn.textContent = 'Send reset email';
       }
     });
 
-    // Confirm new password flow
+    // Confirm password
     resetArea.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       clearMsg(resetMsg);
-
       const p1 = newPassEl.value || '';
       const p2 = confPassEl.value || '';
-
-      if (p1.length < 8) {
-        showMsg(resetMsg, 'Password must be at least 8 characters.', 'err');
-        return;
-      }
-      if (p1 !== p2) {
-        showMsg(resetMsg, 'Passwords do not match.', 'err');
-        return;
-      }
-      if (!oobCode) {
-        showMsg(resetMsg, 'Missing reset code. Please use the link from your email.', 'err');
-        return;
-      }
+      if (p1.length < 8) { showMsg(resetMsg, 'Password must be at least 8 characters.', 'err'); return; }
+      if (p1 !== p2) { showMsg(resetMsg, 'Passwords do not match.', 'err'); return; }
+      if (!oobCode) { showMsg(resetMsg, 'Missing reset code. Use the link from your email.', 'err'); return; }
 
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Setting…';
-
       try {
-        await auth.confirmPasswordReset(oobCode, p1);
-        showMsg(resetMsg, 'Password updated successfully. Redirecting to sign in…', 'ok');
-
-        // After a short pause, go to sign-in page (update this path to match your site)
-        setTimeout(() => {
-          window.location.href = '/signin';
-        }, 1800);
-
+        await confirmPasswordReset(auth, oobCode, p1);
+        showMsg(resetMsg, 'Password updated. Redirecting to sign in…', 'ok');
+        setTimeout(() => window.location.href = '/signin', 1500);
       } catch (err) {
         console.error('confirmPasswordReset error', err);
-        // Map common errors to friendly messages
         let msg = 'Unable to reset password. The link may be expired or invalid.';
-        if (err && err.code === 'auth/weak-password') msg = 'Password is too weak. Choose a stronger password.';
+        if (err && err.code === 'auth/weak-password') msg = 'Password is too weak.';
         if (err && err.code === 'auth/expired-action') msg = 'This reset link has expired. Request a new reset email.';
         showMsg(resetMsg, msg, 'err');
       } finally {
@@ -249,36 +200,27 @@
       }
     });
 
-    // Buttons
     backSignIn.addEventListener('click', () => window.location.href = '/signin');
     cancelReset.addEventListener('click', () => window.location.href = '/signin');
 
-    // Password strength meter (simple heuristics)
+    // Strength meter
     function calcStrength(pw) {
       let score = 0;
-      if (pw.length >= 8) score += 1;
-      if (/[A-Z]/.test(pw)) score += 1;
-      if (/[0-9]/.test(pw)) score += 1;
-      if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+      if (pw.length >= 8) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
       return Math.min(4, score);
     }
     function updateStrength() {
       const s = calcStrength(newPassEl.value || '');
       const pct = (s / 4) * 100;
       strengthBar.style.width = pct + '%';
-      // optional color changes could be added; using default gradient so we don't set colors here
     }
     newPassEl.addEventListener('input', updateStrength);
 
-    // Enter key support - forms already submit on Enter; no extra work required
-    // Accessibility: focus first input
-    (function focusFirst() {
-      if (oobCode && mode === 'resetPassword') {
-        newPassEl.focus();
-      } else {
-        emailEl.focus();
-      }
-    })();
+    // initial focus
+    if (oobCode && mode === 'resetPassword') newPassEl.focus(); else emailEl.focus();
   </script>
 </body>
 </html>
