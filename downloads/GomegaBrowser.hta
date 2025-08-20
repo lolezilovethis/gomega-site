@@ -11,7 +11,7 @@ Option Explicit
 ' small reversed/hidden note (must remain in file exactly like this line)
 ' gnidnetnoc dna snoitidnoc mret ruoy llaf seod ton os odingS dna hctaw.agemog yb edam saw siht ,siht tide/ detcafsbo nu tnod esaelp tphgtaC ot etoN
 
-' ------------------ GLOBAL CONFIG (use g_ prefix to avoid name collisions) ------------------
+'
 Dim g_version, g_versionCheckURL, g_updatePage
 g_version = "15.1.1"
 g_versionCheckURL = "https://gomega.watch/browser/version.txt"
@@ -33,12 +33,12 @@ g_r_url2 = StrReverse("https://gomega.watch/schoolgames")
 g_r_url3 = StrReverse("https://gomega.watch/scripts")
 g_r_customUA = StrReverse("Mozilla/5.0 (X11; CrOS aarch64 13099.85.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.110 Safari/537.36 - Google Search")
 
-' ------------------ GLOBAL OBJECTS ------------------
+' 
 Dim g_fso, g_shell
 Set g_fso = CreateObject("Scripting.FileSystemObject")
 Set g_shell = CreateObject("WScript.Shell")
 
-' ------------------ SELF-INTEGRITY CHECK (hidden reversed note must exist) ------------------
+' 
 Dim g_href, g_filePath, g_tf, g_fileContents
 g_href = document.location.href
 If Left(g_href,8) = "file:///" Then
@@ -75,14 +75,14 @@ If g_linePos = 0 Then
   window.close
 End If
 
-' ------------------ Decode obfuscated strings ------------------
+' 
 Dim url1, url2, url3, customUA
 url1 = StrReverse(g_r_url1)
 url2 = StrReverse(g_r_url2)
 url3 = StrReverse(g_r_url3)
 customUA = StrReverse(g_r_customUA)
 
-' ------------------ helper: FetchURLText ------------------
+' 
 Function FetchURLText(u)
   Dim xhr, resp
   On Error Resume Next
@@ -99,7 +99,7 @@ Function FetchURLText(u)
   FetchURLText = resp
 End Function
 
-' ------------------ helper: CompareVersions (semantic) ------------------
+' 
 Function CompareVersions(v1, v2)
   Dim a, b, i, n, x, y
   On Error Resume Next
@@ -117,7 +117,7 @@ Function CompareVersions(v1, v2)
   On Error GoTo 0
 End Function
 
-' ------------------ ALWAYS check the website version and only run if exact match ------------------
+' 
 Dim g_latestVersion
 g_latestVersion = ""
 On Error Resume Next
@@ -135,7 +135,7 @@ If Trim(CStr(g_latestVersion)) <> Trim(CStr(g_version)) Then
   window.close
 End If
 
-' ------------------ FIND A LAUNCH TARGET ------------------
+' 
 Dim g_chromePath, idx, candidate
 g_chromePath = ""
 For idx = 0 To UBound(g_chromePaths)
@@ -156,7 +156,7 @@ If g_chromePath = "" Then
   window.close
 End If
 
-' ------------------ LAUNCH with custom UA ------------------
+'
 On Error Resume Next
 Dim uaFlag, cmdLine
 If LCase(Right(g_chromePath, Len("chrome.exe"))) = "chrome.exe" Then
@@ -168,7 +168,7 @@ Else
 End If
 On Error GoTo 0
 
-' ------------------ CLEANUP ------------------
+' 
 Set g_fso = Nothing
 Set g_shell = Nothing
 
