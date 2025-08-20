@@ -194,7 +194,7 @@
         showMsg(resetMsg, 'Password updated successfully. You can now sign in with your new password.', 'ok');
         // optional: offer a direct sign-in link
         setTimeout(() => {
-          window.location.href = '/signin.html'; // change to your sign-in page
+          window.location.href = '/signin'; // change to your sign-in page
         }, 2200);
       } catch (err) {
         console.error('confirmPasswordReset error', err);
@@ -207,8 +207,8 @@
     });
 
     // back to sign-in cancel handlers
-    backSignIn.addEventListener('click', () => window.location.href = '/signin.html');
-    cancelReset.addEventListener('click', () => window.location.href = '/signin.html');
+    backSignIn.addEventListener('click', () => window.location.href = '/signin');
+    cancelReset.addEventListener('click', () => window.location.href = '/signin');
   </script>
 </body>
 </html>
