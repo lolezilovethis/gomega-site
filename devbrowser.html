@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dev Browser — Access Portal</title>
+  <style>
+    :root{
+      --bg1:#071428; --bg2:#081222; --accent:#00d4ff; --accent2:#7b61ff;
+      --muted:#a9b3c4; --card:#061425; --glass: rgba(255,255,255,0.03); --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: Inter, "Segoe UI", system-ui, Roboto, Arial;
+      background: radial-gradient(800px 400px at 10% 10%, rgba(123,97,255,0.06), transparent),
+                  linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:#e6f0ff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:36px;
+    }
+
+    .card{
+      width:880px;
+      max-width:96%;
+      border-radius:18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      box-shadow: 0 14px 40px rgba(2,6,23,0.6);
+      padding:28px;
+      backdrop-filter: blur(6px);
+    }
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#031426}
+    h1{margin:0;font-size:1.35rem}
+    p.lead{margin:0;color:var(--muted)}
+
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:20px}
+    .panel{background:var(--card);border-radius:12px;padding:18px}
+    .panel h2{margin:0 0 10px 0;color:var(--accent)}
+    .hint{color:var(--muted);font-size:0.95rem;line-height:1.45}
+
+    /* code box */
+    .code-wrap{display:flex;gap:10px;align-items:center;margin-top:14px}
+    .code-input{
+      width:180px;padding:12px;border-radius:10px;border:0;background:rgba(255,255,255,0.02);
+      color:inherit;font-size:1.1rem;text-align:center;letter-spacing:6px;
+    }
+    .btn{padding:10px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#021;box-shadow:0 8px 22px rgba(123,97,255,0.12)}
+    .btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04)}
+
+    .download-area{display:flex;flex-direction:column;gap:10px;align-items:stretch;margin-top:12px}
+    .download-btn{padding:14px;border-radius:12px;border:0;font-weight:800;font-size:1.05rem;cursor:pointer}
+
+    .status{font-size:0.9rem;color:var(--muted)}
+    footer{margin-top:18px;color:var(--muted);font-size:0.85rem;text-align:center}
+
+    @media (max-width:880px){
+      .layout{grid-template-columns:1fr}
+    }
+
+    /* small animation for success */
+    .success {
+      transition: transform .22s ease, opacity .22s ease;
+      transform-origin: left center;
+    }
+    .shake {
+      animation: shake .45s;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0) }
+      20% { transform: translateX(-6px) }
+      40% { transform: translateX(6px) }
+      60% { transform: translateX(-4px) }
+      80% { transform: translateX(4px) }
+      100% { transform: translateX(0) }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="title">
+    <header>
+      <div class="brand">
+        <div class="logo">DEV</div>
+        <div>
+          <h1 id="title">Dev Browser — Access Portal</h1>
+          <p class="lead">Restricted dev build. Enter the 4-digit dev code to unlock the installer.</p>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <div style="font-weight:700">Build: DEV-2025</div>
+        <div class="hint" style="margin-top:6px">No ads — direct dev installer.</div>
+      </div>
+    </header>
+
+    <div class="layout" aria-live="polite">
+      <section class="panel" aria-labelledby="instructions">
+        <h2 id="instructions">Developer Access</h2>
+        <p class="hint">This page protects the dev installer behind a short code for quick internal access. Enter the 4-digit code and press Unlock. The session will remember access until you close the tab.</p>
+
+        <div class="code-wrap" aria-hidden="false">
+          <input id="codeInput" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="• • • •" aria-label="4-digit code">
+          <button id="unlockBtn" class="btn primary">Unlock</button>
+          <button id="resetBtn" class="btn ghost" title="Clear session">Reset</button>
+        </div>
+
+        <div id="msg" class="status" style="margin-top:10px">Waiting for code...</div>
+
+        <div class="download-area" id="downloadArea" aria-hidden="true" style="display:none">
+          <button id="downloadBtn" class="download-btn primary">⬇️ Download Dev Browser</button>
+          <div class="hint">File: <strong>devbrowser.hta</strong></div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-labelledby="notes">
+        <h2 id="notes">Quick Notes</h2>
+        <p class="hint"><strong>Note:</strong> The dev code expected by this portal is <em>2011</em>. (This check is client-side — intended for convenience/quick gating; for higher-security use a server-side check.)</p>
+        <p class="hint">Access is stored in the browser session. Closing the tab clears access.</p>
+
+        <div style="height:12px"></div>
+
+        <div style="background:rgba(255,255,255,0.02);padding:12px;border-radius:8px">
+          <div style="font-weight:700">No ads</div>
+          <div class="hint" style="margin-top:6px">When unlocked, clicking Download goes straight to the dev installer: <code>devbrowser.hta</code>.</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>© Dev Team — Internal build</footer>
+  </div>
+
+  <script>
+    // Dev code (4 digits)
+    // YOU specified the code value is 2011 — it's hard-coded here per your request.
+    const DEV_CODE = "2011";
+
+    const codeInput = document.getElementById('codeInput');
+    const unlockBtn = document.getElementById('unlockBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const msg = document.getElementById('msg');
+    const downloadArea = document.getElementById('downloadArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const STORAGE_KEY = 'devportal_access_v1';
+
+    // Check session storage on load
+    function checkSession() {
+      const val = sessionStorage.getItem(STORAGE_KEY);
+      if (val === 'unlocked') {
+        revealDownload();
+      } else {
+        hideDownload();
+      }
+    }
+
+    function revealDownload() {
+      downloadArea.style.display = 'flex';
+      downloadArea.setAttribute('aria-hidden', 'false');
+      msg.textContent = 'Access granted. You may download the dev build.';
+      msg.style.color = ''; // default
+      codeInput.value = '';
+      codeInput.disabled = true;
+      unlockBtn.disabled = true;
+    }
+
+    function hideDownload() {
+      downloadArea.style.display = 'none';
+      downloadArea.setAttribute('aria-hidden', 'true');
+      msg.textContent = 'Enter the 4-digit code to unlock the download.';
+      codeInput.disabled = false;
+      unlockBtn.disabled = false;
+    }
+
+    // attempt unlock
+    function tryUnlock() {
+      const attempt = (codeInput.value || '').trim();
+      if (attempt.length !== 4) {
+        flashMsg('Please enter a 4-digit code', true);
+        animateInput();
+        return;
+      }
+
+      if (attempt === DEV_CODE) {
+        // Success
+        sessionStorage.setItem(STORAGE_KEY, 'unlocked');
+        revealDownload();
+      } else {
+        flashMsg('Incorrect code — try again', true);
+        animateInput(true);
+      }
+    }
+
+    function flashMsg(text, isError=false) {
+      msg.textContent = text;
+      msg.style.color = isError ? '#ff7a7a' : '';
+    }
+
+    function animateInput(shake=false) {
+      codeInput.classList.remove('shake');
+      if (shake) {
+        void codeInput.offsetWidth; // reflow for restart
+        codeInput.classList.add('shake');
+      }
+    }
+
+    // Reset session
+    function resetSession() {
+      sessionStorage.removeItem(STORAGE_KEY);
+      hideDownload();
+      flashMsg('Session reset — enter code to unlock', false);
+    }
+
+    // Download click
+    function doDownload() {
+      // direct link to devbrowser.hta no ads
+      window.location.href = 'https://gomega.watch/downloads/devbrowser.hta';
+    }
+
+    // event listeners
+    unlockBtn.addEventListener('click', tryUnlock);
+    resetBtn.addEventListener('click', resetSession);
+    downloadBtn.addEventListener('click', doDownload);
+
+    // enter key support
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') tryUnlock();
+    });
+
+    // allow only digits
+    codeInput.addEventListener('input', (e) => {
+      codeInput.value = codeInput.value.replace(/[^0-9]/g, '').slice(0,4);
+    });
+
+    // init
+    checkSession();
+
+    // Autofocus input for convenience
+    codeInput.focus();
+  </script>
+</body>
+</html>
