@@ -8,122 +8,57 @@
 <script language="VBScript">
 Option Explicit
 
-' --- Configuration ---
-Dim g_version, g_versionCheckURL, g_updatePage
-g_version = "15.1.1"
-g_versionCheckURL = "https://gomega.watch/browser/version.txt"
-g_updatePage = "https://gomega.watch/browser"
+' Simple, non-obfuscated launcher: locate Chrome (or a packaged exe) and open the site.
+' No network calls, no custom UA, no version checks, no hidden behavior.
 
-Dim g_chromePaths
-g_chromePaths = Array( _
+Dim chromePaths, g_gomegaExe, targetURL
+chromePaths = Array( _
   "C:\Program Files\Google\Chrome\Application\chrome.exe", _
   "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" _
 )
-
-Dim g_gomegaExe
 g_gomegaExe = "C:\Program Files\GomegaBrowser\GomegaBrowser.exe"
+targetURL = "https://gomega.watch"
 
-Dim url1, url2, url3, customUA
-url1 = "https://gomega.watch"
-url2 = "https://gomega.watch/schoolgames"
-url3 = "https://gomega.watch/scripts"
-customUA = "Mozilla/5.0 (X11; CrOS aarch64 13099.85.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.110 Safari/537.36 - Google Search"
-
-' --- Helpers ---
-Function FetchURLText(u)
-  Dim xhr, resp
-  On Error Resume Next
-  Set xhr = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-  xhr.setTimeouts 5000,5000,10000,10000
-  xhr.open "GET", u, False
-  xhr.send
-  resp = ""
-  If Err.Number = 0 Then
-    If xhr.Status = 200 Then resp = Trim(CStr(xhr.responseText))
-  End If
-  Set xhr = Nothing
-  On Error GoTo 0
-  FetchURLText = resp
-End Function
-
-Function CompareVersions(v1, v2)
-  Dim a, b, i, n, x, y
-  On Error Resume Next
-  a = Split(Trim(CStr(v1)) & "", ".")
-  b = Split(Trim(CStr(v2)) & "", ".")
-  n = UBound(a)
-  If UBound(b) > n Then n = UBound(b)
-  For i = 0 To n
-    If i <= UBound(a) Then x = CLng(Val(a(i))) Else x = 0
-    If i <= UBound(b) Then y = CLng(Val(b(i))) Else y = 0
-    If x > y Then CompareVersions = 1 : Exit Function
-    If x < y Then CompareVersions = -1 : Exit Function
-  Next
-  CompareVersions = 0
-  On Error GoTo 0
-End Function
-
-' --- Version check ---
-Dim g_latestVersion
-g_latestVersion = ""
-On Error Resume Next
-g_latestVersion = FetchURLText(g_versionCheckURL)
-On Error GoTo 0
-
-If g_latestVersion = "" Then
-  MsgBox "Version check failed (network). Launcher will not run.", vbExclamation, "Launcher Disabled"
-  window.close
-End If
-
-If CompareVersions(Trim(CStr(g_latestVersion)), Trim(CStr(g_version))) <> 0 Then
-  MsgBox "Launcher disabled: version mismatch." & vbCrLf & _
-         "Installed: v" & g_version & vbCrLf & "Remote: v" & g_latestVersion, vbExclamation, "Launcher Disabled"
-  window.close
-End If
-
-' --- Locate Chrome or packaged exe ---
-Dim g_chromePath, idx, candidate, fso
+Dim fso, shell, chromePath, idx, candidate
 Set fso = CreateObject("Scripting.FileSystemObject")
-g_chromePath = ""
-For idx = 0 To UBound(g_chromePaths)
-  candidate = g_chromePaths(idx)
+Set shell = CreateObject("WScript.Shell")
+
+chromePath = ""
+
+' Locate a standard Chrome install
+For idx = 0 To UBound(chromePaths)
+  candidate = chromePaths(idx)
   If fso.FileExists(candidate) Then
-    g_chromePath = candidate
+    chromePath = candidate
     Exit For
   End If
 Next
 
-If g_chromePath = "" Then
-  If fso.FileExists(g_gomegaExe) Then g_chromePath = g_gomegaExe
+' Fallback to packaged exe if present
+If chromePath = "" Then
+  If fso.FileExists(g_gomegaExe) Then
+    chromePath = g_gomegaExe
+  End If
 End If
 
-If g_chromePath = "" Then
-  MsgBox "Could not find Google Chrome or packaged GomegaBrowser.exe." & vbCrLf & _
-         "Please install Chrome or adjust the script paths.", vbExclamation, "Launcher Error"
-  window.close
-End If
-
-' --- Launch with custom UA and URLs ---
-Dim g_shell, uaFlag, cmdLine
-Set g_shell = CreateObject("WScript.Shell")
-
-On Error Resume Next
-If LCase(Right(g_chromePath, Len("chrome.exe"))) = "chrome.exe" Then
-  uaFlag = "--user-agent=" & """" & customUA & """"
-  cmdLine = """" & g_chromePath & """ " & uaFlag & " " & """" & url1 & """ " & """" & url2 & """ " & """" & url3 & """"
-  g_shell.Run cmdLine, 1, False
+' Launch or show clear instructions
+If chromePath <> "" Then
+  ' Open single, user-visible URL using the system's Chrome (no unusual flags)
+  shell.Run """" & chromePath & """ " & """" & targetURL & """", 1, False
 Else
-  g_shell.Run """" & g_chromePath & """", 1, False
+  MsgBox "Could not find Google Chrome or the packaged GomegaBrowser.exe." & vbCrLf & _
+         "Please install Chrome or place GomegaBrowser.exe at: " & vbCrLf & g_gomegaExe, vbExclamation, "Launcher Error"
 End If
-On Error GoTo 0
 
-' --- Cleanup ---
+' Cleanup
 Set fso = Nothing
-Set g_shell = Nothing
-
+Set shell = Nothing
 </script>
 </head>
 <body>
-  <h3 style="font-family:sans-serif;margin:18px">Launching Gomega Browser...</h3>
+  <div style="font-family:Segoe UI, Arial, sans-serif; padding:18px;">
+    <h3>Launching Gomega Browser...</h3>
+    <p>If nothing happens, please install Google Chrome or check the path to GomegaBrowser.exe.</p>
+  </div>
 </body>
 </html>
