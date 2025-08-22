@@ -1,0 +1,378 @@
+<!-- chat.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega Chat</title>
+  <style>
+    /* Simple clean UI — adjust to taste */
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:#f6f7fb; color:#111; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:#0b57cc; color:white; }
+    header .brand { font-weight:700; font-size:18px; }
+    .container { display:flex; gap:18px; padding:18px; }
+    .left, .right { background:white; border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(12,20,40,0.06); }
+    .left { flex: 1 1 600px; display:flex; flex-direction:column; height:75vh; }
+    .public-messages { flex:1; overflow:auto; padding:8px; border-radius:8px; background:#fbfdff; }
+    .message { padding:8px; margin-bottom:8px; border-radius:8px; border:1px solid rgba(15,20,40,0.04); }
+    .meta { font-size:12px; color:#666; display:flex; gap:8px; align-items:center; }
+    .controls { display:flex; gap:8px; margin-top:8px; }
+    input[type="text"], textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #e3e7ef; font-size:14px; }
+    button { padding:8px 12px; border-radius:8px; border:0; cursor:pointer; background:#0b57cc; color:white; }
+    .right { width:320px; display:flex; flex-direction:column; gap:12px; height:75vh; }
+    .users-list { overflow:auto; flex:1; }
+    .user { padding:8px; display:flex; justify-content:space-between; border-radius:8px; border:1px solid rgba(15,20,40,0.04); margin-bottom:8px; align-items:center; }
+    .private-panel { position:fixed; right:18px; bottom:18px; width:360px; max-height:60vh; background:white; border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.12); padding:12px; display:none; flex-direction:column; }
+    .private-messages { overflow:auto; flex:1; padding:6px; }
+    .small { font-size:12px; color:#666; }
+    .reply { font-size:12px; color:#0b57cc; cursor:pointer; text-decoration:underline; background:none; border:none; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); }
+    .modal .card { background:white; padding:16px; border-radius:12px; width:420px; max-height:80vh; overflow:auto; }
+    .topbar { display:flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Gomega Chat</div>
+  <div>
+    <span id="userDisplay" class="small"></span>
+    <button id="signInBtn">Sign in</button>
+    <button id="signOutBtn" style="display:none">Sign out</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="left">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong>Public Chat</strong>
+      <div style="display:flex; gap:8px;">
+        <button id="openDmsBtn">My DMS</button>
+      </div>
+    </div>
+
+    <div class="public-messages" id="publicMessages"></div>
+
+    <div class="controls">
+      <input id="messageInput" type="text" placeholder="Say something to everyone..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <div class="right">
+    <div><strong>Active Users</strong></div>
+    <div class="users-list" id="usersList"></div>
+    <div class="small">Click a user → "Private Chat" to message privately. Private messages delete after 12 days automatically (expireAt field).</div>
+  </div>
+</div>
+
+<!-- Private chat panel -->
+<div class="private-panel" id="privatePanel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <div><strong id="privateWith">Private</strong><div id="privateWithEmail" class="small"></div></div>
+    <div><button id="closePrivate">Close</button></div>
+  </div>
+  <div class="private-messages" id="privateMessages"></div>
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <input id="privateInput" type="text" placeholder="Send a private message..." />
+    <button id="sendPrivateBtn">Send</button>
+  </div>
+</div>
+
+<!-- DM modal -->
+<div class="modal" id="dmsModal">
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong>My DMS (email)</strong>
+      <button id="closeDms">Close</button>
+    </div>
+    <div id="dmUsers"></div>
+  </div>
+</div>
+
+<script type="module">
+  // Use your firebase.js from /js/firebase.js (you told me you won't change it)
+  import { auth, db, provider } from './js/firebase.js';
+  import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    collection, addDoc, serverTimestamp, query, orderBy, onSnapshot,
+    where, Timestamp, doc, setDoc, getDoc, getDocs, limit
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // UI elements
+  const signInBtn = document.getElementById('signInBtn');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const userDisplay = document.getElementById('userDisplay');
+  const publicMessagesDiv = document.getElementById('publicMessages');
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const usersList = document.getElementById('usersList');
+
+  const privatePanel = document.getElementById('privatePanel');
+  const privateWith = document.getElementById('privateWith');
+  const privateWithEmail = document.getElementById('privateWithEmail');
+  const privateMessagesDiv = document.getElementById('privateMessages');
+  const privateInput = document.getElementById('privateInput');
+  const sendPrivateBtn = document.getElementById('sendPrivateBtn');
+  const closePrivate = document.getElementById('closePrivate');
+
+  const openDmsBtn = document.getElementById('openDmsBtn');
+  const dmsModal = document.getElementById('dmsModal');
+  const closeDms = document.getElementById('closeDms');
+  const dmUsers = document.getElementById('dmUsers');
+
+  let currentUser = null;
+  let currentPrivatePeer = null;
+  let publicUnsub = null;
+  let privateUnsub = null;
+  let replyTo = null;
+
+  // ----- Auth -----
+  signInBtn.onclick = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      console.error('signin error', e);
+      alert('Sign-in failed: ' + (e.message || e));
+    }
+  };
+  signOutBtn.onclick = async () => {
+    await signOut(auth);
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      userDisplay.textContent = `${user.displayName || user.email}`;
+      signInBtn.style.display = 'none';
+      signOutBtn.style.display = '';
+      // ensure users collection has basic info for DMs
+      await setDoc(doc(collection(db, 'users'), user.uid), {
+        uid: user.uid,
+        displayName: user.displayName || '',
+        email: user.email || '',
+        lastSeen: serverTimestamp()
+      }, { merge: true });
+      startPublicListener();
+      startUsersListener();
+    } else {
+      currentUser = null;
+      userDisplay.textContent = '';
+      signInBtn.style.display = '';
+      signOutBtn.style.display = 'none';
+      if (publicUnsub) publicUnsub();
+      if (privateUnsub) privateUnsub();
+      publicMessagesDiv.innerHTML = '';
+      usersList.innerHTML = '';
+      closePrivatePanel();
+    }
+  });
+
+  // ----- Public chat (7-day view) -----
+  function startPublicListener() {
+    if (publicUnsub) publicUnsub();
+    // show messages created within last 7 days (picked per your request)
+    const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const q = query(collection(db, 'publicMessages'), where('createdAt', '>=', sevenDaysAgo), orderBy('createdAt', 'asc'), limit(1000));
+    publicUnsub = onSnapshot(q, (snap) => {
+      publicMessagesDiv.innerHTML = '';
+      snap.forEach(docSnap => {
+        const m = docSnap.data();
+        const id = docSnap.id;
+        renderPublicMessage(id, m);
+      });
+      publicMessagesDiv.scrollTop = publicMessagesDiv.scrollHeight;
+    });
+  }
+
+  function renderPublicMessage(id, m) {
+    const div = document.createElement('div');
+    div.className = 'message';
+    const name = m.displayName || m.email || 'Unknown';
+    const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleString() : '...';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <div>
+          <strong style="cursor:pointer" data-uid="${m.uid}" data-name="${name}">${name}</strong>
+          <div class="small">${time}</div>
+        </div>
+        <div class="small">#${id.slice(0,6)}</div>
+      </div>
+      <div style="margin-top:8px;">${escapeHtml(m.text || '')}</div>
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+        <button class="reply" data-id="${id}">Reply</button>
+        <button class="reply" data-user="${m.uid}" data-email="${m.email || ''}" data-name="${name}">Private Chat</button>
+      </div>
+      <div id="replies-${id}" style="margin-top:8px;"></div>
+    `;
+    publicMessagesDiv.appendChild(div);
+
+    // display replies if any
+    if (m.parentId == null) {
+      // will show replies by querying messages where parentId == id and within 7 days
+      // lightly optimized: just fetch children once
+      const repliesQ = query(collection(db, 'publicMessages'), where('parentId','==', id), orderBy('createdAt','asc'));
+      getDocs(repliesQ).then(snap => {
+        const container = document.getElementById('replies-' + id);
+        snap.forEach(s => {
+          const r = s.data();
+          const t = r.createdAt ? new Date(r.createdAt.seconds * 1000).toLocaleString() : '...';
+          const el = document.createElement('div');
+          el.style = "margin-top:6px; padding:6px; background:#f1f6ff; border-radius:8px;";
+          el.innerHTML = `<div class="small"><strong>${r.displayName || r.email}</strong> • ${t}</div><div>${escapeHtml(r.text || '')}</div>`;
+          container.appendChild(el);
+        });
+      });
+    }
+
+    // hooks
+    div.querySelectorAll('strong[data-uid]').forEach(node => {
+      node.onclick = () => openPrivateChat(node.dataset.uid, node.dataset.name, node.dataset.email || '');
+    });
+    div.querySelectorAll('button.reply[data-id]').forEach(b => {
+      b.onclick = () => { replyTo = b.dataset.id; messageInput.focus(); messageInput.placeholder = 'Replying... (will be threaded)'; };
+    });
+    div.querySelectorAll('button.reply[data-user]').forEach(b => {
+      b.onclick = () => openPrivateChat(b.dataset.user, b.dataset.name, b.dataset.email || '');
+    });
+  }
+
+  // Send public message
+  sendBtn.onclick = async () => {
+    if (!currentUser) return alert('Sign in first');
+    const text = messageInput.value.trim();
+    if (!text) return;
+    // set expireAt (12 days)
+    const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
+    await addDoc(collection(db, 'publicMessages'), {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || '',
+      email: currentUser.email || '',
+      text,
+      parentId: replyTo || null,
+      createdAt: serverTimestamp(),
+      expireAt: Timestamp.fromDate(expireAtDate)
+    });
+    messageInput.value = '';
+    replyTo = null;
+    messageInput.placeholder = 'Say something to everyone...';
+  };
+
+  // ----- Users list (for private chats and DMs) -----
+  function startUsersListener() {
+    // show recent users (last 30 days) ordered by lastSeen desc
+    const q = query(collection(db, 'users'), orderBy('lastSeen','desc'), limit(200));
+    onSnapshot(q, (snap) => {
+      usersList.innerHTML = '';
+      dmUsers.innerHTML = '';
+      snap.forEach(s => {
+        const u = s.data();
+        // skip showing self in list in right pane if you want; but showing is fine
+        const div = document.createElement('div');
+        div.className = 'user';
+        div.innerHTML = `<div>
+            <div style="font-weight:600">${escapeHtml(u.displayName || u.email || 'Unknown')}</div>
+            <div class="small">${escapeHtml(u.email || '')}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <button class="pc" data-uid="${u.uid}" data-name="${u.displayName || ''}" data-email="${u.email || ''}">Private Chat</button>
+            <a class="mail" href="mailto:${encodeURIComponent(u.email || '')}?subject=Gomega%20DM" style="text-decoration:none; margin-top:4px;"><button>Email</button></a>
+          </div>`;
+        usersList.appendChild(div);
+
+        // also fill DM modal
+        const dmRow = document.createElement('div');
+        dmRow.style = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #f0f2f6;";
+        dmRow.innerHTML = `<div><strong>${escapeHtml(u.displayName || u.email)}</strong><div class="small">${escapeHtml(u.email || '')}</div></div><div><a href="mailto:${encodeURIComponent(u.email || '')}?subject=Gomega%20DM"><button>Email</button></a></div>`;
+        dmUsers.appendChild(dmRow);
+      });
+
+      document.querySelectorAll('button.pc').forEach(b => {
+        b.onclick = () => openPrivateChat(b.dataset.uid, b.dataset.name, b.dataset.email);
+      });
+    });
+  }
+
+  // ----- Private chat logic -----
+  function openPrivateChat(peerUid, peerName, peerEmail) {
+    if (!currentUser) return alert('Sign in first');
+    if (peerUid === currentUser.uid) return alert('Cannot open private chat with yourself.');
+    currentPrivatePeer = { uid: peerUid, name: peerName, email: peerEmail };
+    privateWith.textContent = 'Chat with ' + (peerName || peerEmail || peerUid);
+    privateWithEmail.textContent = peerEmail || '';
+    privatePanel.style.display = 'flex';
+    loadPrivateMessages();
+  }
+
+  function closePrivatePanel() {
+    privatePanel.style.display = 'none';
+    currentPrivatePeer = null;
+    if (privateUnsub) privateUnsub();
+    privateMessagesDiv.innerHTML = '';
+  }
+  closePrivate.onclick = closePrivatePanel;
+
+  function privateChatId(uid1, uid2) {
+    return [uid1, uid2].sort().join('_'); // deterministic
+  }
+
+  function loadPrivateMessages() {
+    if (!currentUser || !currentPrivatePeer) return;
+    if (privateUnsub) privateUnsub();
+    const chatId = privateChatId(currentUser.uid, currentPrivatePeer.uid);
+    const messagesCol = collection(db, 'privateChats', chatId, 'messages');
+    // show last 12 days of private messages
+    const twelveDaysAgo = Timestamp.fromDate(new Date(Date.now() - 12 * 24 * 60 * 60 * 1000));
+    const q = query(messagesCol, where('createdAt', '>=', twelveDaysAgo), orderBy('createdAt', 'asc'));
+    privateUnsub = onSnapshot(q, (snap) => {
+      privateMessagesDiv.innerHTML = '';
+      snap.forEach(s => {
+        const m = s.data();
+        const el = document.createElement('div');
+        el.style = 'padding:8px; margin-bottom:6px; border-radius:8px; background:' + (m.uid === currentUser.uid ? '#eaf6ff' : '#f3f3f5');
+        const t = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleString() : '...';
+        el.innerHTML = `<div class="small"><strong>${escapeHtml(m.displayName || m.email)}</strong> • ${t}</div><div>${escapeHtml(m.text || '')}</div>`;
+        privateMessagesDiv.appendChild(el);
+      });
+      privateMessagesDiv.scrollTop = privateMessagesDiv.scrollHeight;
+    });
+  }
+
+  sendPrivateBtn.onclick = async () => {
+    if (!currentUser || !currentPrivatePeer) return alert('Sign in first and open private chat');
+    const txt = privateInput.value.trim();
+    if (!txt) return;
+    const chatId = privateChatId(currentUser.uid, currentPrivatePeer.uid);
+    const messagesCol = collection(db, 'privateChats', chatId, 'messages');
+    const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
+    await addDoc(messagesCol, {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || '',
+      email: currentUser.email || '',
+      text: txt,
+      createdAt: serverTimestamp(),
+      expireAt: Timestamp.fromDate(expireAtDate)
+    });
+    privateInput.value = '';
+  };
+
+  // ----- DM modal (email) -----
+  openDmsBtn.onclick = () => { dmsModal.style.display = 'flex'; };
+  closeDms.onclick = () => { dmsModal.style.display = 'none'; };
+
+  // ----- small helpers -----
+  function escapeHtml(s) {
+    if (!s) return '';
+    return s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  }
+
+  // OPTIONAL: quick delete old reply placeholder after sending
+  messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { replyTo = null; messageInput.placeholder = 'Say something to everyone...'; }
+  });
+
+  // END module
+</script>
+
+</body>
+</html>
