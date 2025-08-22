@@ -32,6 +32,16 @@
     .msg-other { background:#f3f3f5; padding:8px; border-radius:8px; margin-bottom:6px; }
     .muted { color:var(--muted); font-size:12px; }
     .dm-list { overflow:auto; max-height:40vh; }
+
+    /* Typing indicator */
+    .typing-area { min-height:24px; display:flex; align-items:center; gap:8px; padding:4px 2px; color:var(--muted); font-size:13px; }
+    .dots { display:inline-block; width:30px; text-align:left; }
+    .dots span { display:inline-block; width:6px; height:6px; margin-right:4px; border-radius:50%; background:var(--blue); opacity:0.25; animation: blink 1s infinite; }
+    .dots span:nth-child(2) { animation-delay:0.15s; }
+    .dots span:nth-child(3) { animation-delay:0.3s; }
+    @keyframes blink { 0%{opacity:0.25;} 50%{opacity:1;} 100%{opacity:0.25;} }
+
+    .typing-names { font-weight:600; color:#0b57cc; }
   </style>
 </head>
 <body>
@@ -59,6 +69,10 @@
     <!-- Public messages -->
     <div id="publicArea">
       <div class="public-messages" id="publicMessages" aria-live="polite"></div>
+
+      <!-- typing indicator for public -->
+      <div id="publicTyping" class="typing-area" aria-hidden="true"></div>
+
       <div class="controls">
         <input id="messageInput" type="text" placeholder="Say something to everyone..." autocomplete="off" />
         <button id="sendBtn">Send</button>
@@ -79,6 +93,10 @@
       </div>
 
       <div class="private-messages" id="privateMessages" aria-live="polite"></div>
+
+      <!-- typing indicator for private -->
+      <div id="privateTyping" class="typing-area" aria-hidden="true"></div>
+
       <div style="display:flex; gap:8px; margin-top:8px;">
         <input id="privateInput" type="text" placeholder="Send a private message..." autocomplete="off" />
         <button id="sendPrivateBtn">Send</button>
@@ -101,30 +119,16 @@
   </div>
 </div>
 
-<!-- DM modal (not used — DM list is on right pane) -->
-<div class="modal" id="dmsModal">
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong>My DMS (conversations)</strong>
-      <button id="closeDms">Close</button>
-    </div>
-    <div id="dmModalList"></div>
-  </div>
-</div>
-
 <script type="module">
-/* chat.html (final)
-   - Uses ./js/firebase.js (exports { auth, db, provider })
-   - Public chat: last 7 days messages
-   - Private chat: privateChats/{chatId}/messages, chatId = sorted(uidA,uidB).join('_')
-   - My DMs: lists chat threads derived from private message docs (no extra top-level docs required)
+/* chat.html with typing indicators, Enter-to-send, and smooth autoscroll.
+   Uses ./js/firebase.js (exports { auth, db, provider }).
 */
 
 import { auth, db, provider } from './js/firebase.js';
 import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection, addDoc, serverTimestamp, query, orderBy, onSnapshot,
-  where, Timestamp, doc, setDoc, getDocs, limit, collectionGroup
+  where, Timestamp, doc, setDoc, deleteDoc, getDocs, limit, collectionGroup
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 /* UI elements */
@@ -140,9 +144,6 @@ const usersList = document.getElementById('usersList');
 
 const openDmsBtn = document.getElementById('openDmsBtn');
 const dmList = document.getElementById('dmList');
-const dmModal = document.getElementById('dmsModal');
-const closeDms = document.getElementById('closeDms');
-const dmModalList = document.getElementById('dmModalList');
 
 const privateView = document.getElementById('privateView');
 const privateMessagesDiv = document.getElementById('privateMessages');
@@ -155,6 +156,9 @@ const backToPublicBtn = document.getElementById('backToPublicBtn');
 const publicArea = document.getElementById('publicArea');
 const publicHeader = document.getElementById('publicHeader');
 
+const publicTypingDiv = document.getElementById('publicTyping');
+const privateTypingDiv = document.getElementById('privateTyping');
+
 let currentUser = null;
 let publicUnsub = null;
 let usersUnsub = null;
@@ -164,7 +168,13 @@ let dmsUnsub = null;
 let currentPrivateChatId = null;
 let currentPrivatePeer = null; // { uid, displayName }
 
-/* Auth */
+/* TYPING CONFIG */
+const TYPING_COLLECTION_PUBLIC = 'publicTyping'; // docs: /publicTyping/{uid}
+const TYPING_EXPIRY_SECONDS = 5; // show typing entries updated within this many seconds
+let lastPublicTypingUpdate = 0;
+let lastPrivateTypingUpdate = 0;
+
+/* AUTH */
 signInBtn.onclick = async () => {
   try { await signInWithPopup(auth, provider); } catch (e) { console.error('signin', e); alert('Sign-in failed'); }
 };
@@ -178,7 +188,6 @@ onAuthStateChanged(auth, async (user) => {
     userDisplay.textContent = `${user.displayName || user.email || user.uid}`;
     signInBtn.style.display = 'none';
     signOutBtn.style.display = '';
-    // ensure users doc exists
     try {
       await setDoc(doc(collection(db, 'users'), user.uid), {
         uid: user.uid,
@@ -186,21 +195,17 @@ onAuthStateChanged(auth, async (user) => {
         email: user.email || '',
         lastSeen: serverTimestamp()
       }, { merge: true });
-    } catch (err) {
-      console.error('user doc write error', err);
-    }
+    } catch (err) { console.error('user doc write error', err); }
     startPublicListener();
     startUsersListener();
     startDmsListener();
+    startPublicTypingListener();
   } else {
     currentUser = null;
     userDisplay.textContent = '';
     signInBtn.style.display = '';
     signOutBtn.style.display = 'none';
-    if (publicUnsub) publicUnsub();
-    if (usersUnsub) usersUnsub();
-    if (privateUnsub) privateUnsub();
-    if (dmsUnsub) dmsUnsub();
+    unsubscribeAll();
     publicMessagesDiv.innerHTML = '';
     usersList.innerHTML = '';
     dmList.innerHTML = '';
@@ -208,18 +213,32 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+function unsubscribeAll() {
+  if (publicUnsub) publicUnsub(); publicUnsub = null;
+  if (usersUnsub) usersUnsub(); usersUnsub = null;
+  if (privateUnsub) privateUnsub(); privateUnsub = null;
+  if (dmsUnsub) dmsUnsub(); dmsUnsub = null;
+  stopPublicTypingUpdates();
+  stopPrivateTypingUpdates();
+}
+
 /* PUBLIC CHAT (7 days) */
 function startPublicListener() {
   if (publicUnsub) publicUnsub();
   const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
   const q = query(collection(db, 'publicMessages'), where('createdAt', '>=', sevenDaysAgo), orderBy('createdAt', 'asc'), limit(1000));
   publicUnsub = onSnapshot(q, (snap) => {
+    const prevScroll = publicMessagesDiv.scrollTop + publicMessagesDiv.clientHeight;
+    const wasAtBottom = (Math.abs(prevScroll - publicMessagesDiv.scrollHeight) < 50);
     publicMessagesDiv.innerHTML = '';
     snap.forEach(docSnap => {
       const m = docSnap.data();
       renderPublicMessage(docSnap.id, m);
     });
-    publicMessagesDiv.scrollTop = publicMessagesDiv.scrollHeight;
+    // auto-scroll: if user is viewing near bottom or new message added, scroll to bottom smoothly
+    if (wasAtBottom || snap.docChanges().some(ch => ch.type === 'added')) {
+      scrollToBottom(publicMessagesDiv);
+    }
   }, (err) => {
     console.error('public listener', err);
     publicMessagesDiv.innerHTML = '<div class="muted">Cannot load public chat.</div>';
@@ -251,17 +270,14 @@ function renderPublicMessage(id, m) {
   div.querySelectorAll('strong[data-uid]').forEach(node => {
     node.onclick = () => openPrivateChat(node.dataset.uid, node.dataset.name);
   });
-  div.querySelectorAll('button.reply[data-id]').forEach(b => {
-    b.onclick = () => { /* optional: set reply threading if you want */ messageInput.focus(); };
-  });
   div.querySelectorAll('button.private-from-public[data-user]').forEach(b => {
     b.onclick = () => openPrivateChat(b.dataset.user, b.dataset.name);
   });
 }
 
-/* send public */
-sendBtn.onclick = async () => {
-  if (!currentUser) return alert('Sign in first');
+/* send public (Enter to send) */
+async function sendPublicMessage() {
+  if (!currentUser) { alert('Sign in first'); return; }
   const text = messageInput.value.trim();
   if (!text) return;
   const payload = {
@@ -276,13 +292,25 @@ sendBtn.onclick = async () => {
   try {
     await addDoc(collection(db, 'publicMessages'), payload);
     messageInput.value = '';
+    // remove typing state
+    await removePublicTyping(); // best-effort
   } catch (err) {
     console.error('send public message error', err);
     alert('Failed to send public message.');
   }
-};
+}
 
-/* USERS LIST (for starting private chats) */
+sendBtn.onclick = sendPublicMessage;
+
+// Enter key send (public)
+messageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPublicMessage(); }
+  else { schedulePublicTypingUpdate(); }
+});
+messageInput.addEventListener('input', () => schedulePublicTypingUpdate());
+messageInput.addEventListener('blur', () => removePublicTyping());
+
+/* USERS LIST */
 function startUsersListener() {
   if (usersUnsub) usersUnsub();
   const q = query(collection(db, 'users'), orderBy('lastSeen', 'desc'), limit(200));
@@ -290,7 +318,6 @@ function startUsersListener() {
     usersList.innerHTML = '';
     snap.forEach(s => {
       const u = s.data();
-      // don't show anonymous placeholder for logged-out
       const div = document.createElement('div');
       div.className = 'user';
       div.innerHTML = `<div>
@@ -325,9 +352,9 @@ function openPrivateChat(peerUid, peerName) {
   currentPrivatePeer = { uid: peerUid, displayName: peerName || '' };
   showPrivateView(peerUid, peerName);
   loadPrivateMessages(currentPrivateChatId);
+  startPrivateTypingListener(currentPrivateChatId);
 }
 
-/* show/hide public/private UI */
 function showPrivateView(peerUid, peerName) {
   publicArea.style.display = 'none';
   publicHeader.style.display = 'none';
@@ -346,17 +373,19 @@ function showPublicView() {
   currentPrivatePeer = null;
   if (privateUnsub) { privateUnsub(); privateUnsub = null; }
   privateMessagesDiv.innerHTML = '';
+  stopPrivateTypingUpdates();
 }
 
 backToPublicBtn.onclick = showPublicView;
 
-/* Load private messages for a chatId */
+/* Load private messages */
 function loadPrivateMessages(chatId) {
   if (privateUnsub) privateUnsub();
   const messagesCol = collection(db, 'privateChats', chatId, 'messages');
   const twelveDaysAgo = Timestamp.fromDate(new Date(Date.now() - 12 * 24 * 60 * 60 * 1000));
   const q = query(messagesCol, where('createdAt', '>=', twelveDaysAgo), orderBy('createdAt', 'asc'));
   privateUnsub = onSnapshot(q, (snap) => {
+    const wasAtBottom = Math.abs((privateMessagesDiv.scrollTop + privateMessagesDiv.clientHeight) - privateMessagesDiv.scrollHeight) < 50;
     privateMessagesDiv.innerHTML = '';
     snap.forEach(s => {
       const m = s.data();
@@ -367,15 +396,17 @@ function loadPrivateMessages(chatId) {
       wrapper.innerHTML = `<div class="small"><strong>${escapeHtml(m.displayName || m.email)}</strong> • ${escapeHtml(t)}</div><div>${escapeHtml(m.text || '')}</div>`;
       privateMessagesDiv.appendChild(wrapper);
     });
-    privateMessagesDiv.scrollTop = privateMessagesDiv.scrollHeight;
+    if (wasAtBottom || snap.docChanges().some(ch => ch.type === 'added')) {
+      scrollToBottom(privateMessagesDiv);
+    }
   }, (err) => {
     console.error('private messages listener', err);
     privateMessagesDiv.innerHTML = '<div class="muted">Cannot load private messages.</div>';
   });
 }
 
-/* Send private message */
-sendPrivateBtn.onclick = async () => {
+/* send private (Enter to send) */
+async function sendPrivateMessage() {
   if (!currentUser || !currentPrivateChatId || !currentPrivatePeer) return alert('Open a private chat first');
   const txt = privateInput.value.trim();
   if (!txt) return;
@@ -391,14 +422,24 @@ sendPrivateBtn.onclick = async () => {
   try {
     await addDoc(messagesCol, payload);
     privateInput.value = '';
+    // remove typing state within private chat
+    await removePrivateTyping(currentPrivateChatId);
   } catch (err) {
     console.error('send private msg', err);
     alert('Failed to send private message.');
   }
-};
+}
+sendPrivateBtn.onclick = sendPrivateMessage;
+privateInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPrivateMessage(); }
+  else { schedulePrivateTypingUpdate(); }
+});
+privateInput.addEventListener('input', () => schedulePrivateTypingUpdate());
+privateInput.addEventListener('blur', () => {
+  if (currentPrivateChatId) removePrivateTyping(currentPrivateChatId);
+});
 
-/* My DMs: derive active chats by collectionGroup('messages') limited to the last 12 days.
-   We group by chatId (derived from snapshot.ref path) and show latest message per chat. */
+/* My DMs (collectionGroup) */
 function startDmsListener() {
   if (!currentUser) return;
   if (dmsUnsub) dmsUnsub();
@@ -406,64 +447,172 @@ function startDmsListener() {
   const cg = collectionGroup(db, 'messages');
   const q = query(cg, where('createdAt', '>=', twelveDaysAgo), orderBy('createdAt', 'desc'), limit(1000));
   dmsUnsub = onSnapshot(q, async (snap) => {
-    // map chatId -> latest message doc snapshot
     const chatMap = new Map();
     for (const docSnap of snap.docs) {
-      // doc path: privateChats/{chatId}/messages/{msgId}
       const pathParts = docSnap.ref.path.split('/');
       if (pathParts.length < 3) continue;
-      const chatId = pathParts[1]; // [ 'privateChats', '{chatId}', 'messages', '{msgId}' ] -> index 1
-      // firebase rules ensure we only see docs the user is allowed to see (i.e., participant)
+      const chatId = pathParts[1];
       if (!chatMap.has(chatId)) chatMap.set(chatId, docSnap);
     }
-
-    // Render DM list
     dmList.innerHTML = '';
     for (const [chatId, docSnap] of chatMap) {
       const m = docSnap.data();
-      // determine other participant
       const uids = chatId.split('_');
       const otherUid = uids[0] === currentUser.uid ? uids[1] : uids[0];
-      // fetch user displayName for otherUid (fast path: try to read users/{otherUid})
       let otherName = otherUid;
       try {
         const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', otherUid), limit(1)));
         if (!userDoc.empty) {
           const ud = userDoc.docs[0].data();
           otherName = ud.displayName || ud.email || otherUid;
-        } else {
-          // fallback: try reading doc directly (if created with setDoc)
-          const udRef = doc(db, 'users', otherUid);
-          // getDocs can't do getDoc here without import; but we used getDocs above — this is good enough
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) { /* ignore */ }
       const row = document.createElement('div');
       row.style = "padding:8px; border-bottom:1px solid #f0f2f6; cursor:pointer;";
       const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleString() : '...';
       row.innerHTML = `<div style="font-weight:600">${escapeHtml(otherName)}</div><div class="small">${escapeHtml(m.text || '')}</div><div class="small muted">${escapeHtml(time)}</div>`;
-      row.onclick = () => {
-        // open private chat with other user
-        openPrivateChat(otherUid, otherName);
-      };
+      row.onclick = () => openPrivateChat(otherUid, otherName);
       dmList.appendChild(row);
     }
-
   }, (err) => {
     console.error('dms listener', err);
     dmList.innerHTML = '<div class="muted">Cannot load DMs.</div>';
   });
 }
 
-/* Start DM listener on demand (when user clicks My DMS) */
-openDmsBtn.onclick = () => {
-  // scroll dmList into view on right pane (already visible)
-  if (!currentUser) return alert('Sign in first');
-  // If you want a modal instead, you can show dmModal — but the right pane has DM list already.
-};
+/* TYPING: PUBLIC */
 
-/* Helper: escape HTML */
+let publicTypingInterval = null;
+async function schedulePublicTypingUpdate() {
+  if (!currentUser) return;
+  const now = Date.now();
+  if (now - lastPublicTypingUpdate < 2000) return; // throttle to 2s
+  lastPublicTypingUpdate = now;
+  try {
+    await setDoc(doc(db, TYPING_COLLECTION_PUBLIC, currentUser.uid), {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || '',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    // start periodic refresh to keep entry alive while typing (client will update periodically while typing)
+    if (!publicTypingInterval) publicTypingInterval = setInterval(() => {
+      setDoc(doc(db, TYPING_COLLECTION_PUBLIC, currentUser.uid), {
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || '',
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }, 3000);
+  } catch (e) {
+    /* ignore errors */
+  }
+}
+
+async function removePublicTyping() {
+  if (!currentUser) return;
+  try {
+    await deleteDoc(doc(db, TYPING_COLLECTION_PUBLIC, currentUser.uid));
+  } catch (e) {}
+  stopPublicTypingUpdates();
+}
+
+function stopPublicTypingUpdates() {
+  if (publicTypingInterval) { clearInterval(publicTypingInterval); publicTypingInterval = null; }
+}
+
+/* listen for public typing entries */
+function startPublicTypingListener() {
+  const q = collection(db, TYPING_COLLECTION_PUBLIC);
+  onSnapshot(q, (snap) => {
+    const nowTs = Timestamp.now();
+    const active = [];
+    snap.forEach(s => {
+      const d = s.data();
+      if (d.updatedAt && (nowTs.seconds - d.updatedAt.seconds) <= TYPING_EXPIRY_SECONDS) {
+        if (d.uid !== (currentUser && currentUser.uid)) active.push({ uid: d.uid, displayName: d.displayName || d.uid });
+      }
+    });
+    renderTyping(publicTypingDiv, active);
+  }, (err) => {
+    // ignore typing errors
+  });
+}
+
+/* TYPING: PRIVATE */
+let privateTypingInterval = null;
+async function schedulePrivateTypingUpdate() {
+  if (!currentUser || !currentPrivateChatId) return;
+  const now = Date.now();
+  if (now - lastPrivateTypingUpdate < 2000) return; // throttle 2s
+  lastPrivateTypingUpdate = now;
+  try {
+    await setDoc(doc(db, 'privateChats', currentPrivateChatId, 'typing', currentUser.uid), {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || '',
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    if (!privateTypingInterval) privateTypingInterval = setInterval(() => {
+      setDoc(doc(db, 'privateChats', currentPrivateChatId, 'typing', currentUser.uid), {
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || '',
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }, 3000);
+  } catch (e) {}
+}
+
+async function removePrivateTyping(chatId) {
+  if (!currentUser || !chatId) return;
+  try { await deleteDoc(doc(db, 'privateChats', chatId, 'typing', currentUser.uid)); } catch (e) {}
+  stopPrivateTypingUpdates();
+}
+
+function stopPrivateTypingUpdates() {
+  if (privateTypingInterval) { clearInterval(privateTypingInterval); privateTypingInterval = null; }
+}
+
+function startPrivateTypingListener(chatId) {
+  // unsubscribe possible previous listener on private typing by re-creating listener tied to current chatId
+  const q = collection(db, 'privateChats', chatId, 'typing');
+  onSnapshot(q, (snap) => {
+    const nowTs = Timestamp.now();
+    const active = [];
+    snap.forEach(s => {
+      const d = s.data();
+      if (d.updatedAt && (nowTs.seconds - d.updatedAt.seconds) <= TYPING_EXPIRY_SECONDS) {
+        if (d.uid !== (currentUser && currentUser.uid)) active.push({ uid: d.uid, displayName: d.displayName || d.uid });
+      }
+    });
+    renderTyping(privateTypingDiv, active);
+  }, (err) => {
+    // ignore
+  });
+}
+
+/* Rendering typing indicator: show up to 2 names, and "and N others are typing" */
+function renderTyping(container, activeArray) {
+  if (!activeArray || activeArray.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'flex';
+  const names = activeArray.map(a => a.displayName || a.uid);
+  const firstTwo = names.slice(0,2);
+  const restCount = Math.max(0, names.length - 2);
+  let text = '';
+  if (names.length === 1) text = `${firstTwo[0]} is typing`;
+  else if (names.length === 2) text = `${firstTwo[0]} and ${firstTwo[1]} are typing`;
+  else text = `${firstTwo[0]}, ${firstTwo[1]} and ${restCount} others are typing`;
+  container.innerHTML = `<span class="typing-names">${escapeHtml(text)}</span><span class="dots"><span></span><span></span><span></span></span>`;
+}
+
+/* utility: smooth scroll to bottom of a container */
+function scrollToBottom(el) {
+  if (!el) return;
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+}
+
+/* Helpers */
 function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
