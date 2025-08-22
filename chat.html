@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Gomega Chat</title>
   <style>
-    /* Clean UI — tweak to taste */
     :root { --blue:#0b57cc; --bg:#f6f7fb; --card:#ffffff; --muted:#666; }
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:var(--bg); color:#111; }
     header { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:var(--blue); color:white; }
@@ -16,7 +15,6 @@
     .left { flex: 1 1 640px; display:flex; flex-direction:column; height:75vh; }
     .public-messages { flex:1; overflow:auto; padding:8px; border-radius:8px; background:#fbfdff; }
     .message { padding:8px; margin-bottom:8px; border-radius:8px; border:1px solid rgba(15,20,40,0.04); }
-    .meta { font-size:12px; color:var(--muted); display:flex; gap:8px; align-items:center; }
     .controls { display:flex; gap:8px; margin-top:8px; }
     input[type="text"], textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #e3e7ef; font-size:14px; }
     button { padding:8px 12px; border-radius:8px; border:0; cursor:pointer; background:var(--blue); color:white; }
@@ -103,7 +101,7 @@
   - Uses your existing ./js/firebase.js (must export { auth, db, provider })
   - Public chat shows messages from the last 7 days
   - Private chats between two users; messages stored under privateChats/{chatId}/messages
-  - Messages get expireAt timestamp set to now + 12 days (enable Firestore TTL on expireAt for automatic deletion)
+  - Messages set createdAt using Timestamp.now() so security rules see concrete timestamps
 */
 
 import { auth, db, provider } from './js/firebase.js';
@@ -175,7 +173,7 @@ onAuthStateChanged(auth, async (user) => {
         lastSeen: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      console.error('Failed to write user doc (permission?):', err);
+      console.error('Failed to write user doc (permission?):', err.code, err.message);
     }
     startPublicListener();
     startUsersListener();
@@ -205,8 +203,7 @@ function startPublicListener() {
     });
     publicMessagesDiv.scrollTop = publicMessagesDiv.scrollHeight;
   }, (err) => {
-    console.error('Public messages listener error:', err);
-    // show friendly message
+    console.error('Public messages listener error:', err.code, err.message);
     const e = document.createElement('div');
     e.className = 'muted';
     e.textContent = 'Cannot load public chat (permission denied or network).';
@@ -236,7 +233,6 @@ function renderPublicMessage(id, m) {
   `;
   publicMessagesDiv.appendChild(div);
 
-  // render replies (threaded) — one-time fetch per parent
   if (m.parentId == null) {
     const repliesQ = query(collection(db, 'publicMessages'), where('parentId','==', id), orderBy('createdAt','asc'));
     getDocs(repliesQ).then(snap => {
@@ -250,11 +246,10 @@ function renderPublicMessage(id, m) {
         container.appendChild(el);
       });
     }).catch(err => {
-      console.error('Failed to load replies:', err);
+      console.error('Failed to load replies:', err.code, err.message);
     });
   }
 
-  // hooks
   div.querySelectorAll('strong[data-uid]').forEach(node => {
     node.onclick = () => openPrivateChat(node.dataset.uid, node.dataset.name, node.dataset.email || '');
   });
@@ -271,8 +266,10 @@ sendBtn.onclick = async () => {
   if (!currentUser) return alert('Sign in first');
   const text = messageInput.value.trim();
   if (!text) return;
-  // set expireAt (12 days)
+  // use Timestamp.now() so rules see a concrete timestamp in request.resource
+  const createdAt = Timestamp.now();
   const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
+  const expireAt = Timestamp.fromDate(expireAtDate);
   try {
     await addDoc(collection(db, 'publicMessages'), {
       uid: currentUser.uid,
@@ -280,15 +277,15 @@ sendBtn.onclick = async () => {
       email: currentUser.email || '',
       text,
       parentId: replyTo || null,
-      createdAt: serverTimestamp(),
-      expireAt: Timestamp.fromDate(expireAtDate)
+      createdAt,
+      expireAt
     });
     messageInput.value = '';
     replyTo = null;
     messageInput.placeholder = 'Say something to everyone...';
   } catch (err) {
-    console.error('Failed to send public message:', err);
-    alert('Failed to send message (permissions or network).');
+    console.error('Failed to send public message:', err.code, err.message);
+    alert('Failed to send message (permissions or network). See console for details.');
   }
 };
 
@@ -322,7 +319,7 @@ function startUsersListener() {
       b.onclick = () => openPrivateChat(b.dataset.uid, b.dataset.name, b.dataset.email);
     });
   }, (err) => {
-    console.error('Users listener error:', err);
+    console.error('Users listener error:', err.code, err.message);
     usersList.innerHTML = '<div class="muted">Cannot load users (permission denied or network).</div>';
   });
 }
@@ -373,7 +370,7 @@ function loadPrivateMessages() {
     });
     privateMessagesDiv.scrollTop = privateMessagesDiv.scrollHeight;
   }, (err) => {
-    console.error('Private messages listener error:', err);
+    console.error('Private messages listener error:', err.code, err.message);
     privateMessagesDiv.innerHTML = '<div class="muted">Cannot load private chat (permissions or network).</div>';
   });
 }
@@ -384,20 +381,22 @@ sendPrivateBtn.onclick = async () => {
   if (!txt) return;
   const chatId = privateChatId(currentUser.uid, currentPrivatePeer.uid);
   const messagesCol = collection(db, 'privateChats', chatId, 'messages');
+  const createdAt = Timestamp.now();
   const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
+  const expireAt = Timestamp.fromDate(expireAtDate);
   try {
     await addDoc(messagesCol, {
       uid: currentUser.uid,
       displayName: currentUser.displayName || '',
       email: currentUser.email || '',
       text: txt,
-      createdAt: serverTimestamp(),
-      expireAt: Timestamp.fromDate(expireAtDate)
+      createdAt,
+      expireAt
     });
     privateInput.value = '';
   } catch (err) {
-    console.error('Failed to send private message:', err);
-    alert('Failed to send private message (permissions or network).');
+    console.error('Failed to send private message:', err.code, err.message);
+    alert('Failed to send private message (permissions or network). See console for details.');
   }
 };
 
@@ -411,7 +410,6 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 }
 
-/* small keyboard shortcuts */
 messageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { sendBtn.click(); }
   if (e.key === 'Escape') { replyTo = null; messageInput.placeholder = 'Say something to everyone...'; }
@@ -420,13 +418,8 @@ privateInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { sendPrivateBtn.click(); }
 });
 
-/* focus helpers */
-messageInput.addEventListener('focus', () => { replyTo = replyTo; });
-
-/* initial state */
 publicMessagesDiv.innerHTML = '<div class="muted">Sign in to chat.</div>';
 usersList.innerHTML = '<div class="muted">Sign in to see active users.</div>';
-
 </script>
 </body>
 </html>
