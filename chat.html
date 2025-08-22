@@ -4,41 +4,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gomega Chat</title>
+  <title>Gomega Chat (debug)</title>
   <style>
-    :root { --blue:#0b57cc; --bg:#f6f7fb; --card:#ffffff; --muted:#666; }
+    :root { --blue:#0b57cc; --bg:#f6f7fb; --card:#fff; --muted:#666; }
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:var(--bg); color:#111; }
     header { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:var(--blue); color:white; }
-    header .brand { font-weight:700; font-size:18px; }
     .container { display:flex; gap:18px; padding:18px; }
-    .left, .right { background:var(--card); border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(12,20,40,0.06); }
-    .left { flex: 1 1 640px; display:flex; flex-direction:column; height:75vh; }
+    .left { flex:1 1 640px; display:flex; flex-direction:column; height:75vh; background:var(--card); border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(12,20,40,0.06); }
     .public-messages { flex:1; overflow:auto; padding:8px; border-radius:8px; background:#fbfdff; }
-    .message { padding:8px; margin-bottom:8px; border-radius:8px; border:1px solid rgba(15,20,40,0.04); }
     .controls { display:flex; gap:8px; margin-top:8px; }
-    input[type="text"], textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #e3e7ef; font-size:14px; }
+    input[type="text"] { width:100%; padding:8px; border-radius:8px; border:1px solid #e3e7ef; font-size:14px; }
     button { padding:8px 12px; border-radius:8px; border:0; cursor:pointer; background:var(--blue); color:white; }
-    .right { width:320px; display:flex; flex-direction:column; gap:12px; height:75vh; }
+    .right { width:320px; display:flex; flex-direction:column; gap:12px; height:75vh; background:var(--card); border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(12,20,40,0.06); }
     .users-list { overflow:auto; flex:1; }
-    .user { padding:8px; display:flex; justify-content:space-between; border-radius:8px; border:1px solid rgba(15,20,40,0.04); margin-bottom:8px; align-items:center; }
-    .private-panel { position:fixed; right:18px; bottom:18px; width:360px; max-height:60vh; background:var(--card); border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.12); padding:12px; display:none; flex-direction:column; }
-    .private-messages { overflow:auto; flex:1; padding:6px; }
-    .small { font-size:12px; color:var(--muted); }
-    .reply { font-size:12px; color:var(--blue); cursor:pointer; text-decoration:underline; background:none; border:none; padding:0; }
-    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); }
-    .modal .card { background:var(--card); padding:16px; border-radius:12px; width:420px; max-height:80vh; overflow:auto; }
-    .topbar { display:flex; gap:8px; align-items:center; }
-    .msg-you { background:#eaf6ff; padding:8px; border-radius:8px; }
-    .msg-other { background:#f3f3f5; padding:8px; border-radius:8px; }
     .muted { color:var(--muted); font-size:12px; }
+    .log { font-family: monospace; font-size:12px; white-space:pre-wrap; background:#fafafa; border:1px solid #eee; padding:8px; border-radius:8px; max-height:120px; overflow:auto; }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">Gomega Chat</div>
-  <div class="topbar">
-    <span id="userDisplay" class="small muted"></span>
+  <div style="font-weight:700">Gomega Chat (debug)</div>
+  <div>
+    <span id="userDisplay" class="muted"></span>
     <button id="signInBtn">Sign in</button>
     <button id="signOutBtn" style="display:none">Sign out</button>
   </div>
@@ -48,70 +36,39 @@
   <div class="left">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong>Public Chat</strong>
-      <div style="display:flex; gap:8px;">
-        <button id="openDmsBtn">My DMS</button>
-      </div>
+      <div><button id="openDmsBtn">My DMS</button></div>
     </div>
 
-    <div class="public-messages" id="publicMessages" aria-live="polite"></div>
+    <div id="publicMessages" class="public-messages" aria-live="polite"></div>
 
     <div class="controls">
       <input id="messageInput" type="text" placeholder="Say something to everyone..." autocomplete="off" />
       <button id="sendBtn">Send</button>
     </div>
+
+    <div style="margin-top:12px;">
+      <div style="font-weight:600">Client debug log</div>
+      <div id="clientLog" class="log"></div>
+    </div>
   </div>
 
   <div class="right">
-    <div><strong>Active Users</strong></div>
-    <div class="users-list" id="usersList"></div>
-    <div class="small">Click a user → "Private Chat" to message privately. Messages auto-expire after 12 days (server-side TTL recommended).</div>
+    <div style="font-weight:600">Active Users</div>
+    <div id="usersList" class="users-list"></div>
+    <div class="muted">Click a user → "Private Chat". Private messages expire after 12 days.</div>
   </div>
 </div>
 
-<!-- Private chat panel -->
-<div class="private-panel" id="privatePanel" role="dialog" aria-hidden="true">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <div>
-      <strong id="privateWith">Private</strong>
-      <div id="privateWithEmail" class="small"></div>
-    </div>
-    <div><button id="closePrivate">Close</button></div>
-  </div>
-  <div class="private-messages" id="privateMessages" aria-live="polite"></div>
-  <div style="display:flex; gap:8px; margin-top:8px;">
-    <input id="privateInput" type="text" placeholder="Send a private message..." autocomplete="off" />
-    <button id="sendPrivateBtn">Send</button>
-  </div>
-</div>
-
-<!-- DM modal -->
-<div class="modal" id="dmsModal" role="dialog" aria-hidden="true">
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <strong>My DMS (email)</strong>
-      <button id="closeDms">Close</button>
-    </div>
-    <div id="dmUsers"></div>
-  </div>
-</div>
+<!-- Minimal modals omitted for brevity in this debug file (keeps core functionality) -->
 
 <script type="module">
-/*
-  chat.html
-  - Uses your existing ./js/firebase.js (must export { auth, db, provider })
-  - Public chat shows messages from the last 7 days
-  - Private chats between two users; messages stored under privateChats/{chatId}/messages
-  - Messages set createdAt using Timestamp.now() so security rules see concrete timestamps
-*/
-
 import { auth, db, provider } from './js/firebase.js';
 import { signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection, addDoc, serverTimestamp, query, orderBy, onSnapshot,
-  where, Timestamp, doc, setDoc, getDoc, getDocs, limit
+  where, Timestamp, doc, setDoc, getDocs, limit
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* ----- UI elements ----- */
 const signInBtn = document.getElementById('signInBtn');
 const signOutBtn = document.getElementById('signOutBtn');
 const userDisplay = document.getElementById('userDisplay');
@@ -119,42 +76,28 @@ const publicMessagesDiv = document.getElementById('publicMessages');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const usersList = document.getElementById('usersList');
-
-const privatePanel = document.getElementById('privatePanel');
-const privateWith = document.getElementById('privateWith');
-const privateWithEmail = document.getElementById('privateWithEmail');
-const privateMessagesDiv = document.getElementById('privateMessages');
-const privateInput = document.getElementById('privateInput');
-const sendPrivateBtn = document.getElementById('sendPrivateBtn');
-const closePrivate = document.getElementById('closePrivate');
-
-const openDmsBtn = document.getElementById('openDmsBtn');
-const dmsModal = document.getElementById('dmsModal');
-const closeDms = document.getElementById('closeDms');
-const dmUsers = document.getElementById('dmUsers');
+const clientLog = document.getElementById('clientLog');
 
 let currentUser = null;
-let currentPrivatePeer = null;
 let publicUnsub = null;
-let privateUnsub = null;
-let replyTo = null;
 
-/* ----- Auth handlers ----- */
+function log(msg) {
+  console.log(msg);
+  clientLog.textContent += (new Date().toLocaleTimeString()) + " — " + String(msg) + "\n";
+  clientLog.scrollTop = clientLog.scrollHeight;
+}
+
 signInBtn.onclick = async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (e) {
-    console.error('Sign-in failed', e);
-    alert('Sign-in failed: ' + (e.message || e));
+    log('Sign-in failed: ' + (e.message || e));
   }
 };
-
 signOutBtn.onclick = async () => {
   try {
     await signOut(auth);
-  } catch (e) {
-    console.error('Sign-out failed', e);
-  }
+  } catch (e) { log('Sign-out failed: ' + e.message); }
 };
 
 onAuthStateChanged(auth, async (user) => {
@@ -163,17 +106,19 @@ onAuthStateChanged(auth, async (user) => {
     userDisplay.textContent = `${user.displayName || user.email || user.uid}`;
     signInBtn.style.display = 'none';
     signOutBtn.style.display = '';
-    // ensure users collection has basic info for DMs; use merge to avoid overwriting admin flags
+    log('Signed in: uid=' + user.uid + ', email=' + user.email);
+    // ensure users doc exists
     try {
-      const userRef = doc(collection(db, 'users'), user.uid);
-      await setDoc(userRef, {
+      await setDoc(doc(collection(db,'users'), user.uid), {
         uid: user.uid,
         displayName: user.displayName || '',
         email: user.email || '',
         lastSeen: serverTimestamp()
       }, { merge: true });
+      log('Wrote/merged /users/' + user.uid);
     } catch (err) {
-      console.error('Failed to write user doc (permission?):', err.code, err.message);
+      log('Failed writing /users doc: ' + (err.code || '') + ' ' + (err.message || err));
+      console.error(err);
     }
     startPublicListener();
     startUsersListener();
@@ -183,243 +128,91 @@ onAuthStateChanged(auth, async (user) => {
     signInBtn.style.display = '';
     signOutBtn.style.display = 'none';
     if (publicUnsub) publicUnsub();
-    if (privateUnsub) privateUnsub();
     publicMessagesDiv.innerHTML = '';
     usersList.innerHTML = '';
-    closePrivatePanel();
+    log('Signed out');
   }
 });
 
-/* ----- Public chat (7 days) ----- */
 function startPublicListener() {
   if (publicUnsub) publicUnsub();
   const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-  const q = query(collection(db, 'publicMessages'), where('createdAt', '>=', sevenDaysAgo), orderBy('createdAt', 'asc'), limit(1000));
-  publicUnsub = onSnapshot(q, (snap) => {
+  const q = query(collection(db,'publicMessages'), where('createdAt', '>=', sevenDaysAgo), orderBy('createdAt','asc'), limit(1000));
+  publicUnsub = onSnapshot(q, snap => {
     publicMessagesDiv.innerHTML = '';
     snap.forEach(docSnap => {
       const m = docSnap.data();
-      renderPublicMessage(docSnap.id, m);
+      const el = document.createElement('div');
+      el.style.padding = '8px';
+      el.style.borderBottom = '1px solid #eee';
+      el.innerHTML = `<div style="font-size:12px;color:#666">${m.displayName || m.email || 'Unknown'} • ${m.createdAt ? new Date(m.createdAt.seconds*1000).toLocaleString() : '...'} </div>
+                      <div>${escapeHtml(m.text || '')}</div>`;
+      publicMessagesDiv.appendChild(el);
     });
     publicMessagesDiv.scrollTop = publicMessagesDiv.scrollHeight;
-  }, (err) => {
-    console.error('Public messages listener error:', err.code, err.message);
-    const e = document.createElement('div');
-    e.className = 'muted';
-    e.textContent = 'Cannot load public chat (permission denied or network).';
-    publicMessagesDiv.appendChild(e);
+  }, err => {
+    log('Public listener error: ' + (err.code || '') + ' ' + (err.message || err));
+    console.error(err);
   });
 }
 
-function renderPublicMessage(id, m) {
-  const div = document.createElement('div');
-  div.className = 'message';
-  const name = m.displayName || m.email || 'Unknown';
-  const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleString() : '...';
-  div.innerHTML = `
-    <div style="display:flex; justify-content:space-between; gap:8px;">
-      <div>
-        <strong style="cursor:pointer" data-uid="${escapeHtml(m.uid || '')}" data-name="${escapeHtml(name)}" data-email="${escapeHtml(m.email || '')}">${escapeHtml(name)}</strong>
-        <div class="small">${escapeHtml(time)}</div>
-      </div>
-      <div class="small">#${id.slice(0,6)}</div>
-    </div>
-    <div style="margin-top:8px;">${escapeHtml(m.text || '')}</div>
-    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-      <button class="reply" data-id="${id}">Reply</button>
-      <button class="reply" data-user="${escapeHtml(m.uid || '')}" data-email="${escapeHtml(m.email || '')}" data-name="${escapeHtml(name)}">Private Chat</button>
-    </div>
-    <div id="replies-${id}" style="margin-top:8px;"></div>
-  `;
-  publicMessagesDiv.appendChild(div);
-
-  if (m.parentId == null) {
-    const repliesQ = query(collection(db, 'publicMessages'), where('parentId','==', id), orderBy('createdAt','asc'));
-    getDocs(repliesQ).then(snap => {
-      const container = document.getElementById('replies-' + id);
-      snap.forEach(s => {
-        const r = s.data();
-        const t = r.createdAt ? new Date(r.createdAt.seconds * 1000).toLocaleString() : '...';
-        const el = document.createElement('div');
-        el.style = "margin-top:6px; padding:6px; background:#f1f6ff; border-radius:8px;";
-        el.innerHTML = `<div class="small"><strong>${escapeHtml(r.displayName || r.email)}</strong> • ${escapeHtml(t)}</div><div>${escapeHtml(r.text || '')}</div>`;
-        container.appendChild(el);
-      });
-    }).catch(err => {
-      console.error('Failed to load replies:', err.code, err.message);
-    });
-  }
-
-  div.querySelectorAll('strong[data-uid]').forEach(node => {
-    node.onclick = () => openPrivateChat(node.dataset.uid, node.dataset.name, node.dataset.email || '');
-  });
-  div.querySelectorAll('button.reply[data-id]').forEach(b => {
-    b.onclick = () => { replyTo = b.dataset.id; messageInput.focus(); messageInput.placeholder = 'Replying... (will be threaded)'; };
-  });
-  div.querySelectorAll('button.reply[data-user]').forEach(b => {
-    b.onclick = () => openPrivateChat(b.dataset.user, b.dataset.name, b.dataset.email || '');
-  });
-}
-
-/* Send public message */
-sendBtn.onclick = async () => {
-  if (!currentUser) return alert('Sign in first');
-  const text = messageInput.value.trim();
-  if (!text) return;
-  // use Timestamp.now() so rules see a concrete timestamp in request.resource
-  const createdAt = Timestamp.now();
-  const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
-  const expireAt = Timestamp.fromDate(expireAtDate);
-  try {
-    await addDoc(collection(db, 'publicMessages'), {
-      uid: currentUser.uid,
-      displayName: currentUser.displayName || '',
-      email: currentUser.email || '',
-      text,
-      parentId: replyTo || null,
-      createdAt,
-      expireAt
-    });
-    messageInput.value = '';
-    replyTo = null;
-    messageInput.placeholder = 'Say something to everyone...';
-  } catch (err) {
-    console.error('Failed to send public message:', err.code, err.message);
-    alert('Failed to send message (permissions or network). See console for details.');
-  }
-};
-
-/* ----- Users list for DMs & private chats ----- */
 function startUsersListener() {
-  const q = query(collection(db, 'users'), orderBy('lastSeen','desc'), limit(200));
-  onSnapshot(q, (snap) => {
+  const q = query(collection(db,'users'), orderBy('lastSeen','desc'), limit(200));
+  onSnapshot(q, snap => {
     usersList.innerHTML = '';
-    dmUsers.innerHTML = '';
     snap.forEach(s => {
       const u = s.data();
       const div = document.createElement('div');
-      div.className = 'user';
-      div.innerHTML = `<div>
-          <div style="font-weight:600">${escapeHtml(u.displayName || u.email || 'Unknown')}</div>
-          <div class="small">${escapeHtml(u.email || '')}</div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:6px;">
-          <button class="pc" data-uid="${escapeHtml(u.uid || '')}" data-name="${escapeHtml(u.displayName || '')}" data-email="${escapeHtml(u.email || '')}">Private Chat</button>
-          <a class="mail" href="mailto:${encodeURIComponent(u.email || '')}?subject=Gomega%20DM" style="text-decoration:none; margin-top:4px;"><button>Email</button></a>
-        </div>`;
+      div.style.padding = '8px';
+      div.style.borderBottom = '1px solid #eee';
+      div.innerHTML = `<div style="font-weight:600">${escapeHtml(u.displayName || u.email || 'Unknown')}</div><div class="muted">${escapeHtml(u.email || '')}</div>`;
       usersList.appendChild(div);
-
-      const dmRow = document.createElement('div');
-      dmRow.style = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #f0f2f6;";
-      dmRow.innerHTML = `<div><strong>${escapeHtml(u.displayName || u.email)}</strong><div class="small">${escapeHtml(u.email || '')}</div></div><div><a href="mailto:${encodeURIComponent(u.email || '')}?subject=Gomega%20DM"><button>Email</button></a></div>`;
-      dmUsers.appendChild(dmRow);
     });
-
-    document.querySelectorAll('button.pc').forEach(b => {
-      b.onclick = () => openPrivateChat(b.dataset.uid, b.dataset.name, b.dataset.email);
-    });
-  }, (err) => {
-    console.error('Users listener error:', err.code, err.message);
-    usersList.innerHTML = '<div class="muted">Cannot load users (permission denied or network).</div>';
+  }, err => {
+    log('Users listener error: ' + (err.code || '') + ' ' + (err.message || err));
   });
 }
 
-/* ----- Private chat logic ----- */
-function openPrivateChat(peerUid, peerName, peerEmail) {
-  if (!currentUser) return alert('Sign in first');
-  if (!peerUid) return alert('User has no UID to chat with.');
-  if (peerUid === currentUser.uid) return alert('Cannot open private chat with yourself.');
-  currentPrivatePeer = { uid: peerUid, name: peerName, email: peerEmail };
-  privateWith.textContent = 'Chat with ' + (peerName || peerEmail || peerUid);
-  privateWithEmail.textContent = peerEmail || '';
-  privatePanel.style.display = 'flex';
-  privatePanel.setAttribute('aria-hidden', 'false');
-  loadPrivateMessages();
-}
-
-function closePrivatePanel() {
-  privatePanel.style.display = 'none';
-  privatePanel.setAttribute('aria-hidden', 'true');
-  currentPrivatePeer = null;
-  if (privateUnsub) privateUnsub();
-  privateMessagesDiv.innerHTML = '';
-}
-closePrivate.onclick = closePrivatePanel;
-
-function privateChatId(uid1, uid2) {
-  return [uid1, uid2].sort().join('_'); // deterministic id for chat
-}
-
-function loadPrivateMessages() {
-  if (!currentUser || !currentPrivatePeer) return;
-  if (privateUnsub) privateUnsub();
-  const chatId = privateChatId(currentUser.uid, currentPrivatePeer.uid);
-  const messagesCol = collection(db, 'privateChats', chatId, 'messages');
-  const twelveDaysAgo = Timestamp.fromDate(new Date(Date.now() - 12 * 24 * 60 * 60 * 1000));
-  const q = query(messagesCol, where('createdAt', '>=', twelveDaysAgo), orderBy('createdAt', 'asc'));
-  privateUnsub = onSnapshot(q, (snap) => {
-    privateMessagesDiv.innerHTML = '';
-    snap.forEach(s => {
-      const m = s.data();
-      const isMe = m.uid === currentUser.uid;
-      const wrapper = document.createElement('div');
-      wrapper.className = isMe ? 'msg-you' : 'msg-other';
-      const t = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleString() : '...';
-      wrapper.innerHTML = `<div class="small"><strong>${escapeHtml(m.displayName || m.email)}</strong> • ${escapeHtml(t)}</div><div>${escapeHtml(m.text || '')}</div>`;
-      privateMessagesDiv.appendChild(wrapper);
-    });
-    privateMessagesDiv.scrollTop = privateMessagesDiv.scrollHeight;
-  }, (err) => {
-    console.error('Private messages listener error:', err.code, err.message);
-    privateMessagesDiv.innerHTML = '<div class="muted">Cannot load private chat (permissions or network).</div>';
-  });
-}
-
-sendPrivateBtn.onclick = async () => {
-  if (!currentUser || !currentPrivatePeer) return alert('Sign in first and open private chat');
-  const txt = privateInput.value.trim();
-  if (!txt) return;
-  const chatId = privateChatId(currentUser.uid, currentPrivatePeer.uid);
-  const messagesCol = collection(db, 'privateChats', chatId, 'messages');
-  const createdAt = Timestamp.now();
-  const expireAtDate = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
-  const expireAt = Timestamp.fromDate(expireAtDate);
+sendBtn.onclick = async () => {
+  if (!currentUser) { alert('Sign in first'); return; }
+  const text = messageInput.value.trim();
+  if (!text) return;
+  const payload = {
+    uid: currentUser.uid,
+    displayName: currentUser.displayName || '',
+    email: currentUser.email || '',
+    text,
+    parentId: null,
+    createdAt: Timestamp.now(),
+    expireAt: Timestamp.fromDate(new Date(Date.now() + 12*24*60*60*1000))
+  };
+  // LOG the exact payload to the debug box (and console)
+  log('Attempting to write /publicMessages with payload: ' + JSON.stringify(normalizeForLog(payload)));
   try {
-    await addDoc(messagesCol, {
-      uid: currentUser.uid,
-      displayName: currentUser.displayName || '',
-      email: currentUser.email || '',
-      text: txt,
-      createdAt,
-      expireAt
-    });
-    privateInput.value = '';
+    const ref = await addDoc(collection(db,'publicMessages'), payload);
+    log('Write successful: /publicMessages/' + ref.id);
+    messageInput.value = '';
   } catch (err) {
-    console.error('Failed to send private message:', err.code, err.message);
-    alert('Failed to send private message (permissions or network). See console for details.');
+    // print full error details
+    log('Failed to send public message: ' + (err.code || '') + ' ' + (err.message || err));
+    console.error('Firestore write error', err);
+    alert('Failed to send message (see client debug log and console).');
   }
 };
 
-/* ----- DM modal (email) ----- */
-openDmsBtn.onclick = () => { dmsModal.style.display = 'flex'; dmsModal.setAttribute('aria-hidden', 'false'); };
-closeDms.onclick = () => { dmsModal.style.display = 'none'; dmsModal.setAttribute('aria-hidden', 'true'); };
-
-/* ----- helpers ----- */
-function escapeHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+// small helper to show timestamp types in log as strings
+function normalizeForLog(obj) {
+  const out = {};
+  for (const k in obj) {
+    const v = obj[k];
+    if (v && typeof v.toDate === 'function') out[k] = v.toDate().toISOString();
+    else out[k] = v;
+  }
+  return out;
 }
 
-messageInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { sendBtn.click(); }
-  if (e.key === 'Escape') { replyTo = null; messageInput.placeholder = 'Say something to everyone...'; }
-});
-privateInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { sendPrivateBtn.click(); }
-});
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-publicMessagesDiv.innerHTML = '<div class="muted">Sign in to chat.</div>';
-usersList.innerHTML = '<div class="muted">Sign in to see active users.</div>';
 </script>
 </body>
 </html>
