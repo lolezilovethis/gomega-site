@@ -1,82 +1,153 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const express = require('express');
-const fetch = require('node-fetch'); // or axios
+// functions/index.js
+const functions = require("firebase-functions");
+const nodemailer = require("nodemailer");
+const express = require("express");
+const cors = require("cors");
+const crypto = require("crypto");
 
-admin.initializeApp();
 const app = express();
 app.use(express.json());
 
-// Helper: verify Firebase ID token
-async function verifyIdToken(req, res, next){
-  const idToken = req.headers.authorization && req.headers.authorization.split('Bearer ')[1];
-  if(!idToken) return res.status(401).json({error:'Missing auth token'});
-  try{
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    req.user = decoded;
-    next();
-  }catch(e){
-    console.error(e);
-    return res.status(401).json({error:'Invalid auth token'});
-  }
+// Allow all origins for dev. Change origin to 'https://gomega.watch' for production if you want stricter CORS.
+const corsOptions = { origin: true };
+app.use(cors(corsOptions));
+
+// ---------------- EMAIL SYSTEM (optional) ----------------
+
+const GMAIL_USER = "your-email@gmail.com"; // replace with your Gmail
+const GMAIL_PASS = "your-app-password"; // use App Password, not your real password
+
+let transporter = null;
+if (GMAIL_USER && GMAIL_PASS) {
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: GMAIL_USER, pass: GMAIL_PASS }
+  });
 }
 
-// Map your frontend model keys to provider models (change as needed)
-const MODEL_MAP = {
-  'gomega-v1':'gpt-3.5-turbo',
-  'gomega-v2':'gpt-3.5-turbo',
-  'gomega-v3':'gpt-4o', // example
-  'gomega-v4':'gpt-4o',
-  'gomega-v5':'gpt-4o' // premium mapping
-};
+// Exposed sendEmail function (keeps your original logic but with CORS)
+exports.sendEmail = functions.https.onRequest((req, res) => {
+  cors(corsOptions)(req, res, async () => {
+    try {
+      const { type, email, school } = req.body;
+      if (!email || !school || !type) return res.status(400).send("Missing required fields.");
 
-app.post('/generate', verifyIdToken, async (req,res) => {
-  try{
-    const uid = req.user.uid;
-    const { messages, model } = req.body;
-    // 1) check license in Firestore if model is premium
-    const selected = model || 'gomega-v2';
-    const requirePremium = ['gomega-v4','gomega-v5'].includes(selected);
-    if(requirePremium){
-      // query licenses assigned to uid or check license doc matching uid
-      const licenseQuery = await admin.firestore().collection('licenses')
-        .where('assignedTo','==', uid).limit(1).get();
-      if(licenseQuery.empty){
-        return res.status(403).json({ error: 'Premium model requires an active license' });
+      let subject = "";
+      let text = "";
+      switch (type) {
+        case "submitted":
+          subject = "Opt-Out Request Submitted";
+          text = `Your request to opt-out "${school}" has been received and is pending review.`;
+          break;
+        case "approved":
+          subject = "Opt-Out Request Approved";
+          text = `Your request for "${school}" has been approved.\n\nIt may take up to 7 days to delete and IP-ban all users from this school. Please be patient.`;
+          break;
+        case "declined":
+          subject = "Opt-Out Request Declined";
+          text = `Your request to opt-out "${school}" has been declined. Contact support for help.`;
+          break;
+        default:
+          return res.status(400).send("Invalid email type.");
       }
-      const lic = licenseQuery.docs[0].data();
-      if(lic.expiresAt !== 'lifetime' && new Date(lic.expiresAt) < new Date()){
-        return res.status(403).json({ error: 'License expired' });
-      }
+
+      if (!transporter) return res.status(500).send("Email transporter not configured.");
+
+      await transporter.sendMail({
+        from: `"Gomega Admin" <${GMAIL_USER}>`,
+        to: email,
+        subject,
+        text
+      });
+
+      return res.status(200).send("Email sent.");
+    } catch (err) {
+      console.error("Email send error:", err);
+      return res.status(500).send("Failed to send email.");
     }
+  });
+});
 
-    // 2) prepare payload for your LLM provider (example: OpenAI chat completion)
-    // Replace with your provider's API call. Keep the API key in Functions environment variables.
-    const providerModel = MODEL_MAP[selected] || MODEL_MAP['gomega-v2'];
-    const OPENAI_KEY = functions.config().openai?.key; // set via firebase functions:config:set openai.key="..."
+// ---------------- KEY SYSTEM ----------------
 
-    const body = {
-      model: providerModel,
-      messages: messages.map(m => ({ role: m.role, content: m.text }))
-    };
+function getCurrentKey() {
+  const interval = Math.floor(Date.now() / (1000 * 60 * 60 * 12)); // every 12h
+  const raw = "gomega-secret-salt" + interval;
+  return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12);
+}
 
-    // Proxy request
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization': `Bearer ${OPENAI_KEY}`
-      },
-      body: JSON.stringify(body)
+app.get("/key", (req, res) => {
+  res.json({ key: getCurrentKey() });
+});
+
+app.post("/verify-key", (req, res) => {
+  const { key } = req.body || {};
+  res.json({ valid: key === getCurrentKey() });
+});
+
+// ---------------- Demo storage + models ----------------
+const memories = []; // in-memory only (resets on cold start)
+function pushMemory(role, text) {
+  memories.push({ role, text: String(text || ""), ts: Date.now() });
+  while (memories.length > 500) memories.shift();
+}
+
+const MODELS = [
+  { id: "gomega-5", label: "gomega-5 (best)" },
+  { id: "gomega-4o", label: "gomega-4o (balanced)" },
+  { id: "gomega-4mini", label: "gomega-4mini (small)" },
+  { id: "gomega-3.0", label: "gomega-3.0 (legacy)" },
+  { id: "gomega-3mini", label: "gomega-3mini (fast)" },
+  { id: "local-sm", label: "local-sm (fast)" },
+  { id: "local-md", label: "local-md (learning)" }
+];
+
+// GET /config — frontend expects this
+app.get("/config", (req, res) => {
+  res.json({
+    provider: "gomega-firebase",
+    premiumAvailable: false,
+    models: MODELS,
+    info: "Firebase Functions demo API (non-streaming)."
+  });
+});
+
+// POST /chat — returns JSON { choices:[{text: reply}], reply }
+app.post("/chat", (req, res) => {
+  try {
+    const { modelId = "gomega-5", temperature = 0.7, system, messages = [], stream } = req.body || {};
+    const last = Array.isArray(messages) ? messages.slice(-1)[0] : null;
+    const userText = last && last.content ? String(last.content) : "";
+
+    if (userText) pushMemory("user", userText);
+
+    // Simple demo reply; replace with real AI calls in production
+    const replyText =
+      `Gomega (${modelId}) — reply from Firebase demo backend:\n\n` +
+      `Received message: "${userText}"\n\n` +
+      `This is a demo response from the Firebase function. Temperature: ${temperature}`;
+
+    // Save assistant memory
+    pushMemory("assistant", replyText);
+
+    // Return non-streaming JSON (works reliably on Functions)
+    return res.json({
+      choices: [{ text: replyText }],
+      reply: replyText
     });
-    const data = await resp.json();
-    // Extract text safely (depends on provider)
-    const reply = (data?.choices && data.choices[0]?.message?.content) || (data?.error?.message) || 'No reply';
-    return res.json({ reply, meta: { providerResponse: !!data }});
-  }catch(err){
-    console.error(err);
-    return res.status(500).json({ error: err.message || String(err) });
+  } catch (err) {
+    console.error("chat error:", err);
+    return res.status(500).json({ error: "server error", detail: String(err) });
   }
 });
 
+// GET /memories — show saved memories (for debug)
+app.get("/memories", (req, res) => {
+  res.json({
+    count: memories.length,
+    memories: memories.slice(-200).map(m => ({ role: m.role, text: m.text, ts: m.ts }))
+  });
+});
+
+// Mount the Express app as a Cloud Function
 exports.api = functions.https.onRequest(app);
