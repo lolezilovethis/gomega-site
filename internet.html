@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gomega Internet — Auto Connect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root { color-scheme: light dark; }
+    .glass { backdrop-filter: blur(12px); background: color-mix(in srgb, transparent 60%, canvas); }
+    @media (prefers-color-scheme: dark) {
+      .gradient { background: radial-gradient(1200px 500px at 10% 0%, #1e293b66 0, transparent 50%),
+                               radial-gradient(1000px 600px at 90% 10%, #0f172a66 0, transparent 50%),
+                               linear-gradient(180deg, #020617 0%, #0b1220 100%); }
+    }
+    @media (prefers-color-scheme: light) {
+      .gradient { background: radial-gradient(1000px 400px at 10% 0%, #c7d2fe66 0, transparent 50%),
+                               radial-gradient(800px 500px at 90% 10%, #dbeafe66 0, transparent 50%),
+                               linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
+    }
+  </style>
+</head>
+<body class="min-h-screen gradient text-slate-900 dark:text-slate-100">
+  <div class="max-w-3xl mx-auto px-4 py-10">
+    <!-- Header -->
+    <header class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-2xl bg-indigo-500/90 dark:bg-indigo-400/90 grid place-items-center shadow-lg">
+          <span class="font-black text-white">G</span>
+        </div>
+        <h1 class="text-2xl font-extrabold tracking-tight">Gomega Internet — Auto Connect</h1>
+      </div>
+      <span id="onlineBadge" class="text-xs px-2 py-1 rounded-full bg-slate-200 dark:bg-slate-800">Checking…</span>
+    </header>
+
+    <!-- Card -->
+    <main class="mt-6 glass rounded-2xl p-5 shadow-xl border border-slate-200/40 dark:border-slate-800/60">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-semibold">Finding the nearest <span class="text-indigo-600 dark:text-indigo-400">Gomega Members Only Wifi</span></h2>
+          <p class="mt-1 text-sm opacity-80">We currently operate in 4 countries and some near no‑internet areas. This page locates the closest hotspot and guides your device to join it.</p>
+        </div>
+        <button id="retryBtn" class="text-sm px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40" disabled>Retry</button>
+      </div>
+
+      <!-- Progress / Status -->
+      <ol class="mt-5 space-y-3" id="steps">
+        <li class="flex items-start gap-3">
+          <div class="mt-1 h-2 w-2 rounded-full bg-slate-400" id="s1dot"></div>
+          <div>
+            <div class="font-medium">Getting your approximate location</div>
+            <div class="text-xs opacity-70" id="geoMsg">Awaiting permission…</div>
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <div class="mt-1 h-2 w-2 rounded-full bg-slate-400" id="s2dot"></div>
+          <div>
+            <div class="font-medium">Searching for nearby Gomega hotspots</div>
+            <div class="text-xs opacity-70" id="scanMsg">Preparing database…</div>
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <div class="mt-1 h-2 w-2 rounded-full bg-slate-400" id="s3dot"></div>
+          <div>
+            <div class="font-medium">Connecting guide</div>
+            <div class="text-xs opacity-70" id="connectMsg">Waiting for a match…</div>
+          </div>
+        </li>
+      </ol>
+
+      <!-- Results -->
+      <section id="result" class="mt-6 hidden">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm uppercase tracking-wide opacity-60">Nearest hotspot</div>
+              <div class="text-lg font-semibold" id="hotspotName">Gomega Members Only Wifi</div>
+              <div class="text-sm opacity-75" id="hotspotMeta"></div>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-extrabold" id="distanceKm">—</div>
+              <div class="text-xs opacity-60">km away</div>
+            </div>
+          </div>
+
+          <div class="mt-4 grid sm:grid-cols-2 gap-3">
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+              <div class="text-xs uppercase tracking-wide opacity-60">SSID</div>
+              <div class="font-mono text-sm flex items-center gap-2">
+                <span id="ssid">Gomega Members Only Wifi</span>
+                <button data-copy="#ssid" class="copyBtn text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700">Copy</button>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+              <div class="text-xs uppercase tracking-wide opacity-60">Password</div>
+              <div class="font-mono text-sm flex items-center gap-2">
+                <span id="pwd" class="select-all">(Ask a Gomega admin)</span>
+                <button data-copy="#pwd" class="copyBtn text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <button id="guideBtn" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow">Open Connection Guide</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Empty State -->
+      <section id="empty" class="mt-6 hidden">
+        <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center">
+          <div class="text-3xl">😕</div>
+          <h3 class="mt-2 text-lg font-semibold">No Gomega internets available near you</h3>
+          <p class="text-sm opacity-75">We couldn't find a hotspot within range. We'll keep expanding. Try again later or choose a location below.</p>
+          <div class="mt-4">
+            <label class="text-xs opacity-70">Explore a city:</label>
+            <select id="manualSelect" class="ml-2 px-3 py-2 rounded-lg bg-transparent border border-slate-300 dark:border-slate-700"></select>
+            <button id="loadCity" class="ml-2 text-sm px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Load</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Connection Guide Modal -->
+      <dialog id="guide" class="rounded-2xl p-0 w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <form method="dialog">
+          <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div class="font-semibold">How to connect</div>
+            <button class="px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700">Close</button>
+          </div>
+        </form>
+        <div class="p-5 space-y-4">
+          <div id="osGuide" class="text-sm leading-6"></div>
+          <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+            <div class="text-xs uppercase tracking-wide opacity-60">Network details</div>
+            <div class="font-mono text-sm">SSID: <span class="font-semibold">Gomega Members Only Wifi</span></div>
+            <div class="font-mono text-sm">Security: WPA2/WPA3 (varies by site)</div>
+          </div>
+          <p class="text-xs opacity-70">Note: Browsers cannot auto‑switch your Wi‑Fi for security reasons. This guided flow helps you join the correct network manually.</p>
+        </div>
+      </dialog>
+
+      <footer class="mt-8 text-xs opacity-60">
+        © <span id="yr"></span> Gomega. Coverage: United States, United Kingdom, Canada, Egypt, plus select near no‑internet areas.
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // ----- Config: known hotspot coordinates (sample – update as you expand) -----
+    const SSID = "Gomega Members Only Wifi";
+    const HOTSPOTS = [
+      { id: 'nyc',   name: SSID, country: 'United States', city: 'New York',   lat: 40.7128, lon: -74.0060, note: 'Core city site' },
+      { id: 'ldn',   name: SSID, country: 'United Kingdom', city: 'London',    lat: 51.5074, lon: -0.1278,  note: 'Core city site' },
+      { id: 'tor',   name: SSID, country: 'Canada',          city: 'Toronto',   lat: 43.6532, lon: -79.3832, note: 'Core city site' },
+      { id: 'cai',   name: SSID, country: 'Egypt',           city: 'Cairo',     lat: 30.0444, lon: 31.2357,  note: 'Core city site' },
+      // Near no‑internet areas (edge coverage / mobile units)
+      { id: 'sinai', name: SSID, country: 'Egypt',           city: 'Sinai Edge', lat: 29.5, lon: 33.9,       note: 'Edge coverage unit' },
+      { id: 'ncan',  name: SSID, country: 'Canada',          city: 'Far North',  lat: 64.2, lon: -96.0,      note: 'Edge coverage unit' }
+    ];
+
+    // Radius threshold (km) considered "nearby" for availability
+    const NEARBY_KM = 75; // adjust as needed
+
+    const el = (sel) => document.querySelector(sel);
+    const badge = el('#onlineBadge');
+    const s1 = el('#s1dot'), s2 = el('#s2dot'), s3 = el('#s3dot');
+    const geoMsg = el('#geoMsg');
+    const scanMsg = el('#scanMsg');
+    const connectMsg = el('#connectMsg');
+    const result = el('#result');
+    const empty = el('#empty');
+    const hotspotName = el('#hotspotName');
+    const hotspotMeta = el('#hotspotMeta');
+    const distanceKm = el('#distanceKm');
+    const retryBtn = el('#retryBtn');
+    const manualSelect = el('#manualSelect');
+    const loadCityBtn = el('#loadCity');
+    const guideBtn = el('#guideBtn');
+    const guide = el('#guide');
+
+    // Populate manual city list
+    HOTSPOTS.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h.id; opt.textContent = `${h.city}, ${h.country}`;
+      manualSelect.appendChild(opt);
+    });
+
+    // Online/offline badge
+    function setBadge(){
+      const online = navigator.onLine;
+      badge.textContent = online ? 'Online' : 'Offline';
+      badge.className = `text-xs px-2 py-1 rounded-full ${online ? 'bg-emerald-200 dark:bg-emerald-900/40' : 'bg-amber-200 dark:bg-amber-900/40'}`;
+    }
+    setBadge();
+    window.addEventListener('online', setBadge);
+    window.addEventListener('offline', setBadge);
+
+    // Haversine distance in km
+    function haversine(lat1, lon1, lat2, lon2) {
+      const toRad = d => d * Math.PI / 180;
+      const R = 6371; // km
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function markStep(dotEl, ok){ dotEl.style.background = ok ? 'oklch(0.75 0.12 250)' : '#94a3b8'; }
+
+    function showNearest(myLat, myLon) {
+      markStep(s2, true); scanMsg.textContent = 'Scanning known sites…';
+      // Find nearest hotspot
+      let nearest = null, best = Infinity;
+      for (const h of HOTSPOTS) {
+        const d = haversine(myLat, myLon, h.lat, h.lon);
+        if (d < best) { best = d; nearest = { ...h, distance: d }; }
+      }
+
+      if (!nearest) return noResults('No hotspots in database.');
+
+      if (nearest.distance <= NEARBY_KM) {
+        // Found nearby
+        hotspotName.textContent = nearest.name;
+        hotspotMeta.textContent = `${nearest.city}, ${nearest.country} • ${nearest.note}`;
+        distanceKm.textContent = nearest.distance.toFixed(1);
+        result.classList.remove('hidden');
+        empty.classList.add('hidden');
+        connectMsg.textContent = 'Ready — follow the connection guide below.';
+        markStep(s3, true);
+      } else {
+        noResults('No hotspot within range. Nearest is ' + nearest.distance.toFixed(0) + ' km away.');
+        // Keep details visible for curiosity
+        hotspotName.textContent = nearest.name;
+        hotspotMeta.textContent = `${nearest.city}, ${nearest.country} • ${nearest.note}`;
+        distanceKm.textContent = nearest.distance.toFixed(0);
+      }
+    }
+
+    function noResults(msg){
+      result.classList.add('hidden');
+      empty.classList.remove('hidden');
+      connectMsg.textContent = msg;
+      markStep(s3, false);
+    }
+
+    function detectOSGuide(){
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/.test(ua);
+      const isAndroid = /Android/.test(ua);
+      const isWindows = /Windows/.test(ua);
+      const isMac = /Macintosh/.test(ua);
+      let steps = [];
+      if (isIOS) {
+        steps = [
+          'Open Settings → Wi‑Fi',
+          `Select “${SSID}”`,
+          'Enter your member password (if prompted)',
+          'Wait for the captive portal to complete (if shown)'
+        ];
+      } else if (isAndroid) {
+        steps = [
+          'Open Settings → Network & Internet → Internet',
+          `Tap “${SSID}”`,
+          'Enter your member password (if prompted)',
+          'Accept portal terms if presented'
+        ];
+      } else if (isWindows) {
+        steps = [
+          'Click the Wi‑Fi icon in the taskbar',
+          `Choose “${SSID}” and click Connect`,
+          'Enter member password (if prompted)',
+          'Complete the portal in your browser if it opens'
+        ];
+      } else if (isMac) {
+        steps = [
+          'Click the Wi‑Fi icon in the menu bar',
+          `Select “${SSID}”`,
+          'Enter member password (if prompted)',
+          'Complete the portal in your browser if it opens'
+        ];
+      } else {
+        steps = [
+          `Open your device’s Wi‑Fi settings and select “${SSID}”`,
+          'Enter member password (if prompted)',
+          'Complete any portal steps'
+        ];
+      }
+      return '<ol class="list-decimal ml-5 space-y-1">' + steps.map(s=>`<li>${s}</li>`).join('') + '</ol>';
+    }
+
+    // Connect guide modal
+    guideBtn?.addEventListener('click', () => {
+      el('#osGuide').innerHTML = detectOSGuide();
+      guide.showModal();
+    });
+
+    // Copy buttons
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.copyBtn');
+      if (!btn) return;
+      const target = document.querySelector(btn.getAttribute('data-copy'));
+      if (!target) return;
+      const text = target.textContent.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const old = btn.textContent; btn.textContent = 'Copied!';
+        setTimeout(()=> btn.textContent = old, 1200);
+      });
+    });
+
+    // Manual city load
+    loadCityBtn.addEventListener('click', () => {
+      const id = manualSelect.value;
+      const h = HOTSPOTS.find(x => x.id === id);
+      if (!h) return;
+      showNearest(h.lat, h.lon);
+    });
+
+    // Retry
+    retryBtn.addEventListener('click', () => init());
+
+    // Init flow
+    function init(){
+      retryBtn.disabled = true;
+      markStep(s1, false); markStep(s2, false); markStep(s3, false);
+      result.classList.add('hidden');
+      empty.classList.add('hidden');
+      geoMsg.textContent = 'Requesting geolocation…';
+      scanMsg.textContent = 'Preparing database…';
+      connectMsg.textContent = 'Waiting for a match…';
+
+      if (!('geolocation' in navigator)) {
+        geoMsg.textContent = 'Geolocation not supported by this browser.';
+        markStep(s1, false);
+        retryBtn.disabled = false;
+        // Fallback: show manual chooser
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      const opts = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
+      navigator.geolocation.getCurrentPosition((pos) => {
+        markStep(s1, true);
+        geoMsg.textContent = `Location locked (±${pos.coords.accuracy.toFixed(0)} m)`;
+        retryBtn.disabled = false;
+        showNearest(pos.coords.latitude, pos.coords.longitude);
+      }, (err) => {
+        geoMsg.textContent = `Location unavailable (${err.code}: ${err.message})`;
+        markStep(s1, false);
+        retryBtn.disabled = false;
+        // Use rough fallback from time zone center (very approximate)
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          const rough = {
+            'America/New_York': {lat: 40.7128, lon: -74.006},
+            'Europe/London': {lat: 51.5074, lon: -0.1278},
+            'Africa/Cairo': {lat: 30.0444, lon: 31.2357},
+            'America/Toronto': {lat: 43.6532, lon: -79.3832},
+          };
+          const approx = rough[tz];
+          if (approx) {
+            scanMsg.textContent = `Using timezone fallback (${tz})…`;
+            showNearest(approx.lat, approx.lon);
+          } else {
+            empty.classList.remove('hidden');
+          }
+        } catch(_) { empty.classList.remove('hidden'); }
+      }, opts);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      el('#yr').textContent = new Date().getFullYear();
+      init();
+    });
+  </script>
+</body>
+</html>
