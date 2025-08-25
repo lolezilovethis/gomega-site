@@ -19,6 +19,7 @@
                                radial-gradient(800px 500px at 90% 10%, #dbeafe66 0, transparent 50%),
                                linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }
     }
+    dialog::backdrop { background: rgba(2,6,23,0.5); }
   </style>
 </head>
 <body class="min-h-screen gradient text-slate-900 dark:text-slate-100">
@@ -39,9 +40,11 @@
       <div class="flex items-start justify-between gap-4">
         <div>
           <h2 class="text-xl font-semibold">Finding the nearest <span class="text-indigo-600 dark:text-indigo-400">Gomega Members Only Wifi</span></h2>
-          <p class="mt-1 text-sm opacity-80">We currently operate in 4 countries and some near no‑internet areas. This page locates the closest hotspot and guides your device to join it.</p>
+          <p class="mt-1 text-sm opacity-80">We currently operate in 4 countries and some near no‑internet areas. This page locates the closest hotspot and helps you join it quickly.</p>
         </div>
-        <button id="retryBtn" class="text-sm px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40" disabled>Retry</button>
+        <div class="flex items-center gap-2">
+          <button id="retryBtn" class="text-sm px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40" disabled>Retry</button>
+        </div>
       </div>
 
       <!-- Progress / Status -->
@@ -63,7 +66,7 @@
         <li class="flex items-start gap-3">
           <div class="mt-1 h-2 w-2 rounded-full bg-slate-400" id="s3dot"></div>
           <div>
-            <div class="font-medium">Connecting guide</div>
+            <div class="font-medium">Connection helper</div>
             <div class="text-xs opacity-70" id="connectMsg">Waiting for a match…</div>
           </div>
         </li>
@@ -95,13 +98,15 @@
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
               <div class="text-xs uppercase tracking-wide opacity-60">Password</div>
               <div class="font-mono text-sm flex items-center gap-2">
-                <span id="pwd" class="select-all">(Ask a Gomega admin)</span>
+                <span id="pwd" class="select-all">(Hidden)</span>
+                <button id="revealPwd" class="text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700">Reveal</button>
                 <button data-copy="#pwd" class="copyBtn text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700">Copy</button>
               </div>
             </div>
           </div>
 
-          <div class="mt-4">
+          <div class="mt-4 flex gap-3 flex-col sm:flex-row">
+            <button id="joinBtn" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow">Join Wi‑Fi?</button>
             <button id="guideBtn" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow">Open Connection Guide</button>
           </div>
         </div>
@@ -121,6 +126,28 @@
         </div>
       </section>
 
+      <!-- Join Modal -->
+      <dialog id="joinModal" class="rounded-2xl p-0 w-full max-w-md bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <form method="dialog">
+          <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div class="font-semibold">Join Gomega Wi‑Fi</div>
+            <button class="px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700">Close</button>
+          </div>
+        </form>
+        <div class="p-5 space-y-4">
+          <div class="text-sm leading-6">Scan the QR below with your phone camera or Wi‑Fi scanner. You can also download a small config file for Android or iOS to speed joining.</div>
+          <div id="qrWrap" class="grid place-items-center">
+            <img id="qrImg" alt="Wi-Fi QR" width="300" height="300" />
+          </div>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <button id="downloadAndroid" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Download Android Config</button>
+            <button id="downloadIOS" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Download iOS Config</button>
+            <button id="showPwd" class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700">Show Password</button>
+          </div>
+          <div class="text-xs opacity-70">Note: For security reasons browsers cannot silently switch your device's Wi‑Fi network. The above tools make it quick for you to connect manually.</div>
+        </div>
+      </dialog>
+
       <!-- Connection Guide Modal -->
       <dialog id="guide" class="rounded-2xl p-0 w-full max-w-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xl border border-slate-200 dark:border-slate-800">
         <form method="dialog">
@@ -134,9 +161,9 @@
           <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
             <div class="text-xs uppercase tracking-wide opacity-60">Network details</div>
             <div class="font-mono text-sm">SSID: <span class="font-semibold">Gomega Members Only Wifi</span></div>
-            <div class="font-mono text-sm">Security: WPA2/WPA3 (varies by site)</div>
+            <div class="font-mono text-sm">Security: WPA/WPA2</div>
           </div>
-          <p class="text-xs opacity-70">Note: Browsers cannot auto‑switch your Wi‑Fi for security reasons. This guided flow helps you join the correct network manually.</p>
+          <p class="text-xs opacity-70">If your device supports scanning a Wi‑Fi QR code (most modern phones do), open camera → point at the QR → accept join.</p>
         </div>
       </dialog>
 
@@ -148,6 +175,7 @@
 
   <script>
     // ----- Config: known hotspot coordinates (sample – update as you expand) -----
+    const WIFI_PASS = 'PasskeyGomegaMembers0101';
     const SSID = "Gomega Members Only Wifi";
     const HOTSPOTS = [
       { id: 'nyc',   name: SSID, country: 'United States', city: 'New York',   lat: 40.7128, lon: -74.0060, note: 'Core city site' },
@@ -178,6 +206,14 @@
     const loadCityBtn = el('#loadCity');
     const guideBtn = el('#guideBtn');
     const guide = el('#guide');
+    const joinBtn = el('#joinBtn');
+    const joinModal = el('#joinModal');
+    const qrImg = el('#qrImg');
+    const downloadAndroid = el('#downloadAndroid');
+    const downloadIOS = el('#downloadIOS');
+    const showPwd = el('#showPwd');
+    const pwdSpan = el('#pwd');
+    const revealPwdBtn = el('#revealPwd');
 
     // Populate manual city list
     HOTSPOTS.forEach(h => {
@@ -207,7 +243,7 @@
       return R * c;
     }
 
-    function markStep(dotEl, ok){ dotEl.style.background = ok ? 'oklch(0.75 0.12 250)' : '#94a3b8'; }
+    function markStep(dotEl, ok){ dotEl.style.background = ok ? '#10b981' : '#94a3b8'; }
 
     function showNearest(myLat, myLon) {
       markStep(s2, true); scanMsg.textContent = 'Scanning known sites…';
@@ -220,21 +256,18 @@
 
       if (!nearest) return noResults('No hotspots in database.');
 
+      hotspotName.textContent = nearest.name;
+      hotspotMeta.textContent = `${nearest.city}, ${nearest.country} • ${nearest.note}`;
+      distanceKm.textContent = nearest.distance.toFixed(1);
+
       if (nearest.distance <= NEARBY_KM) {
         // Found nearby
-        hotspotName.textContent = nearest.name;
-        hotspotMeta.textContent = `${nearest.city}, ${nearest.country} • ${nearest.note}`;
-        distanceKm.textContent = nearest.distance.toFixed(1);
         result.classList.remove('hidden');
         empty.classList.add('hidden');
-        connectMsg.textContent = 'Ready — follow the connection guide below.';
+        connectMsg.textContent = 'Ready — click Join Wi‑Fi? to generate quick-join tools.';
         markStep(s3, true);
       } else {
         noResults('No hotspot within range. Nearest is ' + nearest.distance.toFixed(0) + ' km away.');
-        // Keep details visible for curiosity
-        hotspotName.textContent = nearest.name;
-        hotspotMeta.textContent = `${nearest.city}, ${nearest.country} • ${nearest.note}`;
-        distanceKm.textContent = nearest.distance.toFixed(0);
       }
     }
 
@@ -256,44 +289,150 @@
         steps = [
           'Open Settings → Wi‑Fi',
           `Select “${SSID}”`,
-          'Enter your member password (if prompted)',
-          'Wait for the captive portal to complete (if shown)'
+          'Enter the password when prompted or use the mobileconfig file provided',
+          'If asked, Trust the profile you install'
         ];
       } else if (isAndroid) {
         steps = [
-          'Open Settings → Network & Internet → Internet',
-          `Tap “${SSID}”`,
-          'Enter your member password (if prompted)',
+          'Open Settings → Network & Internet → Wi‑Fi',
+          `Tap “${SSID}” or scan the QR`,
+          'Enter the password when prompted',
           'Accept portal terms if presented'
         ];
       } else if (isWindows) {
         steps = [
           'Click the Wi‑Fi icon in the taskbar',
           `Choose “${SSID}” and click Connect`,
-          'Enter member password (if prompted)',
+          'Enter password when prompted',
           'Complete the portal in your browser if it opens'
         ];
       } else if (isMac) {
         steps = [
           'Click the Wi‑Fi icon in the menu bar',
           `Select “${SSID}”`,
-          'Enter member password (if prompted)',
-          'Complete the portal in your browser if it opens'
+          'Enter the password when prompted',
+          'Complete any portal steps'
         ];
       } else {
         steps = [
           `Open your device’s Wi‑Fi settings and select “${SSID}”`,
-          'Enter member password (if prompted)',
+          'Enter password when prompted',
           'Complete any portal steps'
         ];
       }
       return '<ol class="list-decimal ml-5 space-y-1">' + steps.map(s=>`<li>${s}</li>`).join('') + '</ol>';
     }
 
+    // Join flow: generate QR and downloadable configs
+    function wifiQRCodePayload(ssid, pass, hidden = false){
+      // Standard QR format recognized by most phone cameras
+      return `WIFI:T:WPA;S:${ssid};P:${pass};H:${hidden ? 'true' : 'false'};;`;
+    }
+
+    function openJoinModal(){
+      const ssid = el('#ssid').textContent.trim();
+      const payload = wifiQRCodePayload(ssid, WIFI_PASS);
+      // Use a public QR generator image (no keys, safe)
+      qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(payload);
+      joinModal.showModal();
+    }
+
+    function downloadFile(filename, content, mime='application/octet-stream'){
+      const blob = new Blob([content], {type: mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=> URL.revokeObjectURL(url), 1500);
+    }
+
+    function makeAndroidConfig(ssid, pass){
+      // Simple wpa_supplicant fragment that advanced users can drop into Android's Wi‑Fi tools
+      return `network={
+  ssid=\"${ssid}\"
+  psk=\"${pass}\"
+  key_mgmt=WPA-PSK
+}
+`;
+    }
+
+    function makeIOSMobileconfig(ssid, pass){
+      // A minimal mobileconfig Wi-Fi payload. Installing requires user consent and trust.
+      const uuid = cryptoRandomUUID();
+      const payload = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadType</key>
+      <string>com.apple.wifi.managed</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+      <key>PayloadIdentifier</key>
+      <string>com.gomega.wifi.${uuid}</string>
+      <key>SSID_STR</key>
+      <string>${ssid}</string>
+      <key>HIDDEN_NETWORK</key>
+      <false/>
+      <key>EncryptionType</key>
+      <string>WPA</string>
+      <key>Password</key>
+      <string>${pass}</string>
+    </dict>
+  </array>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+  <key>PayloadIdentifier</key>
+  <string>com.gomega.profile.${uuid}</string>
+  <key>PayloadUUID</key>
+  <string>${uuid}</string>
+  <key>PayloadDisplayName</key>
+  <string>Gomega Wi-Fi</string>
+</dict>
+</plist>`;
+      return payload;
+    }
+
+    // cryptoRandomUUID fallback
+    function cryptoRandomUUID(){
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      // simple fallback
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
     // Connect guide modal
-    guideBtn?.addEventListener('click', () => {
+    el('#guideBtn')?.addEventListener('click', () => {
       el('#osGuide').innerHTML = detectOSGuide();
       guide.showModal();
+    });
+
+    // Join button
+    joinBtn?.addEventListener('click', () => {
+      openJoinModal();
+    });
+
+    // Reveal password
+    revealPwdBtn?.addEventListener('click', () => {
+      pwdSpan.textContent = WIFI_PASS;
+    });
+    showPwd?.addEventListener('click', () => { alert('Password: ' + WIFI_PASS); });
+
+    // Download config handlers
+    downloadAndroid?.addEventListener('click', () => {
+      const ssid = el('#ssid').textContent.trim();
+      const cfg = makeAndroidConfig(ssid, WIFI_PASS);
+      downloadFile('wpa_supplicant.conf', cfg, 'text/plain');
+    });
+    downloadIOS?.addEventListener('click', () => {
+      const ssid = el('#ssid').textContent.trim();
+      const cfg = makeIOSMobileconfig(ssid, WIFI_PASS);
+      downloadFile('Gomega-WiFi.mobileconfig', cfg, 'application/x-apple-aspen-config');
     });
 
     // Copy buttons
@@ -371,6 +510,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       el('#yr').textContent = new Date().getFullYear();
+      el('#pwd').textContent = '(Hidden)';
       init();
     });
   </script>
