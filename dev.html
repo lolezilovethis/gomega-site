@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gomega — Dev Profile</title>
+  <style>
+    :root{
+      --bg:#061026; --muted:#98a6b8; --accent:#26d3ff;
+      --panel: rgba(7,24,39,0.6);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#fff}
+    .page{
+      min-height:100vh; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;
+      background-size:cover; background-position:center;
+    }
+    .dim{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.6)); pointer-events:none}
+    .center{
+      position:relative; z-index:10; text-align:center; display:flex;flex-direction:column;align-items:center;gap:10px;
+      padding:20px; max-width:900px; width:100%;
+    }
+    .avatar{
+      width:120px;height:120px;border-radius:999px;border:6px solid rgba(255,255,255,0.12); overflow:hidden; display:flex;align-items:center;justify-content:center;background:#111;
+      box-shadow:0 8px 30px rgba(0,0,0,0.6);
+    }
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .display{font-size:36px;font-weight:700;letter-spacing:1px;text-shadow:0 3px 18px rgba(0,0,0,0.7)}
+    .meta{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:6px;opacity:0.95}
+    .pill{background:var(--panel);padding:8px 12px;border-radius:999px;display:flex;gap:8px;align-items:center}
+    .icons{display:flex;gap:10px;align-items:center}
+    .small{font-size:14px;color:var(--muted)}
+    .controls{position:absolute;top:18px;left:18px;z-index:20}
+    .btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.05);padding:8px 10px;border-radius:8px;color:#fff;cursor:pointer}
+    .edit-panel{position:fixed;right:18px;top:18px;background:rgba(0,0,0,0.6);padding:14px;border-radius:12px;z-index:30;max-width:360px;width:320px}
+    .field{margin:8px 0;display:flex;flex-direction:column;gap:6px}
+    input[type="text"], textarea{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:#fff}
+    label{font-size:13px;color:var(--muted)}
+    .badge{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.06)}
+    .owner-badge{background:linear-gradient(90deg,#ffd500,#ff7a00);color:#000;padding:6px 10px;border-radius:999px;font-weight:700}
+    footer{position:absolute;bottom:12px;left:12px;color:var(--muted);font-size:13px;z-index:20}
+    .viewcount{position:absolute;left:50px;bottom:80px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:8px 10px;border-radius:999px}
+    .hidden{display:none}
+    .u-danger{color:#ff6b6b}
+    @media(max-width:640px){ .display{font-size:26px} .avatar{width:96px;height:96px} .edit-panel{width:92%;right:4%;top:auto;bottom:18px} }
+  </style>
+</head>
+<body>
+  <div id="app" class="page" style="background-image: url('/assets/default-bg.jpg')">
+    <div class="dim"></div>
+
+    <div class="controls">
+      <button id="soundToggle" class="btn" title="Toggle background audio">🔈</button>
+    </div>
+
+    <div class="center" role="main">
+      <div class="avatar" id="avatar">
+        <img id="avatarImg" src="/assets/default-avatar.png" alt="avatar">
+      </div>
+
+      <div class="display" id="displayName">guest</div>
+
+      <div class="meta">
+        <div class="pill" id="badgesContainer"></div>
+        <div style="width:6px"></div>
+        <div class="small" id="userId">ID: —</div>
+      </div>
+
+      <div id="bio" class="small" style="margin-top:8px;max-width:680px;opacity:0.95">No bio set</div>
+
+      <div class="icons" style="margin-top:18px" id="linksRow">
+        <!-- social icons placeholder -->
+      </div>
+
+      <div class="viewcount" id="viewCount"><span>👁️</span> <span id="viewNumber">0</span></div>
+    </div>
+
+    <div class="edit-panel hidden" id="editPanel" aria-hidden="true">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:700">Edit Profile</div>
+        <div style="display:flex;gap:8px">
+          <button id="signOutBtn" class="btn">Sign out</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Custom URL (letters, numbers, -, _)</label>
+        <div style="display:flex;gap:8px">
+          <input id="customUrl" type="text" placeholder="yourname">
+          <button id="claimBtn" class="btn">Claim</button>
+        </div>
+        <div class="small" id="claimMsg"></div>
+      </div>
+
+      <div class="field">
+        <label>Display name</label>
+        <input id="displayInput" type="text" placeholder="Display name">
+      </div>
+
+      <div class="field">
+        <label>Bio</label>
+        <textarea id="bioInput" rows="3" placeholder="Short bio"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Badges (comma separated)</label>
+        <input id="badgesInput" type="text" placeholder="iii_dev,verified,mod">
+      </div>
+
+      <div class="field">
+        <label>Background URL (or upload)</label>
+        <input id="bgUrl" type="text" placeholder="https://...">
+        <input id="bgFile" type="file" accept="image/*,video/*">
+      </div>
+
+      <div class="field">
+        <label>Audio URL (or upload)</label>
+        <input id="audioUrl" type="text" placeholder="https://...">
+        <input id="audioFile" type="file" accept="audio/*">
+      </div>
+
+      <div class="field">
+        <label>Cursor URL (.cur or .png)</label>
+        <input id="cursorUrl" type="text" placeholder="https://... or upload .cur">
+        <input id="cursorFile" type="file" accept=".cur,image/*">
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button id="saveBtn" class="btn">Save</button>
+      </div>
+      <div class="small" id="saveMsg" style="margin-top:8px"></div>
+    </div>
+
+    <footer>gomega.watch • dev profile demo</footer>
+  </div>
+
+  <audio id="bgAudio" loop crossorigin="anonymous"></audio>
+
+  <script type="module">
+    // imports: use the firebase.js you already have in js/firebase.js
+    import { firebaseConfig, auth as firebaseAuth, db as firestoreDb, provider } from './js/firebase.js';
+    import { getApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithPopup,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      doc,
+      getDoc,
+      setDoc,
+      deleteDoc,
+      runTransaction,
+      serverTimestamp,
+      increment,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getStorage,
+      ref as storageRef,
+      uploadBytes,
+      getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+    // Use existing app from firebase.js if present
+    let app;
+    try{ app = getApp(); } catch(e){ app = (getApps().length ? getApps()[0] : null); }
+    if (!app) {
+      // fallback initialize if not present
+      // (your js/firebase.js should already initialize the app; this is a safeguard)
+      import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js").then(({ initializeApp })=>{
+        app = initializeApp(firebaseConfig);
+      });
+    }
+
+    // storage
+    const storage = getStorage(app);
+
+    // use the exported auth/db where possible
+    const auth = firebaseAuth; // from your firebase.js
+    const db = firestoreDb;
+
+    // ui refs
+    const displayNameEl = document.getElementById('displayName');
+    const avatarImg = document.getElementById('avatarImg');
+    const bioEl = document.getElementById('bio');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const userIdEl = document.getElementById('userId');
+    const viewNumberEl = document.getElementById('viewNumber');
+    const pageEl = document.getElementById('app');
+    const bgAudio = document.getElementById('bgAudio');
+    const soundToggle = document.getElementById('soundToggle');
+
+    const editPanel = document.getElementById('editPanel');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const claimBtn = document.getElementById('claimBtn');
+    const customUrlInput = document.getElementById('customUrl');
+    const claimMsg = document.getElementById('claimMsg');
+    const displayInput = document.getElementById('displayInput');
+    const bioInput = document.getElementById('bioInput');
+    const badgesInput = document.getElementById('badgesInput');
+    const bgUrl = document.getElementById('bgUrl');
+    const bgFile = document.getElementById('bgFile');
+    const audioUrl = document.getElementById('audioUrl');
+    const audioFile = document.getElementById('audioFile');
+    const cursorUrl = document.getElementById('cursorUrl');
+    const cursorFile = document.getElementById('cursorFile');
+    const saveBtn = document.getElementById('saveBtn');
+    const saveMsg = document.getElementById('saveMsg');
+
+    // state
+    let currentUser = null;
+    let currentProfile = null;
+    let currentUid = null;
+    let currentCustomUrl = null;
+    let pageViewedThisSession = false;
+
+    // utilities
+    function show(msg, timeout=3000){ saveMsg.textContent = msg; if(timeout) setTimeout(()=>{ if(saveMsg.textContent===msg) saveMsg.textContent=''; }, timeout); }
+
+    function renderProfile(profile){
+      if(!profile) return;
+      displayNameEl.textContent = profile.displayName || profile.username || 'guest';
+      avatarImg.src = profile.avatarURL || '/assets/default-avatar.png';
+      bioEl.textContent = profile.bio || 'No bio set';
+      userIdEl.textContent = `ID: ${profile.uid || '—'}`;
+      viewNumberEl.textContent = profile.views ? String(profile.views) : '0';
+
+      // badges
+      badgesContainer.innerHTML = '';
+      if(profile.badges && profile.badges.length){
+        profile.badges.forEach(b=>{
+          const el = document.createElement('div');
+          el.className = 'badge';
+          el.textContent = b;
+          badgesContainer.appendChild(el);
+        });
+      } else {
+        badgesContainer.innerHTML = '<div class="small">no badges</div>';
+      }
+
+      // owner special
+      if(profile.username === 'iii_dev' || profile.uid === 'iii_dev'){
+        const ownerEl = document.createElement('div');
+        ownerEl.className = 'owner-badge';
+        ownerEl.textContent = 'OWNER';
+        badgesContainer.appendChild(ownerEl);
+      }
+
+      // background
+      if(profile.backgroundURL){
+        pageEl.style.backgroundImage = `url(${profile.backgroundURL})`;
+      } else {
+        pageEl.style.backgroundImage = "url('/assets/default-bg.jpg')";
+      }
+
+      // audio
+      if(profile.audioURL){
+        bgAudio.src = profile.audioURL;
+      } else {
+        bgAudio.pause();
+        bgAudio.src = '';
+      }
+
+      // cursor
+      if(profile.cursorURL){
+        document.documentElement.style.cursor = `url(${profile.cursorURL}), auto`;
+      } else {
+        document.documentElement.style.cursor = '';
+      }
+    }
+
+    // parse ?u= param
+    function getQueryUsername(){
+      const params = new URLSearchParams(location.search);
+      if(params.has('u')) return params.get('u').toLowerCase().trim();
+      // fallback: path style /dev.html? OR maybe #/username - support hash
+      if(location.hash && location.hash.length>1) return location.hash.slice(1).toLowerCase().trim();
+      return null;
+    }
+
+    // increment view count once
+    async function incrementViews(uid){
+      if(!uid) return;
+      try{
+        const profileRef = doc(db, 'profiles', uid);
+        await runTransaction(db, async (t) => {
+          const snap = await t.get(profileRef);
+          if(!snap.exists()){
+            t.set(profileRef, { views: 1, createdAt: serverTimestamp() }, { merge:true });
+          } else {
+            t.update(profileRef, { views: increment(1) });
+          }
+        });
+      }catch(err){
+        console.error('view increment error', err);
+      }
+    }
+
+    // load profile by custom url
+    async function loadProfileByUsername(username){
+      if(!username) return null;
+      const mappingRef = doc(db, 'usernames', username);
+      const mappingSnap = await getDoc(mappingRef);
+      if(!mappingSnap.exists()){
+        // no user for this custom url
+        return null;
+      }
+      const uid = mappingSnap.data().uid;
+      const profileRef = doc(db, 'profiles', uid);
+      const profileSnap = await getDoc(profileRef);
+      if(!profileSnap.exists()){
+        return null;
+      }
+      return { uid, ...profileSnap.data() };
+    }
+
+    // load profile by uid
+    async function loadProfileByUid(uid){
+      if(!uid) return null;
+      const profileRef = doc(db, 'profiles', uid);
+      const profileSnap = await getDoc(profileRef);
+      if(!profileSnap.exists()){
+        return null;
+      }
+      return { uid, ...profileSnap.data() };
+    }
+
+    // sign in
+    async function doSignIn(){
+      try{
+        await signInWithPopup(auth, provider);
+      }catch(e){
+        console.error('signin', e);
+      }
+    }
+    async function doSignOut(){
+      await signOut(auth);
+    }
+
+    // claim / change custom url safely
+    async function claimCustomUrl(newUrl, uid){
+      newUrl = String(newUrl).toLowerCase().replace(/[^a-z0-9\-_]/g,'').trim();
+      if(!newUrl) throw new Error('invalid url');
+      const usernameRef = doc(db, 'usernames', newUrl);
+      const profileRef = doc(db, 'profiles', uid);
+
+      // transaction: ensure username not already taken, then set mapping and update profile
+      return runTransaction(db, async (t) => {
+        const uSnap = await t.get(usernameRef);
+        const pSnap = await t.get(profileRef);
+        const oldUrl = pSnap.exists() ? (pSnap.data().username || null) : null;
+
+        if(uSnap.exists()){
+          const data = uSnap.data();
+          if(data.uid !== uid) throw new Error('taken');
+          // already owned by this user — nothing to do
+          return { ok:true, changed:false, username:newUrl };
+        } else {
+          // create new mapping
+          t.set(usernameRef, { uid, createdAt: serverTimestamp() });
+
+          // update profile: set username and createdAt if needed
+          t.set(profileRef, { username: newUrl, updatedAt: serverTimestamp(), createdAt: serverTimestamp() }, { merge:true });
+
+          // remove old mapping if present and different
+          if(oldUrl && oldUrl !== newUrl){
+            const oldRef = doc(db, 'usernames', oldUrl);
+            t.delete(oldRef);
+          }
+          return { ok:true, changed:true, username:newUrl };
+        }
+      });
+    }
+
+    // save profile updates (only owner)
+    async function saveProfile(uid, updates){
+      const profileRef = doc(db, 'profiles', uid);
+      updates.updatedAt = serverTimestamp();
+      await setDoc(profileRef, updates, { merge:true });
+    }
+
+    // upload file to storage and return download URL
+    async function uploadToStorage(path, file){
+      const r = storageRef(storage, path);
+      await uploadBytes(r, file);
+      const url = await getDownloadURL(r);
+      return url;
+    }
+
+    // fill edit form with profile data
+    function fillEditForm(profile){
+      if(!profile) return;
+      displayInput.value = profile.displayName || '';
+      bioInput.value = profile.bio || '';
+      badgesInput.value = (profile.badges || []).join(',');
+      bgUrl.value = profile.backgroundURL || '';
+      audioUrl.value = profile.audioURL || '';
+      cursorUrl.value = profile.cursorURL || '';
+      customUrlInput.value = profile.username || '';
+    }
+
+    // set up handlers
+    claimBtn.addEventListener('click', async ()=>{
+      const val = customUrlInput.value.trim().toLowerCase();
+      claimMsg.textContent = '';
+      if(!currentUser) { claimMsg.textContent = 'Sign in first'; return; }
+      try{
+        const res = await claimCustomUrl(val, currentUser.uid);
+        if(res && res.username){
+          claimMsg.textContent = `Claimed as ${res.username}`;
+          // refresh view
+          currentCustomUrl = res.username;
+          await loadAndRender(currentCustomUrl);
+        }
+      }catch(e){
+        if(e.message === 'taken') claimMsg.textContent = 'This URL is already taken';
+        else claimMsg.textContent = 'Error claiming';
+        console.error(e);
+      }
+    });
+
+    saveBtn.addEventListener('click', async ()=>{
+      if(!currentUser){ show('Sign in to save'); return; }
+      saveMsg.textContent = 'Saving...';
+      try{
+        // handle file uploads if any
+        const updates = {};
+        if(displayInput.value) updates.displayName = displayInput.value.trim();
+        updates.bio = bioInput.value.trim();
+        updates.badges = badgesInput.value ? badgesInput.value.split(',').map(s=>s.trim()).filter(Boolean) : [];
+
+        // background file
+        if(bgFile.files && bgFile.files[0]){
+          const path = `profiles/${currentUser.uid}/background_${Date.now()}`;
+          const url = await uploadToStorage(path, bgFile.files[0]);
+          updates.backgroundURL = url;
+        } else if(bgUrl.value){
+          updates.backgroundURL = bgUrl.value.trim();
+        }
+
+        // audio upload
+        if(audioFile.files && audioFile.files[0]){
+          const path = `profiles/${currentUser.uid}/audio_${Date.now()}`;
+          const url = await uploadToStorage(path, audioFile.files[0]);
+          updates.audioURL = url;
+        } else if(audioUrl.value){
+          updates.audioURL = audioUrl.value.trim();
+        }
+
+        // cursor upload
+        if(cursorFile.files && cursorFile.files[0]){
+          const path = `profiles/${currentUser.uid}/cursor_${Date.now()}`;
+          const url = await uploadToStorage(path, cursorFile.files[0]);
+          updates.cursorURL = url;
+        } else if(cursorUrl.value){
+          updates.cursorURL = cursorUrl.value.trim();
+        }
+
+        await saveProfile(currentUser.uid, updates);
+        saveMsg.textContent = 'Saved';
+        // refresh profile
+        await loadAndRender(currentCustomUrl ?? (await getMyUsername()));
+      }catch(e){
+        console.error(e);
+        saveMsg.textContent = 'Save failed';
+      } finally {
+        setTimeout(()=>{ saveMsg.textContent=''; }, 3000);
+      }
+    });
+
+    signOutBtn.addEventListener('click', async ()=>{ await doSignOut(); });
+
+    soundToggle.addEventListener('click', ()=>{
+      if(bgAudio.paused){ bgAudio.play(); soundToggle.textContent='🔊'; }
+      else { bgAudio.pause(); soundToggle.textContent='🔈'; }
+    });
+
+    // get my username mapping (if signed in)
+    async function getMyUsername(){
+      if(!currentUser) return null;
+      const profileRef = doc(db, 'profiles', currentUser.uid);
+      const p = await getDoc(profileRef);
+      if(!p.exists()) return null;
+      return p.data().username || null;
+    }
+
+    // main loader
+    async function loadAndRender(username){
+      // try to load profile by username, otherwise if no username try to load current user's profile by uid
+      let profile = null;
+      if(username){
+        profile = await loadProfileByUsername(username);
+        if(profile){
+          currentProfile = profile;
+          renderProfile(profile);
+          // increment views once per session
+          if(!pageViewedThisSession){
+            await incrementViews(profile.uid);
+            pageViewedThisSession = true;
+            // fetch updated view count
+            const refreshed = await loadProfileByUid(profile.uid);
+            if(refreshed) viewNumberEl.textContent = String(refreshed.views || 0);
+          }
+          // prepare edit visibility if owner
+          if(currentUser && currentUser.uid === profile.uid){
+            editPanel.classList.remove('hidden');
+            fillEditForm(profile);
+          } else {
+            editPanel.classList.add('hidden');
+          }
+          return;
+        } else {
+          // not found: show placeholder and allow sign-in to create
+          displayNameEl.textContent = username;
+          bioEl.textContent = 'No profile found — claim this URL if you are the owner';
+          badgesContainer.innerHTML = `<div class="small">unclaimed</div>`;
+          pageEl.style.backgroundImage = "url('/assets/default-bg.jpg')";
+        }
+      } else {
+        // no username param - show your profile if logged in, otherwise show placeholder
+        if(currentUser){
+          const profileByUid = await loadProfileByUid(currentUser.uid);
+          if(profileByUid){
+            currentProfile = profileByUid;
+            renderProfile(profileByUid);
+            editPanel.classList.remove('hidden');
+            fillEditForm(profileByUid);
+            return;
+          } else {
+            displayNameEl.textContent = currentUser.displayName || 'new user';
+            bioEl.textContent = 'Welcome — create your dev profile and claim a custom URL';
+            badgesContainer.innerHTML = `<div class="small">no profile data</div>`;
+            editPanel.classList.remove('hidden');
+            // prefill display name
+            displayInput.value = currentUser.displayName || '';
+            customUrlInput.value = '';
+          }
+        } else {
+          displayNameEl.textContent = 'guest';
+          bioEl.textContent = 'Sign in to claim a custom URL and create your profile';
+          badgesContainer.innerHTML = '<div class="small">not signed in</div>';
+          editPanel.classList.add('hidden');
+        }
+      }
+    }
+
+    // auth state
+    onAuthStateChanged(auth, async (user)=>{
+      currentUser = user;
+      if(user){
+        currentUid = user.uid;
+        userIdEl.textContent = `ID: ${user.uid}`;
+        // if edit panel hidden and user visits their own page, show edit
+        const myProfile = await loadProfileByUid(user.uid);
+        if(myProfile){
+          currentProfile = myProfile;
+        }
+        // if the page is showing a username that belongs to this user, show edit
+        const urlUser = getQueryUsername();
+        if(urlUser){
+          const mapped = await loadProfileByUsername(urlUser);
+          if(mapped && mapped.uid === user.uid){
+            editPanel.classList.remove('hidden');
+            fillEditForm(mapped);
+            currentCustomUrl = urlUser;
+          } else {
+            // keep hidden
+            // if no mapping exists and you own no mapping, allow claim
+            editPanel.classList.add('hidden');
+          }
+        } else {
+          editPanel.classList.remove('hidden');
+          fillEditForm(myProfile || {});
+        }
+      } else {
+        currentUid = null;
+        userIdEl.textContent = `ID: —`;
+        editPanel.classList.add('hidden');
+      }
+    });
+
+    // quick sign-in when clicking display name (for demo)
+    displayNameEl.addEventListener('click', async ()=>{
+      if(!currentUser) await doSignIn();
+    });
+
+    // allow clicking anywhere to sign in if not signed in
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'l' && !currentUser) doSignIn(); });
+
+    // initial bootstrap
+    (async function(){
+      // if not signed in, show sign-in button at editPanel area
+      // add a small sign-in button to the page for convenience
+      const signInButton = document.createElement('button');
+      signInButton.className = 'btn';
+      signInButton.textContent = 'Sign in with Google';
+      signInButton.style.position = 'absolute';
+      signInButton.style.top = '18px';
+      signInButton.style.right = '18px';
+      signInButton.addEventListener('click', async ()=>{ await doSignIn(); });
+      document.body.appendChild(signInButton);
+
+      // auto-load profile from ?u= or hash if present
+      const username = getQueryUsername();
+      if(username){
+        currentCustomUrl = username;
+        const p = await loadProfileByUsername(username);
+        if(p){
+          renderProfile(p);
+          currentProfile = p;
+          // increment views
+          await incrementViews(p.uid);
+          // ensure edit panel visibility handled by auth listener
+        } else {
+          // profile not found, show placeholder
+          displayNameEl.textContent = username;
+          bioEl.textContent = 'Unclaimed profile — sign in to claim this URL';
+        }
+      } else {
+        // no username param: if signed in, load your profile
+        const user = auth.currentUser;
+        if(user){
+          currentUser = user;
+          const p = await loadProfileByUid(user.uid);
+          if(p){ renderProfile(p); currentProfile = p; }
+          editPanel.classList.remove('hidden');
+          fillEditForm(p || {});
+        } else {
+          displayNameEl.textContent = 'guest';
+          bioEl.textContent = 'No profile selected. Use ?u=username to view a profile';
+          editPanel.classList.add('hidden');
+        }
+      }
+
+      // if background audio present and allowed, set up autoplay state
+      bgAudio.addEventListener('play', ()=> soundToggle.textContent = '🔊');
+      bgAudio.addEventListener('pause', ()=> soundToggle.textContent = '🔈');
+
+      // small UX: click avatar to change avatar (upload)
+      avatarImg.addEventListener('click', async ()=>{
+        if(!currentUser){ show('Sign in to change avatar'); return; }
+        const input = document.createElement('input'); input.type='file'; input.accept='image/*';
+        input.onchange = async ()=> {
+          if(input.files[0]){
+            saveMsg.textContent='Uploading avatar...';
+            const path = `profiles/${currentUser.uid}/avatar_${Date.now()}`;
+            try{
+              const url = await uploadToStorage(path, input.files[0]);
+              await saveProfile(currentUser.uid, { avatarURL: url });
+              avatarImg.src = url;
+              saveMsg.textContent='Avatar updated';
+              setTimeout(()=>saveMsg.textContent='',2000);
+            }catch(e){
+              console.error(e);
+              saveMsg.textContent='Failed';
+            }
+          }
+        };
+        input.click();
+      });
+
+    })();
+  </script>
+</body>
+</html>
