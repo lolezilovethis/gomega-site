@@ -31,6 +31,10 @@
   .danger-note{background:rgba(255,0,0,0.06);border-left:4px solid rgba(255,0,0,0.22);padding:8px;border-radius:6px;color:#ffc9c9;font-size:13px}
   .kbd{background:#071827;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.02);font-family:monospace}
   footer.small{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
+  .minor{font-size:12px;color:var(--muted);margin-top:6px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .badge{display:inline-block;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.02);font-size:12px}
+  .green{color:#6ee7b7}
   /* PIN modal */
   .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:999}
   .modal{width:420px;background:var(--panel);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
@@ -45,14 +49,14 @@
 <div id="locked" class="locked-overlay" aria-hidden="false">
   <div class="card" style="max-width:560px;text-align:center">
     <h1>Gomega Control — PIN required</h1>
-    <p class="muted">This control panel is a <strong>simulation only</strong>. It will not change or shut down any real network or send traffic. Enter the 4-digit code to unlock controls.</p>
+    <p class="muted">This control panel is a <strong>simulation and local diagnostics</strong> tool only. It will not change or shut down any real network or send traffic to other systems. Enter the 4-digit code to unlock controls.</p>
     <div style="height:8px"></div>
     <div style="display:flex;gap:8px;justify-content:center">
       <input id="pinInput" class="pin" placeholder="Enter 4-digit code" maxlength="10" style="padding:10px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit;font-size:16px;text-align:center" />
       <button id="pinBtn" class="btn primary">Unlock</button>
     </div>
     <p class="small" style="margin-top:10px">Hint: you asked for code <span class="kbd">2011</span></p>
-    <p class="muted small" style="margin-top:8px">Safety notice: This interface only simulates traffic, speed, and connections inside your browser.</p>
+    <p class="muted small" style="margin-top:8px">Safety notice: This interface runs diagnostics in your browser only. No remote shutdowns, no unsolicited traffic.</p>
   </div>
 </div>
 
@@ -60,7 +64,7 @@
   <!-- Left controls -->
   <div class="card">
     <h1>Controls</h1>
-    <p class="muted">Everything simulated locally — no network calls performed.</p>
+    <p class="muted">Everything runs locally in your browser. New features: Connection info, WebRTC loopback tests, CPU stress, and enhanced simulation.</p>
 
     <div class="controls-grid">
       <div class="control-block">
@@ -71,7 +75,7 @@
           <div id="bandwidthValue" class="stat">1000 Mbps</div>
           <div class="small muted">5000 Mbps</div>
         </div>
-        <div class="small muted" style="margin-top:6px">This sets the simulated available uplink/downlink capacity.</div>
+        <div class="small muted" style="margin-top:6px">This sets the simulated available uplink/downlink capacity used by the simulation.</div>
       </div>
 
       <div class="control-block">
@@ -105,7 +109,7 @@
           <button id="maxUsersBtn" class="btn">Set 2,000 users</button>
           <button id="clearUsersBtn" class="btn">Clear</button>
         </div>
-        <div class="small muted" style="margin-top:8px">Each simulated user consumes random bandwidth between 0.05 and 2 Mbps.</div>
+        <div class="small muted" style="margin-top:8px">Each simulated user consumes random bandwidth between 0.05 and 2 Mbps (simulated).</div>
       </div>
 
       <div class="control-block">
@@ -119,17 +123,30 @@
           <button id="maxTabsBtn" class="btn">Set 3,000 tabs</button>
           <button id="clearTabsBtn" class="btn">Clear</button>
         </div>
-        <div class="small muted" style="margin-top:8px">Each tab consumes random bandwidth between 0.01 and 0.8 Mbps.</div>
+        <div class="small muted" style="margin-top:8px">Each tab consumes random bandwidth between 0.01 and 0.8 Mbps (simulated).</div>
       </div>
 
       <div class="control-block">
-        <label>Traffic Generator</label>
+        <label>Traffic & Diagnostics</label>
         <div class="row" style="margin-bottom:8px">
-          <button id="startTraffic" class="btn primary">Start</button>
+          <button id="startTraffic" class="btn primary">Start Sim</button>
           <button id="stopTraffic" class="btn">Stop</button>
           <button id="burstBtn" class="btn">Burst +100 users</button>
         </div>
-        <div class="small muted">When running, the system simulates live traffic consumption and updates stats & chart.</div>
+        <div class="grid-2" style="margin-top:8px">
+          <button id="webrtcTestBtn" class="btn">Run WebRTC Loopback Test</button>
+          <button id="webrtcStopBtn" class="btn">Stop WebRTC Test</button>
+        </div>
+        <div class="minor">WebRTC Loopback test measures latency & local throughput purely inside your browser (no server).</div>
+      </div>
+
+      <div class="control-block">
+        <label>CPU Stress (safe)</label>
+        <div style="display:flex;gap:8px">
+          <button id="cpuStart" class="btn">Start Stress</button>
+          <button id="cpuStop" class="btn">Stop Stress</button>
+        </div>
+        <div class="minor">Creates Web Workers to stress CPU to see how UI/throughput behave under load (runs only locally).</div>
       </div>
 
       <div class="control-block">
@@ -161,8 +178,8 @@
   <div class="card">
     <div class="statusbar">
       <div>
-        <h1>Status</h1>
-        <div class="muted">Simulation status and live metrics</div>
+        <h1>Status <span class="badge green" id="connBadge">Local</span></h1>
+        <div class="muted">Simulation status, browser diagnostics & local metrics</div>
       </div>
       <div style="text-align:right">
         <div class="small muted">Connection</div>
@@ -192,8 +209,12 @@
     <div style="display:flex;gap:12px">
       <div style="flex:1">
         <canvas id="chart"></canvas>
+        <div style="margin-top:8px" class="grid-2">
+          <div class="minor"><strong>Local connection info</strong><div id="connInfo" class="minor"></div></div>
+          <div class="minor"><strong>Loopback test</strong><div id="loopInfo" class="minor">Not run</div></div>
+        </div>
       </div>
-      <div style="width:260px">
+      <div style="width:300px">
         <div class="control-block" style="margin-bottom:12px">
           <div class="small muted">Latency</div>
           <div id="statLatency" class="stat">0 ms</div>
@@ -222,11 +243,15 @@
 
 <script>
 /*
-  SAFE SIMULATOR — control.html
-  IMPORTANT:
-  - This file simulates network controls visually only.
-  - It does NOT change real network settings, shutdown interfaces, or generate real traffic.
-  - The "PIN" required to use the controls is 2011 (per user's request).
+  SAFE, LOCAL-ONLY control.html
+  - No servers required
+  - New features:
+      * navigator.connection display (when available)
+      * WebRTC loopback test (datachannel) to measure RTT and local throughput
+      * CPU stress (Web Workers) to observe impact on UI responsiveness / throughput
+  - NOTE: without an external server, we cannot measure your ISP's real internet speed.
+    The WebRTC loopback test is local to your browser and measures the stack & datachannel
+    performance inside your machine — still useful for diagnostics and comparisons.
 */
 
 (function(){
@@ -278,6 +303,15 @@
   const snapshotBtn = document.getElementById('snapshotBtn');
   const resetAll = document.getElementById('resetAll');
 
+  const webrtcTestBtn = document.getElementById('webrtcTestBtn');
+  const webrtcStopBtn = document.getElementById('webrtcStopBtn');
+  const loopInfo = document.getElementById('loopInfo');
+
+  const cpuStart = document.getElementById('cpuStart');
+  const cpuStop = document.getElementById('cpuStop');
+  const connInfo = document.getElementById('connInfo');
+  const connBadge = document.getElementById('connBadge');
+
   // Chart
   const chartCanvas = document.getElementById('chart');
   chartCanvas.width = chartCanvas.clientWidth;
@@ -298,22 +332,28 @@
     logs: [],
     throughputHistory: [], // last N seconds
     startTime: Date.now(),
-    tickInterval: null
+    tickInterval: null,
+    // diagnostics
+    webrtc: null,
+    workers: [],
+    cpuStressCount: 0,
+    frameTimes: []
   };
 
   // Helpers
   function log(msg){
     const ts = new Date().toISOString();
     STATE.logs.push({ts, msg});
-    if(STATE.logs.length > 500) STATE.logs.shift();
+    if(STATE.logs.length > 800) STATE.logs.shift();
     renderLogs();
+    // also console for debugging
+    console.log(`[SIM] ${ts} ${msg}`);
   }
   function renderLogs(){
     logArea.value = STATE.logs.map(l => `[${l.ts}] ${l.msg}`).join('\n');
     logArea.scrollTop = logArea.scrollHeight;
   }
   function toast(msg){
-    // lightweight toast
     const t = document.createElement('div');
     t.textContent = msg;
     t.style.position = 'fixed';
@@ -328,7 +368,7 @@
     setTimeout(()=>{ t.style.transition='opacity 400ms'; t.style.opacity=0; setTimeout(()=>t.remove(),420); },1800);
   }
 
-  // Pin logic
+  // PIN logic
   pinBtn.addEventListener('click', ()=> {
     const val = (pinInput.value||'').trim();
     if(!val){ toast('Enter the 4-digit code'); return; }
@@ -337,104 +377,47 @@
       locked.style.display = 'none';
       toast('Controls unlocked');
       log('Authorized: correct PIN entered');
-      startTick(); // start sim if desired
+      startTick();
       renderUI();
     } else {
       toast('Incorrect code');
       log('Authorization failed attempt: ' + val);
     }
   });
-
-  // Keyboard enter on pin
   pinInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') pinBtn.click(); });
 
   // Bandwidth / latency / loss updates
-  bandwidthRange.addEventListener('input', (e)=>{
-    const v = parseInt(e.target.value,10);
-    STATE.bandwidthLimitMbps = v;
-    bandwidthValue.textContent = `${v} Mbps`;
-  });
-  latencyRange.addEventListener('input', (e)=>{
-    const v = parseInt(e.target.value,10);
-    STATE.latencyMs = v;
-    latencyValue.textContent = `${v} ms`;
-  });
-  lossRange.addEventListener('input', (e)=>{
-    const v = parseFloat(e.target.value);
-    STATE.lossPct = v;
-    lossValue.textContent = `${v}%`;
-  });
+  bandwidthRange.addEventListener('input', (e)=>{ const v = parseInt(e.target.value,10); STATE.bandwidthLimitMbps = v; bandwidthValue.textContent = `${v} Mbps`; });
+  latencyRange.addEventListener('input', (e)=>{ const v = parseInt(e.target.value,10); STATE.latencyMs = v; latencyValue.textContent = `${v} ms`; });
+  lossRange.addEventListener('input', (e)=>{ const v = parseFloat(e.target.value); STATE.lossPct = v; lossValue.textContent = `${v}%`; });
 
   // Users & tabs
-  addUsersBtn.addEventListener('click', ()=> {
-    const n = clampInt(parseInt(userCountInput.value||0,10), 0, 2000);
-    STATE.users = clampInt(STATE.users + n, 0, 2000);
-    log(`Added ${n} simulated users (now ${STATE.users})`);
-    renderUI();
-  });
-  maxUsersBtn.addEventListener('click', ()=> {
-    STATE.users = 2000;
-    log('Set users to 2000 (max)');
-    renderUI();
-  });
-  clearUsersBtn.addEventListener('click', ()=> {
-    STATE.users = 0;
-    log('Cleared simulated users');
-    renderUI();
-  });
+  addUsersBtn.addEventListener('click', ()=> { const n = clampInt(parseInt(userCountInput.value||0,10), 0, 2000); STATE.users = clampInt(STATE.users + n, 0, 2000); log(`Added ${n} simulated users (now ${STATE.users})`); renderUI(); });
+  maxUsersBtn.addEventListener('click', ()=> { STATE.users = 2000; log('Set users to 2000 (max)'); renderUI(); });
+  clearUsersBtn.addEventListener('click', ()=> { STATE.users = 0; log('Cleared simulated users'); renderUI(); });
 
-  addTabsBtn.addEventListener('click', ()=> {
-    const n = clampInt(parseInt(tabCountInput.value||0,10), 0, 3000);
-    STATE.tabs = clampInt(STATE.tabs + n, 0, 3000);
-    log(`Added ${n} simulated tabs (now ${STATE.tabs})`);
-    renderUI();
-  });
-  maxTabsBtn.addEventListener('click', ()=> {
-    STATE.tabs = 3000;
-    log('Set tabs to 3000 (max)');
-    renderUI();
-  });
-  clearTabsBtn.addEventListener('click', ()=> {
-    STATE.tabs = 0;
-    log('Cleared simulated tabs');
-    renderUI();
-  });
+  addTabsBtn.addEventListener('click', ()=> { const n = clampInt(parseInt(tabCountInput.value||0,10), 0, 3000); STATE.tabs = clampInt(STATE.tabs + n, 0, 3000); log(`Added ${n} simulated tabs (now ${STATE.tabs})`); renderUI(); });
+  maxTabsBtn.addEventListener('click', ()=> { STATE.tabs = 3000; log('Set tabs to 3000 (max)'); renderUI(); });
+  clearTabsBtn.addEventListener('click', ()=> { STATE.tabs = 0; log('Cleared simulated tabs'); renderUI(); });
 
   // Traffic controls
   startTraffic.addEventListener('click', ()=> {
     if(STATE.offline){ toast('Cannot start: simulation is offline'); return; }
-    STATE.running = true;
-    log('Traffic generator started');
-    toast('Traffic simulation started');
-    startTick();
-    renderUI();
+    STATE.running = true; log('Traffic generator started'); toast('Traffic simulation started'); startTick(); renderUI();
   });
-  stopTraffic.addEventListener('click', ()=> {
-    STATE.running = false;
-    log('Traffic generator stopped');
-    toast('Traffic simulation stopped');
-    stopTick();
-    renderUI();
-  });
-  burstBtn.addEventListener('click', ()=> {
-    const added = Math.min(100, 2000 - STATE.users);
-    STATE.users += added;
-    log(`Burst: +${added} users`);
-    renderUI();
-  });
+  stopTraffic.addEventListener('click', ()=> { STATE.running = false; log('Traffic generator stopped'); toast('Traffic simulation stopped'); stopTick(); renderUI(); });
+  burstBtn.addEventListener('click', ()=> { const added = Math.min(100, 2000 - STATE.users); STATE.users += added; log(`Burst: +${added} users`); renderUI(); });
 
   // Presets
-  presetLight.addEventListener('click', ()=> { setPreset(50, 20, 0, 30, 100); });
-  presetMed.addEventListener('click', ()=> { setPreset(200, 60, 0.2, 200, 400); });
-  presetHeavy.addEventListener('click', ()=> { setPreset(800, 120, 1.5, 800, 1500); });
-  presetMax.addEventListener('click', ()=> { setPreset(3000, 700, 5.0, 2000, 3000); });
-
+  presetLight.addEventListener('click', ()=> setPreset(50, 20, 0, 30, 100));
+  presetMed.addEventListener('click', ()=> setPreset(200, 60, 0.2, 200, 400));
+  presetHeavy.addEventListener('click', ()=> setPreset(800, 120, 1.5, 800, 1500));
+  presetMax.addEventListener('click', ()=> setPreset(3000, 700, 5.0, 2000, 3000));
   function setPreset(bw, latency, loss, users, tabs){
     STATE.bandwidthLimitMbps = bw; bandwidthRange.value = bw; bandwidthValue.textContent = bw + ' Mbps';
     STATE.latencyMs = latency; latencyRange.value = latency; latencyValue.textContent = latency + ' ms';
     STATE.lossPct = loss; lossRange.value = loss; lossValue.textContent = loss + '%';
-    STATE.users = clampInt(users, 0, 2000);
-    STATE.tabs = clampInt(tabs, 0, 3000);
+    STATE.users = clampInt(users, 0, 2000); STATE.tabs = clampInt(tabs, 0, 3000);
     log(`Preset applied: bw ${bw} Mbps, latency ${latency} ms, loss ${loss}%, users ${STATE.users}, tabs ${STATE.tabs}`);
     renderUI();
   }
@@ -442,22 +425,10 @@
   // Shutdown & restart (simulation)
   shutdownBtn.addEventListener('click', ()=> {
     if(!confirm('Confirm simulated shutdown? This only affects the UI simulation.')) return;
-    STATE.offline = true;
-    STATE.running = false;
-    stopTick();
-    log('SIMULATED INTERNET SHUTDOWN (UI only)');
-    connStatus.textContent = 'Offline';
-    connStatus.style.color = 'var(--danger)';
-    toast('SIMULATED: Internet is offline');
-    renderUI();
+    STATE.offline = true; STATE.running = false; stopTick(); log('SIMULATED INTERNET SHUTDOWN (UI only)'); connStatus.textContent = 'Offline'; connStatus.style.color = 'var(--danger)'; toast('SIMULATED: Internet is offline'); renderUI();
   });
   restartBtn.addEventListener('click', ()=> {
-    STATE.offline = false;
-    log('SIMULATED INTERNET RESTART');
-    connStatus.textContent = 'Online';
-    connStatus.style.color = '';
-    toast('SIMULATED: Internet restarted');
-    renderUI();
+    STATE.offline = false; log('SIMULATED INTERNET RESTART'); connStatus.textContent = 'Online'; connStatus.style.color = ''; toast('SIMULATED: Internet restarted'); renderUI();
   });
 
   // Logs export/clear
@@ -470,182 +441,119 @@
     URL.revokeObjectURL(url);
     toast('Logs exported');
   });
-  clearLogs.addEventListener('click', ()=> {
-    if(!confirm('Clear logs?')) return;
-    STATE.logs = [];
-    renderLogs();
-    toast('Logs cleared');
-  });
+  clearLogs.addEventListener('click', ()=> { if(!confirm('Clear logs?')) return; STATE.logs = []; renderLogs(); toast('Logs cleared'); });
 
   // Snapshot / Reset
   snapshotBtn.addEventListener('click', ()=> {
-    const snap = {
-      ts: new Date().toISOString(),
-      users: STATE.users,
-      tabs: STATE.tabs,
-      bandwidthLimitMbps: STATE.bandwidthLimitMbps,
-      latencyMs: STATE.latencyMs,
-      lossPct: STATE.lossPct,
-      throughputHistory: STATE.throughputHistory.slice(-30)
-    };
+    const snap = { ts: new Date().toISOString(), users: STATE.users, tabs: STATE.tabs, bandwidthLimitMbps: STATE.bandwidthLimitMbps, latencyMs: STATE.latencyMs, lossPct: STATE.lossPct, throughputHistory: STATE.throughputHistory.slice(-30) };
     const blob = new Blob([JSON.stringify(snap, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `gomega-snapshot-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    log('Snapshot taken');
-    toast('Snapshot saved');
+    log('Snapshot taken'); toast('Snapshot saved');
   });
 
   resetAll.addEventListener('click', ()=> {
     if(!confirm('Reset the simulation to defaults?')) return;
-    STATE.running = false;
-    STATE.offline = false;
-    STATE.users = 10;
-    STATE.tabs = 20;
-    STATE.bandwidthLimitMbps = 1000;
+    stopAllDiagnostics();
+    STATE.running = false; STATE.offline = false; STATE.users = 10; STATE.tabs = 20; STATE.bandwidthLimitMbps = 1000;
     bandwidthRange.value = STATE.bandwidthLimitMbps; bandwidthValue.textContent = STATE.bandwidthLimitMbps + ' Mbps';
     STATE.latencyMs = 40; latencyRange.value = 40; latencyValue.textContent = '40 ms';
     STATE.lossPct = 0; lossRange.value = 0; lossValue.textContent = '0%';
-    STATE.throughputHistory = [];
-    log('Simulation reset to defaults');
-    renderUI();
-    stopTick();
+    STATE.throughputHistory = []; STATE.frameTimes = [];
+    log('Simulation reset to defaults'); renderUI(); stopTick();
   });
 
-  // Tick logic: simulate bandwidth consumption based on users/tabs
+  // Tick logic: simulate bandwidth consumption based on users/tabs and CPU stress effect
   function tick(){
-    if(STATE.offline){
-      pushThroughput(0);
-      updateDisplay(0, STATE.latencyMs, STATE.lossPct);
-      return;
-    }
+    if(STATE.offline){ pushThroughput(0); updateDisplay(0, STATE.latencyMs, STATE.lossPct); return; }
+
     // Each user consumes 0.05 - 2.0 Mbps
     // Each tab consumes 0.01 - 0.8 Mbps
-    // We'll simulate random variation per tick
     const userBandwidth = randomInRange(0.05, 2.0) * STATE.users;
     const tabBandwidth = randomInRange(0.01, 0.8) * STATE.tabs;
     let demand = userBandwidth + tabBandwidth; // Mbps
-    // Simulate background noise
     demand *= randomInRange(0.9, 1.2);
 
-    // If demand exceeds capacity, throughput is capacity and latency/loss increase
-    const capacity = STATE.bandwidthLimitMbps;
+    // Apply CPU stress penalty: if workers running, reduce effective throughput
+    let cpuPenalty = 1;
+    if(STATE.cpuStressCount > 0){
+      // each worker reduces effective throughput a little (local observation)
+      cpuPenalty = Math.max(0.15, 1 - (STATE.cpuStressCount * 0.02));
+    }
+
+    const capacity = STATE.bandwidthLimitMbps * cpuPenalty;
     let throughput = Math.min(capacity, demand);
-    // Compute effective latency increase with congestion
     let latency = STATE.latencyMs;
     let loss = STATE.lossPct;
 
     if(demand > capacity){
-      const overloadRatio = demand / capacity; // >1
+      const overloadRatio = demand / capacity;
       latency = Math.round(STATE.latencyMs * Math.min(10, 1 + (overloadRatio - 1) * 1.8));
-      loss = Math.min(80, STATE.lossPct + Math.round((overloadRatio - 1) * 5)); // add packet loss with overload
+      loss = Math.min(80, STATE.lossPct + Math.round((overloadRatio - 1) * 5));
     } else {
-      // minor jitter even under capacity
       latency = Math.round(STATE.latencyMs * randomInRange(0.9,1.2));
       loss = Math.max(STATE.lossPct, parseFloat((STATE.lossPct * randomInRange(0.95,1.05)).toFixed(2)));
     }
 
-    // Add simulated "drop due to loss"
+    // If CPU stress is very high, add jitter
+    if(STATE.cpuStressCount >= 6){
+      latency = Math.round(latency * randomInRange(1.1,1.5));
+      throughput *= 0.9;
+    }
+
     if(loss > 0) throughput *= (1 - Math.min(0.95, loss/100));
 
-    // store and update
     pushThroughput(throughput);
     updateDisplay(throughput, latency, loss);
 
-    // log occasional noteworthy events
     if(demand > capacity && demand/capacity > 1.5 && Math.random() < 0.2){
-      log(`High congestion detected — demand ${Math.round(demand)} Mbps > capacity ${capacity} Mbps`);
+      log(`High congestion detected — demand ${Math.round(demand)} Mbps > capacity ${Math.round(capacity)} Mbps`);
     }
   }
 
-  function startTick(){
-    if(STATE.tickInterval) return;
-    STATE.tickInterval = setInterval(()=> {
-      if(STATE.running) tick();
-      // always tick display even if not running to update "static" values
-      else tick();
-      updateUptime();
-      drawChart();
-    }, 1000); // 1 second tick
-  }
-  function stopTick(){
-    if(STATE.tickInterval){ clearInterval(STATE.tickInterval); STATE.tickInterval = null; }
-  }
-  function pushThroughput(value){
-    STATE.throughputHistory.push({ts:Date.now(), value});
-    if(STATE.throughputHistory.length > 120) STATE.throughputHistory.shift(); // keep last 2 minutes
-  }
+  function startTick(){ if(STATE.tickInterval) return; STATE.tickInterval = setInterval(()=> { tick(); updateUptime(); drawChart(); }, 1000); }
+  function stopTick(){ if(STATE.tickInterval){ clearInterval(STATE.tickInterval); STATE.tickInterval = null; } }
+  function pushThroughput(value){ STATE.throughputHistory.push({ts:Date.now(), value}); if(STATE.throughputHistory.length > 180) STATE.throughputHistory.shift(); }
 
   function updateDisplay(throughput, latency, loss){
-    statUsers.textContent = STATE.users;
-    statTabs.textContent = STATE.tabs;
+    statUsers.textContent = STATE.users; statTabs.textContent = STATE.tabs;
     statThroughput.textContent = `${Math.round(throughput)} Mbps / ${STATE.bandwidthLimitMbps} Mbps`;
-    statLatency.textContent = `${latency} ms`;
-    statLoss.textContent = `${loss}%`;
-    // color connection
-    if(STATE.offline){
-      connStatus.textContent = 'Offline';
-      connStatus.style.color = 'var(--danger)';
-    } else {
-      connStatus.textContent = 'Online';
-      connStatus.style.color = '';
-    }
+    statLatency.textContent = `${latency} ms`; statLoss.textContent = `${loss}%`;
+    connStatus.textContent = STATE.offline ? 'Offline' : 'Online';
+    connStatus.style.color = STATE.offline ? 'var(--danger)' : '';
   }
 
-  function updateUptime(){
-    const s = Math.floor((Date.now() - STATE.startTime) / 1000);
-    uptimeEl.textContent = `Uptime: ${s}s`;
-  }
+  function updateUptime(){ const s = Math.floor((Date.now() - STATE.startTime) / 1000); uptimeEl.textContent = `Uptime: ${s}s`; }
 
-  // Chart drawing (simple line chart)
+  // Chart draw
   function drawChart(){
     const w = chartCanvas.width = chartCanvas.clientWidth;
     const h = chartCanvas.height = chartCanvas.clientHeight;
     ctx.clearRect(0,0,w,h);
-    // background gradient
     const g = ctx.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'rgba(20,40,60,0.6)');
-    g.addColorStop(1,'rgba(2,14,20,0.6)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,w,h);
-
-    // draw grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-    ctx.lineWidth = 1;
-    for(let i=0;i<5;i++){
-      ctx.beginPath();
-      const y = (i+1) * h/6;
-      ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
-    }
-
-    // draw throughput line
-    const data = STATE.throughputHistory.slice(-60); // last 60 points
+    g.addColorStop(0,'rgba(20,40,60,0.6)'); g.addColorStop(1,'rgba(2,14,20,0.6)'); ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+    for(let i=0;i<5;i++){ ctx.beginPath(); const y = (i+1) * h/6; ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    const data = STATE.throughputHistory.slice(-60);
     if(data.length < 2) return;
     const maxVal = Math.max(...data.map(d => d.value), STATE.bandwidthLimitMbps);
-    const pad = 8;
-    ctx.beginPath();
+    const pad = 8; ctx.beginPath();
     for(let i=0;i<data.length;i++){
       const x = pad + (i/(data.length-1))*(w - pad*2);
       const y = pad + (1 - (data[i].value / maxVal))*(h - pad*2);
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
-    ctx.strokeStyle = 'rgba(108, 99, 255, 0.95)';
-    ctx.lineWidth = 2.4; ctx.stroke();
-
-    // fill under curve
-    ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
-    ctx.fillStyle = 'rgba(108, 99, 255, 0.08)'; ctx.fill();
-
-    // axis labels
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '11px Inter, system-ui';
+    ctx.strokeStyle = 'rgba(108, 99, 255, 0.95)'; ctx.lineWidth = 2.4; ctx.stroke();
+    ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath(); ctx.fillStyle = 'rgba(108, 99, 255, 0.08)'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '11px Inter, system-ui';
     ctx.fillText(`${Math.round(data[data.length-1].value)} Mbps (now)`, 10, 16);
     ctx.fillText(`Cap ${STATE.bandwidthLimitMbps} Mbps`, w - 110, 16);
   }
 
-  // Utility functions
+  // Utility
   function randomInRange(min, max){ return Math.random() * (max - min) + min; }
   function clampInt(v, a, b){ if(isNaN(v)) return a; return Math.max(a, Math.min(b, Math.floor(v))); }
 
@@ -654,78 +562,288 @@
     bandwidthRange.value = STATE.bandwidthLimitMbps; bandwidthValue.textContent = STATE.bandwidthLimitMbps + ' Mbps';
     latencyRange.value = STATE.latencyMs; latencyValue.textContent = STATE.latencyMs + ' ms';
     lossRange.value = STATE.lossPct; lossValue.textContent = STATE.lossPct + '%';
-    statUsers.textContent = STATE.users;
-    statTabs.textContent = STATE.tabs;
-    // If offline show special status
+    statUsers.textContent = STATE.users; statTabs.textContent = STATE.tabs;
     connStatus.textContent = STATE.offline ? 'Offline' : 'Online';
     connStatus.style.color = STATE.offline ? 'var(--danger)' : '';
-    renderLogs();
-    drawChart();
+    renderLogs(); drawChart(); updateConnectionInfo();
   }
 
-  // init defaults
-  renderUI();
-  pushThroughput(0);
+  // Connection info (navigator.connection)
+  function updateConnectionInfo(){
+    const nav = navigator;
+    const c = nav.connection || nav.mozConnection || nav.webkitConnection;
+    let info = [];
+    if(c){
+      info.push(`effectiveType: ${c.effectiveType || 'n/a'}`);
+      if('downlink' in c) info.push(`downlink (Mbps): ${c.downlink}`);
+      if('rtt' in c) info.push(`rtt (ms): ${c.rtt}`);
+      if('saveData' in c) info.push(`saveData: ${c.saveData}`);
+      info.push(`type: ${c.type || 'n/a'}`);
+      connInfo.innerText = info.join(' — ');
+      connBadge.innerText = c.effectiveType ? `=${c.effectiveType}` : 'Local';
+    } else {
+      connInfo.innerText = 'Network Information API not available in this browser';
+      connBadge.innerText = 'Local';
+    }
+  }
 
-  // Start initial tick but not running traffic until user starts (unless unlocked)
-  startTick();
+  // WebRTC loopback test: creates two RTCPeerConnection objects in same page
+  let webrtcState = { running: false, lastPing: null, throughputMbps: 0, sentBytes: 0, receivedBytes: 0, interval: null };
+  webrtcTestBtn.addEventListener('click', ()=> runWebrtcLoopbackTest());
+  webrtcStopBtn.addEventListener('click', ()=> stopWebrtcLoopbackTest());
 
-  // Security note: disallow interactions until unlocked
-  // Hide all interactive UI until unlocked (simple approach)
+  async function runWebrtcLoopbackTest(durationSec = 8){
+    if(webrtcState.running) { toast('WebRTC test already running'); return; }
+    if(!window.RTCPeerConnection){ log('WebRTC not supported'); loopInfo.innerText = 'WebRTC not supported in this browser'; return; }
+    webrtcState.running = true;
+    webrtcState.lastPing = null; webrtcState.throughputMbps = 0; webrtcState.sentBytes = 0; webrtcState.receivedBytes = 0;
+    loopInfo.innerText = 'Starting loopback test…';
+    log('Starting WebRTC loopback test (local)');
+
+    const pc1 = new RTCPeerConnection();
+    const pc2 = new RTCPeerConnection();
+    let dc1 = pc1.createDataChannel('loop');
+    let dc2 = null;
+
+    // Set up handlers
+    dc1.onopen = () => { log('DC1 open'); };
+    dc1.onclose = () => { log('DC1 closed'); };
+
+    pc2.ondatachannel = (e) => {
+      dc2 = e.channel;
+      dc2.onmessage = (ev) => {
+        // echo back small messages immediately for ping measurement
+        try {
+          const parsed = JSON.parse(ev.data);
+          if(parsed && parsed.type === 'ping'){
+            // echo
+            dc2.send(JSON.stringify({ type:'pong', ts: parsed.ts }));
+            return;
+          }
+          // if it's data for throughput, echo back a short ack
+          // large message echoing would double count; we instead acknowledge small acks
+          dc2.send(JSON.stringify({type:'ack', seq: parsed && parsed.seq || 0}));
+        } catch(e){
+          // ignore
+          dc2.send('ack');
+        }
+      };
+    };
+
+    // ICE exchange (local)
+    pc1.onicecandidate = e => { if(e.candidate) pc2.addIceCandidate(e.candidate).catch(()=>{}); };
+    pc2.onicecandidate = e => { if(e.candidate) pc1.addIceCandidate(e.candidate).catch(()=>{}); };
+
+    // create offer/answer
+    const offer = await pc1.createOffer();
+    await pc1.setLocalDescription(offer);
+    await pc2.setRemoteDescription(offer);
+    const answer = await pc2.createAnswer();
+    await pc2.setLocalDescription(answer);
+    await pc1.setRemoteDescription(answer);
+
+    // ping measurement: send timestamp, wait for pong
+    function measurePingOnce(){
+      return new Promise((res)=>{
+        const start = performance.now();
+        const id = Math.random().toString(36).slice(2,8);
+        function handler(msg){
+          try{
+            const parsed = JSON.parse(msg);
+            if(parsed && parsed.type === 'pong'){
+              const rtt = Math.round(performance.now() - start);
+              res(rtt);
+            }
+          }catch(e){}
+        }
+        dc1.addEventListener('message', function onmsg(e){
+          handler(e.data);
+          dc1.removeEventListener('message', onmsg);
+        });
+        dc1.send(JSON.stringify({type:'ping', ts: Date.now(), id}));
+      });
+    }
+
+    // throughput: send many small binary chunks for durationSec seconds
+    async function measureThroughput(sec=6){
+      // use 64KB chunks to push data
+      const chunkSize = 64 * 1024;
+      const chunk = new Uint8Array(chunkSize);
+      for(let i=0;i<chunk.length;i++) chunk[i]=Math.floor(Math.random()*256);
+      let sent = 0;
+      const endAt = performance.now() + sec*1000;
+      while(performance.now() < endAt && webrtcState.running){
+        if(dc1.readyState === 'open'){
+          try{
+            dc1.send(chunk);
+            sent += chunkSize;
+            webrtcState.sentBytes = sent;
+          }catch(e){
+            // channel busy/backpressure — short wait
+            await new Promise(r=>setTimeout(r, 8));
+          }
+        } else {
+          await new Promise(r=>setTimeout(r, 50));
+        }
+      }
+      return sent;
+    }
+
+    // measure ping a few times
+    const pings = [];
+    for(let i=0;i<4;i++){
+      try{
+        const rtt = await measurePingOnce();
+        pings.push(rtt);
+        loopInfo.innerText = `Ping ${rtt} ms`;
+        await new Promise(r=>setTimeout(r,120));
+      }catch(e){ break; }
+    }
+    const avgPing = pings.length ? Math.round(pings.reduce((a,b)=>a+b,0)/pings.length) : null;
+    webrtcState.lastPing = avgPing;
+
+    // measure throughput (local) — note this loops back through the browser; useful for comparisons
+    loopInfo.innerText = `Measuring throughput locally… (${durationSec}s)`;
+    // in parallel: count received bytes by listening on dc1 messages from dc2 acking
+    let received = 0;
+    dc1.onmessage = (ev) => {
+      // the remote side will ack every message sent back so we increment receivedBytes
+      // this is approximate in loopback test
+      received += (ev.data && typeof ev.data === 'string') ? ev.data.length : (ev.data && ev.data.byteLength) || 0;
+      webrtcState.receivedBytes = received;
+    };
+    // run measure
+    const sentBytes = await measureThroughput(durationSec);
+    // compute approximate Mbps (sentBytes only gives local send)
+    const mbits = (sentBytes * 8) / (1024*1024);
+    const mbps = mbits / durationSec;
+    webrtcState.throughputMbps = Math.round(mbps * 100)/100;
+    loopInfo.innerText = `Loopback: ping ${avgPing??'n/a'} ms — throughput ~${webrtcState.throughputMbps} Mbps (local)`;
+    log(`WebRTC loopback result: ping ${avgPing??'n/a'} ms, throughput ${webrtcState.throughputMbps} Mbps (local)`);
+
+    // expose to UI
+    document.getElementById('loopInfo').innerText = `Ping ${avgPing ?? 'n/a'} ms / ${webrtcState.throughputMbps} Mbps (local)`;
+
+    // keep test open until user stops or runs another test
+    webrtcState.pc1 = pc1; webrtcState.pc2 = pc2; webrtcState.dc1 = dc1; webrtcState.running = true;
+  }
+
+  function stopWebrtcLoopbackTest(){
+    if(!webrtcState.running){ toast('No WebRTC test running'); return; }
+    try{
+      if(webrtcState.dc1) try{ webrtcState.dc1.close(); }catch(e){}
+      if(webrtcState.pc1) try{ webrtcState.pc1.close(); }catch(e){}
+      if(webrtcState.pc2) try{ webrtcState.pc2.close(); }catch(e){}
+    }catch(e){}
+    webrtcState = { running:false, lastPing:null, throughputMbps:0, sentBytes:0, receivedBytes:0, interval:null };
+    document.getElementById('loopInfo').innerText = 'Stopped';
+    log('WebRTC loopback test stopped');
+  }
+
+  function stopAllDiagnostics(){
+    stopWebrtcLoopbackTest();
+    stopCpuStress();
+  }
+
+  // CPU stress via Web Workers (safe) — spawn workers that compute busy loops
+  cpuStart.addEventListener('click', ()=> startCpuStress( Math.max(1, navigator.hardwareConcurrency ? Math.floor(navigator.hardwareConcurrency/2) : 2) ));
+  cpuStop.addEventListener('click', ()=> stopCpuStress());
+
+  function startCpuStress(count){
+    stopCpuStress();
+    const workerCode = `
+      self.onmessage = function(e){
+        if(e.data === 'stop'){ self.close(); return; }
+        // simple busy loop with periodic sleeps to avoid total lock
+        let running = true;
+        function busy(){
+          const end = Date.now() + 25; // short busy slice
+          while(Date.now() < end){
+            // waste some cycles
+            Math.sqrt(Math.random()*Math.random());
+          }
+          setTimeout(()=>{ if(running) busy(); }, 6);
+        }
+        busy();
+      };
+    `;
+    const blob = new Blob([workerCode], {type:'application/javascript'});
+    const url = URL.createObjectURL(blob);
+    for(let i=0;i<count;i++){
+      try{
+        const w = new Worker(url);
+        w.postMessage('start');
+        STATE.workers.push(w);
+      }catch(e){
+        log('Worker spawn failed: ' + e.message);
+        break;
+      }
+    }
+    URL.revokeObjectURL(url);
+    STATE.cpuStressCount = STATE.workers.length;
+    log(`Started ${STATE.cpuStressCount} CPU stress workers`);
+    // start a frame-time monitor to show responsiveness
+    startFrameMonitor();
+  }
+
+  function stopCpuStress(){
+    for(const w of STATE.workers){ try{ w.postMessage('stop'); w.terminate(); }catch(e){} }
+    const removed = STATE.workers.length;
+    STATE.workers = []; STATE.cpuStressCount = 0;
+    log(`Stopped CPU stress (${removed} workers terminated)`);
+    stopFrameMonitor();
+  }
+
+  // frame-time monitor using requestAnimationFrame (gives approximate UI responsiveness)
+  let rafId = null;
+  function startFrameMonitor(){
+    STATE.frameTimes = [];
+    let last = performance.now();
+    function frame(){
+      const now = performance.now();
+      STATE.frameTimes.push(now - last);
+      if(STATE.frameTimes.length > 60) STATE.frameTimes.shift();
+      last = now;
+      // reflect average frame time in latency stat (for demonstration)
+      const avg = Math.round((STATE.frameTimes.reduce((a,b)=>a+b,0)/STATE.frameTimes.length) || 0);
+      // show as UI responsiveness "latency" supplement
+      statLatency.textContent = `${STATE.latencyMs + avg} ms`;
+      rafId = requestAnimationFrame(frame);
+    }
+    if(!rafId) rafId = requestAnimationFrame(frame);
+  }
+  function stopFrameMonitor(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } STATE.frameTimes = []; renderUI(); }
+
+  // protect certain actions until unlocked
   function disableUI(disabled){
     const inputs = document.querySelectorAll('input, button');
-    inputs.forEach(el => {
-      // allow PIN elements to remain enabled
-      if(el === pinInput || el === pinBtn) return;
-      el.disabled = disabled;
-    });
+    inputs.forEach(el => { if(el === pinInput || el === pinBtn) return; el.disabled = disabled; });
   }
-
-  // Initially UI disabled until unlock
   disableUI(true);
 
-  // When unlocked, enable controls
-  function onUnlock(){
-    disableUI(false);
-    STATE.unlocked = true;
-    // keep locked overlay gone
-    if(locked) locked.style.display = 'none';
-  }
+  function onUnlock(){ disableUI(false); STATE.unlocked = true; if(locked) locked.style.display = 'none'; updateConnectionInfo(); }
 
-  // Hook unlock event to enable UI when correct pin entered
-  pinBtn.addEventListener('click', ()=> {
-    if(STATE.unlocked) return;
-    const code = (pinInput.value||'').trim();
-    if(code === STATE.pinnedCode){
-      onUnlock();
-    }
-  });
+  pinBtn.addEventListener('click', ()=> { if(STATE.unlocked) return; const code = (pinInput.value||'').trim(); if(code === STATE.pinnedCode){ onUnlock(); } });
 
-  // Also allow double-check: if unlocked via earlier pin, set STATE.unlocked true
-  // (we already set when pin validated above)
-
-  // make sure we enforce unlock for UI actions
-  const protectedActions = [
-    addUsersBtn, maxUsersBtn, clearUsersBtn,
-    addTabsBtn, maxTabsBtn, clearTabsBtn,
-    startTraffic, stopTraffic, burstBtn,
-    shutdownBtn, restartBtn,
-    presetLight, presetMed, presetHeavy, presetMax,
-    exportLogs, clearLogs, snapshotBtn, resetAll
-  ];
+  const protectedActions = [ addUsersBtn, maxUsersBtn, clearUsersBtn, addTabsBtn, maxTabsBtn, clearTabsBtn, startTraffic, stopTraffic, burstBtn, shutdownBtn, restartBtn, presetLight, presetMed, presetHeavy, presetMax, exportLogs, clearLogs, snapshotBtn, resetAll, webrtcTestBtn, webrtcStopBtn, cpuStart, cpuStop ];
   protectedActions.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      if(!STATE.unlocked){
-        e.preventDefault(); toast('Enter PIN 2011 to use controls'); log('Attempt to use protected control while locked'); return false;
-      }
+      if(!STATE.unlocked){ e.preventDefault(); toast('Enter PIN 2011 to use controls'); log('Attempt to use protected control while locked'); return false; }
     });
   });
 
-  // minor: auto-focus pin input
-  pinInput.focus();
-
-  // initial log
+  // initial log and UI
   log('Simulator loaded — awaiting PIN to unlock controls');
+  renderUI();
+
+  // show navigator.connection initially when possible
+  updateConnectionInfo();
+
+  // small helper to update connection info periodically
+  if(navigator.connection){
+    navigator.connection.addEventListener('change', updateConnectionInfo);
+  }
+
 })();
 </script>
 
