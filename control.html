@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gomega Control — Network Simulator (SAFE)</title>
+<style>
+  :root{
+    --bg:#061026; --panel:#071827; --muted:#98a6b8; --accent:#6ee7b7; --danger:#ff6b6b;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,#031025 0%, #071427 100%);padding:20px}
+  .wrap{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:360px 1fr;gap:18px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 40px rgba(2,6,23,0.6)}
+  h1{margin:0 0 8px;font-size:18px}
+  .muted{color:var(--muted);font-size:13px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type="range"]{width:100%}
+  .row{display:flex;gap:8px;align-items:center}
+  .btn{padding:8px 10px;border-radius:8px;background:var(--glass);border:1px solid rgba(255,255,255,0.04);cursor:pointer;color:inherit}
+  .btn.primary{background:linear-gradient(90deg,#10b981,#06b6d4);color:#021018;font-weight:700;border:none}
+  .btn.warn{background:linear-gradient(90deg,#ff7a7a,#ff4949);color:#200; border:none}
+  .stat{font-weight:700;font-size:20px}
+  .small{font-size:12px;color:var(--muted)}
+  .controls-grid{display:grid;gap:12px}
+  .control-block{padding:10px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+  .statusbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  #chart{width:100%;height:140px;background:linear-gradient(180deg,#021226,#031a2e);border-radius:8px}
+  textarea.log{width:100%;height:160px;background:#031224;border-radius:8px;color:#bfeef0;border:1px solid rgba(255,255,255,0.02);padding:8px;font-family:monospace;font-size:12px}
+  .danger-note{background:rgba(255,0,0,0.06);border-left:4px solid rgba(255,0,0,0.22);padding:8px;border-radius:6px;color:#ffc9c9;font-size:13px}
+  .kbd{background:#071827;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.02);font-family:monospace}
+  footer.small{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
+  /* PIN modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:999}
+  .modal{width:420px;background:var(--panel);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
+  .pin-input{display:flex;gap:8px}
+  .pin-input input{flex:1;padding:12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit}
+  .locked-overlay{position:fixed;inset:0;background:linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.75));display:flex;align-items:center;justify-content:center;z-index:980}
+  @media(max-width:980px){ .wrap{grid-template-columns:1fr} .modal{width:92%} }
+</style>
+</head>
+<body>
+
+<div id="locked" class="locked-overlay" aria-hidden="false">
+  <div class="card" style="max-width:560px;text-align:center">
+    <h1>Gomega Control — PIN required</h1>
+    <p class="muted">This control panel is a <strong>simulation only</strong>. It will not change or shut down any real network or send traffic. Enter the 4-digit code to unlock controls.</p>
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <input id="pinInput" class="pin" placeholder="Enter 4-digit code" maxlength="10" style="padding:10px 12px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit;font-size:16px;text-align:center" />
+      <button id="pinBtn" class="btn primary">Unlock</button>
+    </div>
+    <p class="small" style="margin-top:10px">Hint: you asked for code <span class="kbd">2011</span></p>
+    <p class="muted small" style="margin-top:8px">Safety notice: This interface only simulates traffic, speed, and connections inside your browser.</p>
+  </div>
+</div>
+
+<div class="wrap" aria-hidden="false">
+  <!-- Left controls -->
+  <div class="card">
+    <h1>Controls</h1>
+    <p class="muted">Everything simulated locally — no network calls performed.</p>
+
+    <div class="controls-grid">
+      <div class="control-block">
+        <label>Bandwidth limit (Mbps)</label>
+        <input id="bandwidthRange" type="range" min="0" max="5000" step="10" value="1000">
+        <div class="row" style="justify-content:space-between;margin-top:6px">
+          <div class="small muted">0 Mbps</div>
+          <div id="bandwidthValue" class="stat">1000 Mbps</div>
+          <div class="small muted">5000 Mbps</div>
+        </div>
+        <div class="small muted" style="margin-top:6px">This sets the simulated available uplink/downlink capacity.</div>
+      </div>
+
+      <div class="control-block">
+        <label>Simulated Latency (ms)</label>
+        <input id="latencyRange" type="range" min="0" max="1200" step="10" value="40">
+        <div class="row" style="justify-content:space-between;margin-top:6px">
+          <div class="small muted">0 ms</div>
+          <div id="latencyValue" class="stat">40 ms</div>
+          <div class="small muted">1200 ms</div>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <label>Simulated Packet Loss (%)</label>
+        <input id="lossRange" type="range" min="0" max="50" step="0.1" value="0.0">
+        <div class="row" style="justify-content:space-between;margin-top:6px">
+          <div class="small muted">0%</div>
+          <div id="lossValue" class="stat">0%</div>
+          <div class="small muted">50%</div>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <label>Simulated Users</label>
+        <div class="row" style="align-items:center">
+          <input id="userCount" type="number" min="0" max="2000" value="10" style="width:110px;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit" />
+          <div style="flex:1"></div>
+          <button id="addUsersBtn" class="btn">Add users</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="maxUsersBtn" class="btn">Set 2,000 users</button>
+          <button id="clearUsersBtn" class="btn">Clear</button>
+        </div>
+        <div class="small muted" style="margin-top:8px">Each simulated user consumes random bandwidth between 0.05 and 2 Mbps.</div>
+      </div>
+
+      <div class="control-block">
+        <label>Simulated Browser Tabs</label>
+        <div class="row">
+          <input id="tabCount" type="number" min="0" max="3000" value="20" style="width:110px;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit" />
+          <div style="flex:1"></div>
+          <button id="addTabsBtn" class="btn">Add tabs</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="maxTabsBtn" class="btn">Set 3,000 tabs</button>
+          <button id="clearTabsBtn" class="btn">Clear</button>
+        </div>
+        <div class="small muted" style="margin-top:8px">Each tab consumes random bandwidth between 0.01 and 0.8 Mbps.</div>
+      </div>
+
+      <div class="control-block">
+        <label>Traffic Generator</label>
+        <div class="row" style="margin-bottom:8px">
+          <button id="startTraffic" class="btn primary">Start</button>
+          <button id="stopTraffic" class="btn">Stop</button>
+          <button id="burstBtn" class="btn">Burst +100 users</button>
+        </div>
+        <div class="small muted">When running, the system simulates live traffic consumption and updates stats & chart.</div>
+      </div>
+
+      <div class="control-block">
+        <label>Emergency Controls</label>
+        <div style="display:flex;gap:8px">
+          <button id="shutdownBtn" class="btn warn">Shutdown Internet (SIM)</button>
+          <button id="restartBtn" class="btn">Restart (SIM)</button>
+        </div>
+        <div class="danger-note" style="margin-top:8px">
+          <strong>Important:</strong> This is a simulated shutdown. It will not change any real network interfaces or services.
+        </div>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <h1 style="margin-top:12px">Quick Actions</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="presetLight" class="btn">Light load</button>
+      <button id="presetMed" class="btn">Moderate</button>
+      <button id="presetHeavy" class="btn">Heavy</button>
+      <button id="presetMax" class="btn">Max stress</button>
+    </div>
+
+    <footer class="small">Security requirement: code <span class="kbd">2011</span> required to unlock controls.</footer>
+  </div>
+
+  <!-- Right: stats, chart, logs -->
+  <div class="card">
+    <div class="statusbar">
+      <div>
+        <h1>Status</h1>
+        <div class="muted">Simulation status and live metrics</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small muted">Connection</div>
+        <div id="connStatus" class="stat">Online</div>
+        <div class="small muted" id="uptime">Uptime: 0s</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+      <div class="control-block">
+        <div class="small muted">Users</div>
+        <div id="statUsers" class="stat">0</div>
+        <div class="small muted">Simulated connected clients</div>
+      </div>
+      <div class="control-block">
+        <div class="small muted">Tabs</div>
+        <div id="statTabs" class="stat">0</div>
+        <div class="small muted">Active browser tabs</div>
+      </div>
+      <div class="control-block">
+        <div class="small muted">Throughput</div>
+        <div id="statThroughput" class="stat">0 Mbps</div>
+        <div class="small muted">Used / Allocated</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px">
+      <div style="flex:1">
+        <canvas id="chart"></canvas>
+      </div>
+      <div style="width:260px">
+        <div class="control-block" style="margin-bottom:12px">
+          <div class="small muted">Latency</div>
+          <div id="statLatency" class="stat">0 ms</div>
+          <div class="small muted">Packet loss</div>
+          <div id="statLoss" class="stat">0%</div>
+        </div>
+        <div class="control-block">
+          <div class="small muted">Logs</div>
+          <textarea id="logArea" class="log" readonly></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="exportLogs" class="btn">Export Logs</button>
+            <button id="clearLogs" class="btn">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="snapshotBtn" class="btn">Take Snapshot</button>
+      <button id="resetAll" class="btn">Reset Simulation</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/*
+  SAFE SIMULATOR — control.html
+  IMPORTANT:
+  - This file simulates network controls visually only.
+  - It does NOT change real network settings, shutdown interfaces, or generate real traffic.
+  - The "PIN" required to use the controls is 2011 (per user's request).
+*/
+
+(function(){
+  // DOM refs
+  const locked = document.getElementById('locked');
+  const pinInput = document.getElementById('pinInput');
+  const pinBtn = document.getElementById('pinBtn');
+
+  const bandwidthRange = document.getElementById('bandwidthRange');
+  const bandwidthValue = document.getElementById('bandwidthValue');
+  const latencyRange = document.getElementById('latencyRange');
+  const latencyValue = document.getElementById('latencyValue');
+  const lossRange = document.getElementById('lossRange');
+  const lossValue = document.getElementById('lossValue');
+
+  const userCountInput = document.getElementById('userCount');
+  const addUsersBtn = document.getElementById('addUsersBtn');
+  const maxUsersBtn = document.getElementById('maxUsersBtn');
+  const clearUsersBtn = document.getElementById('clearUsersBtn');
+
+  const tabCountInput = document.getElementById('tabCount');
+  const addTabsBtn = document.getElementById('addTabsBtn');
+  const maxTabsBtn = document.getElementById('maxTabsBtn');
+  const clearTabsBtn = document.getElementById('clearTabsBtn');
+
+  const startTraffic = document.getElementById('startTraffic');
+  const stopTraffic = document.getElementById('stopTraffic');
+  const burstBtn = document.getElementById('burstBtn');
+  const shutdownBtn = document.getElementById('shutdownBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  const presetLight = document.getElementById('presetLight');
+  const presetMed = document.getElementById('presetMed');
+  const presetHeavy = document.getElementById('presetHeavy');
+  const presetMax = document.getElementById('presetMax');
+
+  const statUsers = document.getElementById('statUsers');
+  const statTabs = document.getElementById('statTabs');
+  const statThroughput = document.getElementById('statThroughput');
+  const statLatency = document.getElementById('statLatency');
+  const statLoss = document.getElementById('statLoss');
+  const connStatus = document.getElementById('connStatus');
+  const uptimeEl = document.getElementById('uptime');
+
+  const logArea = document.getElementById('logArea');
+  const exportLogs = document.getElementById('exportLogs');
+  const clearLogs = document.getElementById('clearLogs');
+
+  const snapshotBtn = document.getElementById('snapshotBtn');
+  const resetAll = document.getElementById('resetAll');
+
+  // Chart
+  const chartCanvas = document.getElementById('chart');
+  chartCanvas.width = chartCanvas.clientWidth;
+  chartCanvas.height = chartCanvas.clientHeight;
+  const ctx = chartCanvas.getContext('2d');
+
+  // Internal simulation state
+  const STATE = {
+    unlocked: false,
+    pinnedCode: '2011',
+    running: false,
+    offline: false,
+    users: 10,
+    tabs: 20,
+    bandwidthLimitMbps: parseInt(bandwidthRange.value, 10),
+    latencyMs: parseInt(latencyRange.value, 10),
+    lossPct: parseFloat(lossRange.value),
+    logs: [],
+    throughputHistory: [], // last N seconds
+    startTime: Date.now(),
+    tickInterval: null
+  };
+
+  // Helpers
+  function log(msg){
+    const ts = new Date().toISOString();
+    STATE.logs.push({ts, msg});
+    if(STATE.logs.length > 500) STATE.logs.shift();
+    renderLogs();
+  }
+  function renderLogs(){
+    logArea.value = STATE.logs.map(l => `[${l.ts}] ${l.msg}`).join('\n');
+    logArea.scrollTop = logArea.scrollHeight;
+  }
+  function toast(msg){
+    // lightweight toast
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.position = 'fixed';
+    t.style.right = '18px';
+    t.style.bottom = '18px';
+    t.style.background = 'linear-gradient(90deg,#0ea5a9,#7c3aed)';
+    t.style.color = '#021018';
+    t.style.padding = '8px 12px';
+    t.style.borderRadius = '10px';
+    t.style.zIndex = 1000;
+    document.body.appendChild(t);
+    setTimeout(()=>{ t.style.transition='opacity 400ms'; t.style.opacity=0; setTimeout(()=>t.remove(),420); },1800);
+  }
+
+  // Pin logic
+  pinBtn.addEventListener('click', ()=> {
+    const val = (pinInput.value||'').trim();
+    if(!val){ toast('Enter the 4-digit code'); return; }
+    if(val === STATE.pinnedCode){
+      STATE.unlocked = true;
+      locked.style.display = 'none';
+      toast('Controls unlocked');
+      log('Authorized: correct PIN entered');
+      startTick(); // start sim if desired
+      renderUI();
+    } else {
+      toast('Incorrect code');
+      log('Authorization failed attempt: ' + val);
+    }
+  });
+
+  // Keyboard enter on pin
+  pinInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') pinBtn.click(); });
+
+  // Bandwidth / latency / loss updates
+  bandwidthRange.addEventListener('input', (e)=>{
+    const v = parseInt(e.target.value,10);
+    STATE.bandwidthLimitMbps = v;
+    bandwidthValue.textContent = `${v} Mbps`;
+  });
+  latencyRange.addEventListener('input', (e)=>{
+    const v = parseInt(e.target.value,10);
+    STATE.latencyMs = v;
+    latencyValue.textContent = `${v} ms`;
+  });
+  lossRange.addEventListener('input', (e)=>{
+    const v = parseFloat(e.target.value);
+    STATE.lossPct = v;
+    lossValue.textContent = `${v}%`;
+  });
+
+  // Users & tabs
+  addUsersBtn.addEventListener('click', ()=> {
+    const n = clampInt(parseInt(userCountInput.value||0,10), 0, 2000);
+    STATE.users = clampInt(STATE.users + n, 0, 2000);
+    log(`Added ${n} simulated users (now ${STATE.users})`);
+    renderUI();
+  });
+  maxUsersBtn.addEventListener('click', ()=> {
+    STATE.users = 2000;
+    log('Set users to 2000 (max)');
+    renderUI();
+  });
+  clearUsersBtn.addEventListener('click', ()=> {
+    STATE.users = 0;
+    log('Cleared simulated users');
+    renderUI();
+  });
+
+  addTabsBtn.addEventListener('click', ()=> {
+    const n = clampInt(parseInt(tabCountInput.value||0,10), 0, 3000);
+    STATE.tabs = clampInt(STATE.tabs + n, 0, 3000);
+    log(`Added ${n} simulated tabs (now ${STATE.tabs})`);
+    renderUI();
+  });
+  maxTabsBtn.addEventListener('click', ()=> {
+    STATE.tabs = 3000;
+    log('Set tabs to 3000 (max)');
+    renderUI();
+  });
+  clearTabsBtn.addEventListener('click', ()=> {
+    STATE.tabs = 0;
+    log('Cleared simulated tabs');
+    renderUI();
+  });
+
+  // Traffic controls
+  startTraffic.addEventListener('click', ()=> {
+    if(STATE.offline){ toast('Cannot start: simulation is offline'); return; }
+    STATE.running = true;
+    log('Traffic generator started');
+    toast('Traffic simulation started');
+    startTick();
+    renderUI();
+  });
+  stopTraffic.addEventListener('click', ()=> {
+    STATE.running = false;
+    log('Traffic generator stopped');
+    toast('Traffic simulation stopped');
+    stopTick();
+    renderUI();
+  });
+  burstBtn.addEventListener('click', ()=> {
+    const added = Math.min(100, 2000 - STATE.users);
+    STATE.users += added;
+    log(`Burst: +${added} users`);
+    renderUI();
+  });
+
+  // Presets
+  presetLight.addEventListener('click', ()=> { setPreset(50, 20, 0, 30, 100); });
+  presetMed.addEventListener('click', ()=> { setPreset(200, 60, 0.2, 200, 400); });
+  presetHeavy.addEventListener('click', ()=> { setPreset(800, 120, 1.5, 800, 1500); });
+  presetMax.addEventListener('click', ()=> { setPreset(3000, 700, 5.0, 2000, 3000); });
+
+  function setPreset(bw, latency, loss, users, tabs){
+    STATE.bandwidthLimitMbps = bw; bandwidthRange.value = bw; bandwidthValue.textContent = bw + ' Mbps';
+    STATE.latencyMs = latency; latencyRange.value = latency; latencyValue.textContent = latency + ' ms';
+    STATE.lossPct = loss; lossRange.value = loss; lossValue.textContent = loss + '%';
+    STATE.users = clampInt(users, 0, 2000);
+    STATE.tabs = clampInt(tabs, 0, 3000);
+    log(`Preset applied: bw ${bw} Mbps, latency ${latency} ms, loss ${loss}%, users ${STATE.users}, tabs ${STATE.tabs}`);
+    renderUI();
+  }
+
+  // Shutdown & restart (simulation)
+  shutdownBtn.addEventListener('click', ()=> {
+    if(!confirm('Confirm simulated shutdown? This only affects the UI simulation.')) return;
+    STATE.offline = true;
+    STATE.running = false;
+    stopTick();
+    log('SIMULATED INTERNET SHUTDOWN (UI only)');
+    connStatus.textContent = 'Offline';
+    connStatus.style.color = 'var(--danger)';
+    toast('SIMULATED: Internet is offline');
+    renderUI();
+  });
+  restartBtn.addEventListener('click', ()=> {
+    STATE.offline = false;
+    log('SIMULATED INTERNET RESTART');
+    connStatus.textContent = 'Online';
+    connStatus.style.color = '';
+    toast('SIMULATED: Internet restarted');
+    renderUI();
+  });
+
+  // Logs export/clear
+  exportLogs.addEventListener('click', ()=> {
+    const blob = new Blob([JSON.stringify(STATE.logs, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `gomega-logs-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast('Logs exported');
+  });
+  clearLogs.addEventListener('click', ()=> {
+    if(!confirm('Clear logs?')) return;
+    STATE.logs = [];
+    renderLogs();
+    toast('Logs cleared');
+  });
+
+  // Snapshot / Reset
+  snapshotBtn.addEventListener('click', ()=> {
+    const snap = {
+      ts: new Date().toISOString(),
+      users: STATE.users,
+      tabs: STATE.tabs,
+      bandwidthLimitMbps: STATE.bandwidthLimitMbps,
+      latencyMs: STATE.latencyMs,
+      lossPct: STATE.lossPct,
+      throughputHistory: STATE.throughputHistory.slice(-30)
+    };
+    const blob = new Blob([JSON.stringify(snap, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `gomega-snapshot-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    log('Snapshot taken');
+    toast('Snapshot saved');
+  });
+
+  resetAll.addEventListener('click', ()=> {
+    if(!confirm('Reset the simulation to defaults?')) return;
+    STATE.running = false;
+    STATE.offline = false;
+    STATE.users = 10;
+    STATE.tabs = 20;
+    STATE.bandwidthLimitMbps = 1000;
+    bandwidthRange.value = STATE.bandwidthLimitMbps; bandwidthValue.textContent = STATE.bandwidthLimitMbps + ' Mbps';
+    STATE.latencyMs = 40; latencyRange.value = 40; latencyValue.textContent = '40 ms';
+    STATE.lossPct = 0; lossRange.value = 0; lossValue.textContent = '0%';
+    STATE.throughputHistory = [];
+    log('Simulation reset to defaults');
+    renderUI();
+    stopTick();
+  });
+
+  // Tick logic: simulate bandwidth consumption based on users/tabs
+  function tick(){
+    if(STATE.offline){
+      pushThroughput(0);
+      updateDisplay(0, STATE.latencyMs, STATE.lossPct);
+      return;
+    }
+    // Each user consumes 0.05 - 2.0 Mbps
+    // Each tab consumes 0.01 - 0.8 Mbps
+    // We'll simulate random variation per tick
+    const userBandwidth = randomInRange(0.05, 2.0) * STATE.users;
+    const tabBandwidth = randomInRange(0.01, 0.8) * STATE.tabs;
+    let demand = userBandwidth + tabBandwidth; // Mbps
+    // Simulate background noise
+    demand *= randomInRange(0.9, 1.2);
+
+    // If demand exceeds capacity, throughput is capacity and latency/loss increase
+    const capacity = STATE.bandwidthLimitMbps;
+    let throughput = Math.min(capacity, demand);
+    // Compute effective latency increase with congestion
+    let latency = STATE.latencyMs;
+    let loss = STATE.lossPct;
+
+    if(demand > capacity){
+      const overloadRatio = demand / capacity; // >1
+      latency = Math.round(STATE.latencyMs * Math.min(10, 1 + (overloadRatio - 1) * 1.8));
+      loss = Math.min(80, STATE.lossPct + Math.round((overloadRatio - 1) * 5)); // add packet loss with overload
+    } else {
+      // minor jitter even under capacity
+      latency = Math.round(STATE.latencyMs * randomInRange(0.9,1.2));
+      loss = Math.max(STATE.lossPct, parseFloat((STATE.lossPct * randomInRange(0.95,1.05)).toFixed(2)));
+    }
+
+    // Add simulated "drop due to loss"
+    if(loss > 0) throughput *= (1 - Math.min(0.95, loss/100));
+
+    // store and update
+    pushThroughput(throughput);
+    updateDisplay(throughput, latency, loss);
+
+    // log occasional noteworthy events
+    if(demand > capacity && demand/capacity > 1.5 && Math.random() < 0.2){
+      log(`High congestion detected — demand ${Math.round(demand)} Mbps > capacity ${capacity} Mbps`);
+    }
+  }
+
+  function startTick(){
+    if(STATE.tickInterval) return;
+    STATE.tickInterval = setInterval(()=> {
+      if(STATE.running) tick();
+      // always tick display even if not running to update "static" values
+      else tick();
+      updateUptime();
+      drawChart();
+    }, 1000); // 1 second tick
+  }
+  function stopTick(){
+    if(STATE.tickInterval){ clearInterval(STATE.tickInterval); STATE.tickInterval = null; }
+  }
+  function pushThroughput(value){
+    STATE.throughputHistory.push({ts:Date.now(), value});
+    if(STATE.throughputHistory.length > 120) STATE.throughputHistory.shift(); // keep last 2 minutes
+  }
+
+  function updateDisplay(throughput, latency, loss){
+    statUsers.textContent = STATE.users;
+    statTabs.textContent = STATE.tabs;
+    statThroughput.textContent = `${Math.round(throughput)} Mbps / ${STATE.bandwidthLimitMbps} Mbps`;
+    statLatency.textContent = `${latency} ms`;
+    statLoss.textContent = `${loss}%`;
+    // color connection
+    if(STATE.offline){
+      connStatus.textContent = 'Offline';
+      connStatus.style.color = 'var(--danger)';
+    } else {
+      connStatus.textContent = 'Online';
+      connStatus.style.color = '';
+    }
+  }
+
+  function updateUptime(){
+    const s = Math.floor((Date.now() - STATE.startTime) / 1000);
+    uptimeEl.textContent = `Uptime: ${s}s`;
+  }
+
+  // Chart drawing (simple line chart)
+  function drawChart(){
+    const w = chartCanvas.width = chartCanvas.clientWidth;
+    const h = chartCanvas.height = chartCanvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    // background gradient
+    const g = ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'rgba(20,40,60,0.6)');
+    g.addColorStop(1,'rgba(2,14,20,0.6)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+
+    // draw grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      const y = (i+1) * h/6;
+      ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+
+    // draw throughput line
+    const data = STATE.throughputHistory.slice(-60); // last 60 points
+    if(data.length < 2) return;
+    const maxVal = Math.max(...data.map(d => d.value), STATE.bandwidthLimitMbps);
+    const pad = 8;
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      const x = pad + (i/(data.length-1))*(w - pad*2);
+      const y = pad + (1 - (data[i].value / maxVal))*(h - pad*2);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = 'rgba(108, 99, 255, 0.95)';
+    ctx.lineWidth = 2.4; ctx.stroke();
+
+    // fill under curve
+    ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
+    ctx.fillStyle = 'rgba(108, 99, 255, 0.08)'; ctx.fill();
+
+    // axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '11px Inter, system-ui';
+    ctx.fillText(`${Math.round(data[data.length-1].value)} Mbps (now)`, 10, 16);
+    ctx.fillText(`Cap ${STATE.bandwidthLimitMbps} Mbps`, w - 110, 16);
+  }
+
+  // Utility functions
+  function randomInRange(min, max){ return Math.random() * (max - min) + min; }
+  function clampInt(v, a, b){ if(isNaN(v)) return a; return Math.max(a, Math.min(b, Math.floor(v))); }
+
+  // Render UI values
+  function renderUI(){
+    bandwidthRange.value = STATE.bandwidthLimitMbps; bandwidthValue.textContent = STATE.bandwidthLimitMbps + ' Mbps';
+    latencyRange.value = STATE.latencyMs; latencyValue.textContent = STATE.latencyMs + ' ms';
+    lossRange.value = STATE.lossPct; lossValue.textContent = STATE.lossPct + '%';
+    statUsers.textContent = STATE.users;
+    statTabs.textContent = STATE.tabs;
+    // If offline show special status
+    connStatus.textContent = STATE.offline ? 'Offline' : 'Online';
+    connStatus.style.color = STATE.offline ? 'var(--danger)' : '';
+    renderLogs();
+    drawChart();
+  }
+
+  // init defaults
+  renderUI();
+  pushThroughput(0);
+
+  // Start initial tick but not running traffic until user starts (unless unlocked)
+  startTick();
+
+  // Security note: disallow interactions until unlocked
+  // Hide all interactive UI until unlocked (simple approach)
+  function disableUI(disabled){
+    const inputs = document.querySelectorAll('input, button');
+    inputs.forEach(el => {
+      // allow PIN elements to remain enabled
+      if(el === pinInput || el === pinBtn) return;
+      el.disabled = disabled;
+    });
+  }
+
+  // Initially UI disabled until unlock
+  disableUI(true);
+
+  // When unlocked, enable controls
+  function onUnlock(){
+    disableUI(false);
+    STATE.unlocked = true;
+    // keep locked overlay gone
+    if(locked) locked.style.display = 'none';
+  }
+
+  // Hook unlock event to enable UI when correct pin entered
+  pinBtn.addEventListener('click', ()=> {
+    if(STATE.unlocked) return;
+    const code = (pinInput.value||'').trim();
+    if(code === STATE.pinnedCode){
+      onUnlock();
+    }
+  });
+
+  // Also allow double-check: if unlocked via earlier pin, set STATE.unlocked true
+  // (we already set when pin validated above)
+
+  // make sure we enforce unlock for UI actions
+  const protectedActions = [
+    addUsersBtn, maxUsersBtn, clearUsersBtn,
+    addTabsBtn, maxTabsBtn, clearTabsBtn,
+    startTraffic, stopTraffic, burstBtn,
+    shutdownBtn, restartBtn,
+    presetLight, presetMed, presetHeavy, presetMax,
+    exportLogs, clearLogs, snapshotBtn, resetAll
+  ];
+  protectedActions.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if(!STATE.unlocked){
+        e.preventDefault(); toast('Enter PIN 2011 to use controls'); log('Attempt to use protected control while locked'); return false;
+      }
+    });
+  });
+
+  // minor: auto-focus pin input
+  pinInput.focus();
+
+  // initial log
+  log('Simulator loaded — awaiting PIN to unlock controls');
+})();
+</script>
+
+</body>
+</html>
