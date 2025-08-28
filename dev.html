@@ -3,32 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gomega — Profile</title>
+  <title>Gomega — Profile (frontend-only)</title>
   <style>
-    :root { --accent:#1e88e5; --bg:#071022; --card:#071827; color-scheme: dark; }
-    body { margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background: linear-gradient(180deg,#071023 0%, #071020 60%); color:#ddd; display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px; }
-    .card { background:rgba(255,255,255,0.03); border-radius:12px; padding:20px; width:100%; max-width:920px; box-shadow: 0 8px 30px rgba(2,6,23,0.6); }
+    :root { --accent:#1e88e5; --bg:#071022; color-scheme: dark; }
+    body { margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background: linear-gradient(180deg,#071023 0%, #071020 60%); color:#ddd; display:flex; min-height:100vh; align-items:center; justify-content:center; padding:20px; }
+    .card { background:rgba(255,255,255,0.03); border-radius:12px; padding:18px; width:100%; max-width:880px; box-shadow: 0 8px 30px rgba(2,6,23,0.6); }
     .profile { display:flex; gap:18px; align-items:center; }
-    .avatar { width:110px; height:110px; border-radius:12px; background:linear-gradient(135deg,var(--accent),#8ab4ff); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:36px; color:#021025; box-shadow:0 6px 20px rgba(0,0,0,0.6); }
+    .avatar { width:92px; height:92px; border-radius:12px; background:linear-gradient(135deg,var(--accent),#8ab4ff); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:32px; color:#021025; box-shadow:0 6px 20px rgba(0,0,0,0.5); }
     .meta { flex:1; }
     h1 { margin:0 0 6px 0; font-size:20px; }
     .username-url { color:var(--accent); font-weight:600; cursor:pointer; user-select:none; }
     .badges { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
-    .badge { background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:8px; font-size:13px; display:inline-flex; gap:8px; align-items:center; }
+    .badge { background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:8px; font-size:13px; display:inline-flex; align-items:center; }
     .actions { margin-left:auto; display:flex; gap:8px; }
     .btn { background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
     .btn.secondary { background:transparent; border:1px solid rgba(255,255,255,0.06); color:inherit; }
     .small { font-size:13px; color:#aaa; margin-top:6px; }
     .center { text-align:center; padding:20px; }
     input[type="text"] { padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:inherit; width:260px; }
-    .signin { display:flex; gap:8px; align-items:center; }
     .hint { margin-top:10px; color:#9aa7b2; font-size:13px; }
     .error { color:#ff7b7b; font-weight:700; }
     .muted { color:#98a6b3; font-size:13px; }
-    @media (max-width:600px) {
-      .profile { flex-direction:column; align-items:flex-start; }
-      .actions { margin-left:0; width:100%; }
-    }
+    @media (max-width:600px) { .profile{flex-direction:column;align-items:flex-start} .actions{margin-left:0;width:100%} }
   </style>
 </head>
 <body>
@@ -48,16 +44,16 @@
         <div class="actions" id="actions"></div>
       </div>
 
-      <hr style="margin:16px 0; border:none; height:1px; background: rgba(255,255,255,0.03)">
+      <hr style="margin:14px 0;border:none;height:1px;background: rgba(255,255,255,0.03)">
 
       <div id="ownerControls" style="display:none">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input id="newUsername" placeholder="enter username (3-30 chars)" />
           <button class="btn" id="claimBtn">Claim / Change Username</button>
           <button class="btn secondary" id="copyLinkBtn">Copy profile link</button>
           <div class="small" id="ownerInfo"></div>
         </div>
-        <div class="hint" id="claimHint">Claiming uses the server function to ensure uniqueness & cooldowns.</div>
+        <div class="hint" id="claimHint">This frontend-only version writes directly to Firestore. Ensure your Firestore rules allow authenticated writes to /usernames/* and /profiles/{uid}.</div>
       </div>
 
       <div id="signinArea" style="margin-top:12px"></div>
@@ -67,24 +63,34 @@
   </div>
 
   <script type="module">
-  // =========
-  // dev.html — single-file adapter for your existing ./js/firebase.js
-  // Behavior:
-  //  - Tries to import ./js/firebase.js and adapt to multiple export shapes
-  //  - Locates auth, db, functions (via exports or SDK fallback)
-  //  - Always calls the callable 'createOrChangeUsername' to claim usernames
-  //  - Never writes /usernames/* directly from client
-  // =========
+  // ================
+  // Frontend-only dev.html
+  // - Replace the firebaseConfig object below with your Firebase project's config
+  // - This file will sign in users and directly write /usernames and /profiles from the client
+  // ================
 
-  import { getAuth as sdkGetAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore as sdkGetFirestore, doc as sdkDoc, getDoc as sdkGetDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getFunctions as sdkGetFunctions, httpsCallable as sdkHttpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    runTransaction,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // parse requested vanity from first path segment
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-  const requested = pathParts[0] || null;
+  // ---- PASTE YOUR FIREBASE CONFIG BELOW ----
+  const firebaseConfig = {
+    apiKey: "REPLACE_WITH_YOUR_API_KEY",
+    authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+    projectId: "gomega-65e3f",
+    storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+    messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
+    appId: "REPLACE_WITH_YOUR_APP_ID"
+  };
+  // ------------------------------------------
 
-  // UI elements
+  // UI refs
   const loading = document.getElementById('loading');
   const profileTemplate = document.getElementById('profileTemplate');
   const avatarEl = document.getElementById('avatar');
@@ -103,153 +109,73 @@
   const debugArea = document.getElementById('debugArea');
   const claimHint = document.getElementById('claimHint');
 
-  // runtime references (populated by loader)
-  let firebaseApp = null;
-  let auth = null;
-  let db = null;
-  let functions = null;
-  let createUsernameCallable = null;
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const requested = pathParts[0] || null; // e.g., /iii_dev
 
-  // helper UI functions
-  function setDebug(txt) { debugArea.textContent = txt || ''; }
-  function showError(msg) { errorArea.innerHTML = `<div class="error">${escapeHtml(msg)}</div>`; }
-  function clearError() { errorArea.innerHTML = ''; }
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-  // robust loader: tries multiple patterns so you don't need to change your firebase.js
-  async function loadFirebaseCompat() {
-    try {
-      // try dynamic import of user's firebase.js
-      const mod = await import('./js/firebase.js');
-
-      // 1) If file exports named auth/db/functions directly, use them
-      if (mod.auth && mod.db && mod.functions) {
-        auth = mod.auth;
-        db = mod.db;
-        functions = mod.functions;
-        firebaseApp = mod.firebaseApp || mod.app || mod.default || null;
-        setDebug('Loaded named exports from ./js/firebase.js');
-      } else {
-        // 2) try defaults and common variations
-        firebaseApp = mod.firebaseApp || mod.app || mod.firebase || mod.default || null;
-
-        // try common named exports
-        auth = mod.auth || mod.getAuth || null;
-        db = mod.db || mod.getFirestore || null;
-        functions = mod.functions || mod.getFunctions || null;
-
-        // If any of auth/db/functions are functions (getAuth/getFirestore/getFunctions), call them with app if possible
-        if (typeof auth === 'function' && firebaseApp) {
-          try { auth = auth(firebaseApp); } catch(e) { /* ignore */ }
-        }
-        if (typeof db === 'function' && firebaseApp) {
-          try { db = db(firebaseApp); } catch(e) { /* ignore */ }
-        }
-        if (typeof functions === 'function' && firebaseApp) {
-          try { functions = functions(firebaseApp); } catch(e) { /* ignore */ }
-        }
-
-        // 3) fallback: if firebase.js only initialized default app, get SDK singletons
-        if (!auth) {
-          try { auth = sdkGetAuth(); setDebug((debugArea.textContent || '') + ' fallback: sdkGetAuth();'); } catch(e) {}
-        }
-        if (!db) {
-          try { db = sdkGetFirestore(); setDebug((debugArea.textContent || '') + ' fallback: sdkGetFirestore();'); } catch(e) {}
-        }
-        if (!functions) {
-          try { functions = sdkGetFunctions(); setDebug((debugArea.textContent || '') + ' fallback: sdkGetFunctions();'); } catch(e) {}
-        }
-
-        // 4) final attempt: if mod.default looks like an initialized app object, try using its services
-        if ((!auth || !db || !functions) && firebaseApp) {
-          try {
-            if (!auth && typeof sdkGetAuth === 'function') auth = sdkGetAuth(firebaseApp);
-            if (!db && typeof sdkGetFirestore === 'function') db = sdkGetFirestore(firebaseApp);
-            if (!functions && typeof sdkGetFunctions === 'function') functions = sdkGetFunctions(firebaseApp);
-          } catch(e) {}
-        }
-      }
-
-      // Ensure we have at least auth+db
-      if (!auth || !db) {
-        throw new Error('Could not obtain auth and/or db from ./js/firebase.js. The page expects that file to initialize Firebase (default app) or export auth and db.');
-      }
-
-      // create callable if possible (functions may still be undefined if not exported and not available via SDK)
-      if (functions && typeof sdkHttpsCallable === 'function') {
-        try {
-          createUsernameCallable = sdkHttpsCallable(functions, 'createOrChangeUsername');
-          setDebug((debugArea.textContent || '') + ' httpsCallable available');
-        } catch(e) {
-          // ignore - we'll show message later
-        }
-      }
-
-      return { auth, db, functions, createUsernameCallable, firebaseApp };
-    } catch (err) {
-      console.error('Failed to import ./js/firebase.js or initialize Firebase:', err);
-      throw err;
-    }
+  // init firebase
+  let app;
+  try {
+    app = initializeApp(firebaseConfig);
+  } catch (e) {
+    console.error('Firebase init error', e);
+    showError('Failed to initialize Firebase. Did you paste your firebaseConfig? See console.');
+    loading.textContent = 'Initialization error';
+    throw e;
   }
 
-  // read mapping usernames -> profile
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // helpers
+  function showError(msg) { errorArea.innerHTML = `<div class="error">${escapeHtml(msg)}</div>`; debugArea.textContent = msg; }
+  function clearError() { errorArea.innerHTML = ''; debugArea.textContent = ''; }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function setDebug(msg){ debugArea.textContent = msg; }
+
+  // Firestore helpers (modular)
   async function fetchProfileByUsername(name) {
     if (!name) return null;
-    clearError();
     try {
-      const ref = sdkDoc(db, 'usernames', name);
-      const snap = await sdkGetDoc(ref);
-      if (!snap.exists()) return null;
-      const mapping = snap.data();
+      const usernameRef = doc(db, 'usernames', name);
+      const mappingSnap = await getDoc(usernameRef);
+      if (!mappingSnap.exists()) return null;
+      const mapping = mappingSnap.data();
       if (!mapping || !mapping.uid) return null;
-      const profileRef = sdkDoc(db, 'profiles', mapping.uid);
-      const profSnap = await sdkGetDoc(profileRef);
+      const profileRef = doc(db, 'profiles', mapping.uid);
+      const profSnap = await getDoc(profileRef);
       if (!profSnap.exists()) return null;
       return { uid: mapping.uid, ...profSnap.data() };
     } catch (err) {
       console.error('fetchProfileByUsername error', err);
-      showError('Error reading profile — check Firestore read rules or see console.');
+      showError('Error reading profile. Check Firestore read rules and console.');
       return null;
     }
   }
 
-  // small wrappers for the SDK functions used (these are imported from SDK above)
-  // we reference them here to avoid relying on named imports earlier
-  // but ensure sdkDoc & sdkGetDoc are available
-  const sdkDoc = (db && db.doc) ? ((db, path, id) => db.doc(`${path}/${id}`)) : (function(dbRef, collection, id) { return (typeof window !== 'undefined' && typeof window.firebase !== 'undefined') ? window.firebase.firestore().doc(`${collection}/${id}`) : null; });
-  // However, the above is fallback; we'll also use the modular doc/getDoc import directly if available:
-  // to ensure we have modular doc/getDoc, import them here
-  // (we already imported them at top of file)
-  // Use the modular sdkDoc/sdkGetDoc imported at top-level via names:
-  // Note: the top-level const names sdkDoc and sdkGetDoc are available (see imports)
-
-  // show profile in UI
   function showProfile(p) {
     loading.style.display = 'none';
     profileTemplate.style.display = 'block';
     avatarEl.textContent = (p.displayName || p.username || '').slice(0,2).toUpperCase();
     displayNameEl.textContent = p.displayName || ("Player " + (p.uid ? p.uid.slice(0,6) : 'unknown'));
-    if (p.username) {
-      usernameLine.innerHTML = `<span class="username-url" title="Open profile" onclick="window.location.href='/${encodeURIComponent(p.username)}'">/${escapeHtml(p.username)}</span>`;
-    } else {
-      usernameLine.innerHTML = `<em>no username set</em>`;
-    }
+    if (p.username) usernameLine.innerHTML = `<span class="username-url" onclick="window.location.href='/${encodeURIComponent(p.username)}'">/${escapeHtml(p.username)}</span>`;
+    else usernameLine.innerHTML = `<em>no username set</em>`;
     badgesEl.innerHTML = '';
     (p.badges || []).forEach(b => {
-      const bEl = document.createElement('span'); bEl.className='badge'; bEl.textContent = b; badgesEl.appendChild(bEl);
+      const bEl = document.createElement('span'); bEl.className = 'badge'; bEl.textContent = b; badgesEl.appendChild(bEl);
     });
     bioEl.textContent = p.bio || '';
     actionsEl.innerHTML = '';
-    const openBtn = document.createElement('button'); openBtn.className = 'btn secondary'; openBtn.textContent = 'Open in new tab'; openBtn.onclick = () => window.open(location.origin + '/' + (p.username || p.uid), '_blank');
+    const openBtn = document.createElement('button');
+    openBtn.className = 'btn secondary';
+    openBtn.textContent = 'Open in new tab';
+    openBtn.onclick = () => window.open(location.origin + '/' + (p.username || p.uid), '_blank');
     actionsEl.appendChild(openBtn);
     ownerControls.style.display = 'none';
   }
 
-  // setup auth UI and onAuthChanged behavior
-  async function setupAuthAndUI(runtime) {
-    const { auth } = runtime;
-    // create sign-in UI
-    signinArea.innerHTML = `<div class="signin"><button class="btn" id="googleSignBtn">Sign in with Google</button><div class="small" id="signedAs"></div></div>`;
+  // Auth UI
+  function setupAuthUI() {
+    signinArea.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><button class="btn" id="googleSignBtn">Sign in with Google</button><div class="small" id="signedAs"></div></div>`;
     const googleSignBtn = document.getElementById('googleSignBtn');
     const signedAs = document.getElementById('signedAs');
 
@@ -258,7 +184,7 @@
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
       } catch (err) {
-        console.error('Sign-in failed', err);
+        console.error('Sign-in error', err);
         showError('Sign-in failed: ' + (err.message || err.code || 'unknown'));
       }
     };
@@ -267,17 +193,15 @@
       if (user) {
         signedAs.textContent = `Signed in as ${user.email || user.uid}`;
         googleSignBtn.style.display = 'none';
-        // fetch profile by requested username
+        // show owner controls depending on whether requested username is free or owned by user
         const profile = requested ? await fetchProfileByUsername(requested) : null;
         if (!requested) {
           ownerControls.style.display = 'none';
         } else if (!profile) {
-          // available -> allow claim
           ownerControls.style.display = 'block';
           newUsernameInput.value = requested;
-          ownerInfo.textContent = `You are logged in as ${user.email || user.uid}`;
+          ownerInfo.textContent = `You are logged in as ${user.email || user.uid}.`;
         } else {
-          // claimed -> if owner show change UI
           if (profile.uid === user.uid) {
             ownerControls.style.display = 'block';
             ownerInfo.textContent = `You can change username once every 15 days (unless admin). Current: ${profile.username || '(none)'}`;
@@ -292,76 +216,108 @@
         ownerControls.style.display = 'none';
       }
     }, (err) => {
-      console.error('onAuthStateChanged error', err);
+      console.error('onAuthStateChanged err', err);
       showError('Auth state error: ' + (err.message || err.code || 'unknown'));
     });
   }
 
-  // claim flow: uses callable ONLY
-  async function claimUsername(runtime, username) {
+  // Client-side transaction to claim/change username (frontend-only)
+  async function claimOrChangeUsername(username) {
     clearError();
-    if (!runtime.createUsernameCallable) {
-      showError('Server function unavailable. The page expects a callable function named createOrChangeUsername. Check functions deployment.');
+    if (!auth.currentUser) {
+      showError('Sign in first.');
       return;
     }
+    const uid = auth.currentUser.uid;
+
+    // quick local validation
+    if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
+      showError('Bad username format. Use 3-30 letters, numbers, dot, dash, underscore.');
+      return;
+    }
+
     try {
       claimBtn.disabled = true;
       claimBtn.textContent = 'Claiming…';
-      const res = await runtime.createUsernameCallable({ username });
-      if (res && res.data && res.data.success) {
-        // success: redirect to vanity URL
-        window.location.href = '/' + encodeURIComponent(res.data.username);
-      } else {
-        console.warn('Unexpected callable response', res);
-        showError('Unexpected server response. See console for details.');
-      }
+      setDebug('Starting Firestore transaction…');
+
+      await runTransaction(db, async (t) => {
+        const usernameRef = doc(db, 'usernames', username);
+        const usernameSnap = await t.get(usernameRef);
+        if (usernameSnap.exists()) {
+          throw { code: 'already-exists', message: 'username taken' };
+        }
+
+        const profileRef = doc(db, 'profiles', uid);
+        const profileSnap = await t.get(profileRef);
+        const profileData = profileSnap.exists() ? profileSnap.data() : {};
+
+        // cooldown check (15 days) enforced client-side here
+        if (profileData.lastUsernameChange) {
+          const last = profileData.lastUsernameChange.toDate ? profileData.lastUsernameChange.toDate() : new Date(profileData.lastUsernameChange);
+          const diffDays = (Date.now() - last.getTime()) / (1000*60*60*24);
+          if (diffDays < 15) {
+            throw { code: 'failed-precondition', message: `You can change username only once every 15 days (wait ${(15 - Math.floor(diffDays))} more day(s))` };
+          }
+        }
+
+        // delete old mapping if present
+        if (profileData.username) {
+          const oldRef = doc(db, 'usernames', profileData.username);
+          t.delete(oldRef);
+        }
+
+        // create new mapping
+        t.set(usernameRef, { uid: uid, createdAt: serverTimestamp() });
+
+        // update profile
+        t.set(profileRef, { username: username, lastUsernameChange: serverTimestamp() }, { merge: true });
+      });
+
+      setDebug('Transaction successful');
+      alert('Username claimed: ' + username);
+      // redirect to the vanity url
+      window.location.href = '/' + encodeURIComponent(username);
+
     } catch (err) {
-      console.error('Claim error', err);
-      // firebase functions errors often contain details in err.code or err.message
-      const code = err?.code || '';
-      const msg = err?.message || JSON.stringify(err);
+      console.error('Transaction error', err);
+      const code = err?.code || (err && err.message && err.message.toLowerCase().includes('permission') ? 'permission-denied' : null);
       if (code === 'already-exists') showError('That username is already taken.');
-      else if (code === 'failed-precondition') showError(msg);
-      else if (code === 'permission-denied') showError('Permission denied. Are you signed in?');
-      else showError('Claim failed: ' + msg);
+      else if (code === 'failed-precondition') showError(err.message || 'Cooldown active.');
+      else if (code === 'permission-denied' || (err && err.message && err.message.toLowerCase().includes('permission'))) {
+        showError('Permission denied. Your Firestore security rules currently block client-side username claims. To use this frontend-only flow, allow authenticated users to write /usernames and update /profiles. See console for details.');
+      } else showError('Claim failed: ' + (err.message || JSON.stringify(err)));
     } finally {
       claimBtn.disabled = false;
       claimBtn.textContent = 'Claim / Change Username';
     }
   }
 
-  // wire buttons
-  function wireButtons(runtime) {
-    copyLinkBtn.onclick = () => {
-      const u = location.origin + '/' + (requested || '');
-      navigator.clipboard.writeText(u).then(()=> {
-        copyLinkBtn.textContent = 'Copied!';
-        setTimeout(()=> copyLinkBtn.textContent = 'Copy profile link', 1500);
-      }).catch(err => showError('Copy failed: ' + (err.message || err)));
-    };
+  // wire UI buttons
+  copyLinkBtn.onclick = () => {
+    const u = location.origin + '/' + (requested || '');
+    navigator.clipboard.writeText(u).then(()=> {
+      copyLinkBtn.textContent = 'Copied!';
+      setTimeout(()=> copyLinkBtn.textContent = 'Copy profile link', 1500);
+    }).catch(err => showError('Copy failed: ' + (err.message || err)));
+  };
 
-    claimBtn.onclick = async () => {
-      const v = newUsernameInput.value.trim();
-      if (!v) { alert('Enter username'); return; }
-      if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(v)) { alert('Bad username format (3-30 chars letters/numbers/_/./-)'); return; }
-      await claimUsername(runtime, v);
-    };
-  }
+  claimBtn.onclick = async () => {
+    const v = newUsernameInput.value.trim();
+    if (!v) { alert('Enter a username'); return; }
+    await claimOrChangeUsername(v);
+  };
 
-  // main boot
-  (async function boot() {
+  // boot
+  (async function init() {
     try {
-      const runtime = await loadFirebaseCompat();
-      // runtime contains auth/db/functions/createUsernameCallable (if available)
-      // Note: we rely on the modular SDK doc/getDoc functions we imported at top (sdkDoc/sdkGetDoc)
-      // but the modular imports are already bound to the default SDK functions.
-      // Show the profile or available UI
+      setupAuthUI();
+
+      // initial profile load
       if (requested) {
         const profile = await fetchProfileByUsername(requested);
-        if (profile) {
-          showProfile(profile);
-        } else {
-          // username unclaimed
+        if (profile) showProfile(profile);
+        else {
           loading.style.display = 'none';
           profileTemplate.style.display = 'block';
           displayNameEl.textContent = 'No profile';
@@ -378,27 +334,11 @@
         ownerControls.style.display = 'none';
       }
 
-      // show hint if callable missing
-      if (!runtime.createUsernameCallable) {
-        claimHint.textContent = 'Server function createOrChangeUsername not found. If you have that function deployed, make sure Functions are on the same project and region or that firebase.js exposes functions().';
-        setDebug('createOrChangeUsername callable not found — page will not be able to claim usernames until function is reachable.');
-      } else {
-        claimHint.textContent = 'Claiming uses the server callable createOrChangeUsername.';
-        setDebug('createOrChangeUsername callable ready.');
-      }
-
-      // setup auth UI and watchers
-      await setupAuthAndUI(runtime);
-
-      // wire the buttons (needs runtime for claim)
-      // attach runtime.createUsernameCallable to runtime object so claim uses it
-      runtime.createUsernameCallable = runtime.createUsernameCallable || null;
-      wireButtons(runtime);
-
-    } catch (err) {
-      console.error('Boot error', err);
-      loading.textContent = 'Failed to initialize page. See error message below.';
-      showError('Initialization failed — check console. ' + (err.message || err));
+      setDebug('Ready — frontend-only mode');
+    } catch (e) {
+      console.error('init error', e);
+      showError('Initialization failed: ' + (e?.message || e));
+      loading.textContent = 'Init error';
     }
   })();
 
