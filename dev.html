@@ -3,513 +3,381 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gomega — Profile / Username Manager</title>
+  <title>Gomega — Profile (fixed)</title>
   <style>
-    :root { --accent:#1e88e5; --bg:#071023; --card:#0b1320; color-scheme: dark; }
+    :root { --accent:#1e88e5; --bg:#071022; --card:#071827; color-scheme: dark; }
     body { margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background: linear-gradient(180deg,#071023 0%, #071020 60%); color:#ddd; display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px; }
-    .card { background:rgba(255,255,255,0.03); border-radius:12px; padding:20px; width:100%; max-width:980px; box-shadow: 0 8px 30px rgba(2,6,23,0.6); }
-    .row { display:flex; gap:12px; align-items:center; }
-    .profileHeader { display:flex; gap:18px; align-items:center; width:100%; }
+    .card { background:rgba(255,255,255,0.03); border-radius:12px; padding:20px; width:100%; max-width:880px; box-shadow: 0 8px 30px rgba(2,6,23,0.6); }
+    .profile { display:flex; gap:18px; align-items:center; }
     .avatar { width:110px; height:110px; border-radius:12px; background:linear-gradient(135deg,var(--accent),#8ab4ff); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:36px; color:#021025; box-shadow:0 6px 20px rgba(0,0,0,0.6); }
-    h1 { margin:0 0 6px 0; font-size:20px; color:#fff; }
-    .username-url { color:var(--accent); font-weight:700; cursor:pointer; }
-    .muted { color:#9aa6b2; }
+    .meta { flex:1; }
+    h1 { margin:0 0 6px 0; font-size:20px; }
+    .username-url { color:var(--accent); font-weight:600; cursor:pointer; user-select:none; }
     .badges { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
     .badge { background:rgba(255,255,255,0.04); padding:6px 8px; border-radius:8px; font-size:13px; display:inline-flex; gap:8px; align-items:center; }
+    .actions { margin-left:auto; display:flex; gap:8px; }
     .btn { background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
-    .btn.secondary { background:transparent; border:1px solid rgba(255,255,255,0.06); color: #dceeff; }
-    input[type="text"], input[type="search"] { padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:inherit; width:260px; }
-    .note { font-size:13px; color:#9aa6b2; margin-top:6px; }
-    .grid { display:grid; grid-template-columns: 1fr 380px; gap:18px; }
-    @media (max-width:900px) { .grid { grid-template-columns: 1fr; } .avatar { width:76px; height:76px; font-size:20px; } }
-    .adminPanel { margin-top:12px; background: rgba(255,255,255,0.02); padding:12px; border-radius:8px; }
-    .center { text-align:center; }
-    .small { font-size:13px; color:#aaa; }
-    .danger { background:#7b2121; }
-    .sugg { color: #cbd8e6; font-size:13px; cursor:pointer; text-decoration:underline; }
+    .btn.secondary { background:transparent; border:1px solid rgba(255,255,255,0.06); color:inherit; }
+    .small { font-size:13px; color:#aaa; margin-top:6px; }
+    .center { text-align:center; padding:20px; }
+    input[type="text"] { padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:inherit; width:260px; }
+    .signin { display:flex; gap:8px; align-items:center; }
+    @media (max-width:600px) {
+      .profile { flex-direction:column; align-items:flex-start; }
+      .actions { margin-left:0; width:100%; }
+    }
+    .hint { margin-top:10px; color:#9aa7b2; font-size:13px; }
+    .error { color:#ff7b7b; font-weight:700; }
   </style>
 </head>
 <body>
   <div class="card" id="root">
-    <div class="grid">
-      <div>
-        <div id="loading" class="center">Loading…</div>
+    <div id="loading" class="center">Loading profile…</div>
 
-        <div id="profileCard" style="display:none">
-          <div class="profileHeader">
-            <div class="avatar" id="avatar">GK</div>
-            <div style="flex:1">
-              <h1 id="displayName">User</h1>
-              <div id="usernameLine" class="muted">/username</div>
-              <div class="badges" id="badges"></div>
-              <div class="note" id="bio">Profile bio…</div>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
-              <div id="publicActions"></div>
-              <div class="small muted">UID: <span id="uidShort"></span></div>
-            </div>
+    <div id="profileTemplate" style="display:none">
+      <div class="profile">
+        <div class="avatar" id="avatar">GK</div>
+        <div class="meta">
+          <h1 id="displayName">User</h1>
+          <div>
+            <span id="usernameLine"></span>
           </div>
+          <div class="badges" id="badges"></div>
+          <div class="small" id="bio"></div>
+        </div>
 
-          <hr style="margin:14px 0; border:none; height:1px; background: rgba(255,255,255,0.03)">
-
-          <div id="ownerControls" style="display:none">
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-              <input id="usernameInput" placeholder="pick username (3-30 chars)" />
-              <button class="btn" id="claimBtn">Claim / Change</button>
-              <button class="btn secondary" id="copyBtn">Copy profile link</button>
-            </div>
-            <div class="note" id="ownerNote"></div>
-            <div style="margin-top:10px;" id="suggestions"></div>
-          </div>
-
-          <div id="anonPrompt" style="display:none; margin-top:12px;">
-            <div class="note">You aren't signed in. <button class="btn secondary" id="signinBtn">Sign in with Google</button></div>
-          </div>
-
+        <div class="actions" id="actions">
+          <!-- dynamic -->
         </div>
       </div>
 
-      <div>
-        <div class="card" style="padding:12px; box-shadow:none; background:transparent;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div><strong>Profile Manager</strong></div>
-            <div><span class="muted" id="loggedInAs">—</span></div>
-          </div>
+      <hr style="margin:16px 0; border:none; height:1px; background: rgba(255,255,255,0.03)">
 
-          <div style="margin-top:10px;">
-            <div class="note">Open <code>gomega.watch/&lt;username&gt;</code> to view a profile. Use this page to claim and manage your username and badges.</div>
-          </div>
-
-          <div style="margin-top:10px;">
-            <div style="display:flex; gap:8px;">
-              <input id="lookupInput" placeholder="Lookup username or UID" />
-              <button class="btn secondary" id="lookupBtn">Lookup</button>
-            </div>
-            <div class="note" id="lookupResult"></div>
-          </div>
-
-          <div class="adminPanel" id="adminPanel" style="display:none;">
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input id="adminUid" placeholder="target UID" />
-              <input id="adminBadge" placeholder="badge id (e.g. founder)" />
-              <button class="btn" id="assignBadgeBtn">Assign badge</button>
-              <button class="btn danger" id="removeBadgeBtn">Remove badge</button>
-            </div>
-            <div class="note">Admins can add/remove badges. (Requires admin claim or special email.)</div>
-          </div>
-
+      <div id="ownerControls" style="display:none">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+          <input id="newUsername" placeholder="enter username (3-30 chars)" />
+          <button class="btn" id="claimBtn">Claim / Change Username</button>
+          <button class="btn secondary" id="copyLinkBtn">Copy profile link</button>
+          <div class="small" id="ownerInfo"></div>
         </div>
-
-        <div style="margin-top:12px;">
-          <div class="small muted">Reserved names: <span id="reservedList">admin, moderator, support, www, api</span></div>
-        </div>
-
+        <div class="hint" id="claimHint">Claiming uses the server to ensure uniqueness & cooldowns.</div>
       </div>
+
+      <div id="signinArea" style="margin-top:12px;"></div>
+      <div id="errorArea" style="margin-top:12px;"></div>
     </div>
   </div>
 
   <script type="module">
-  (async function main(){
-    // CONFIG: reserved names & regex
-    const RESERVED = new Set(["admin","administrator","mod","moderator","support","www","api","firebase","null","undefined"]);
-    const NAME_RE = /^[a-zA-Z0-9_.-]{3,30}$/;
-    const COOLDOWN_DAYS = 15;
-    const specialAdminEmail = "gomegaassist@gmail.com";
+    // Robust dev.html: dynamic import of your firebase.js (preferred), with modular fallbacks.
+    import {
+      getAuth as sdkGetAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // dynamic import of your firebase.js (you said you won't change it)
-    let fb;
-    try {
-      fb = await import('./js/firebase.js');
-    } catch (e) {
-      console.error("Could not import ./js/firebase.js — make sure it exists and is a module that exports auth and db.", e);
-      document.getElementById('root').innerHTML = '<div class="center">Error: cannot load ./js/firebase.js. Make sure the file exists and exports auth and db.</div>';
-      return;
-    }
+    import {
+      getFirestore as sdkGetFirestore,
+      doc as sdkDoc,
+      getDoc as sdkGetDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // extract auth & db in a flexible way (support multiple export shapes)
-    let auth = fb.auth || (fb.getAuth ? fb.getAuth() : null);
-    let db = fb.db || (fb.getFirestore ? fb.getFirestore() : null);
+    import {
+      getFunctions as sdkGetFunctions,
+      httpsCallable as sdkHttpsCallable
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-    // if not exported as named values, check for default firebase object
-    if (!auth && fb.firebase && fb.firebase.auth) {
-      auth = fb.firebase.auth();
-    }
-    if (!db && fb.firebase && fb.firebase.firestore) {
-      db = fb.firebase.firestore();
-    }
+    // Utility: query path for requested username (first path segment)
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const requested = pathParts[0] || null; // e.g., "iii_dev"
 
-    if (!auth || !db) {
-      console.error("firebase.js did not expose 'auth' or 'db'. Please export them. Example: export const auth = getAuth(); export const db = getFirestore();");
-      document.getElementById('root').innerHTML = '<div class="center">Error: firebase.js must export auth and db (see console).</div>';
-      return;
-    }
-
-    // Import Firestore helpers from modular SDK (these functions don't re-init app)
-    const {
-      doc, getDoc, setDoc, deleteDoc, serverTimestamp, runTransaction, updateDoc, arrayUnion, arrayRemove, query, where, collection, limit, getDocs
-    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-    const { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, getIdTokenResult } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-
-    // UI refs
+    // UI references
     const loading = document.getElementById('loading');
-    const profileCard = document.getElementById('profileCard');
-    const avatar = document.getElementById('avatar');
-    const displayName = document.getElementById('displayName');
+    const profileTemplate = document.getElementById('profileTemplate');
+    const avatarEl = document.getElementById('avatar');
+    const displayNameEl = document.getElementById('displayName');
     const usernameLine = document.getElementById('usernameLine');
     const badgesEl = document.getElementById('badges');
     const bioEl = document.getElementById('bio');
-    const uidShort = document.getElementById('uidShort');
-    const publicActions = document.getElementById('publicActions');
+    const actionsEl = document.getElementById('actions');
     const ownerControls = document.getElementById('ownerControls');
-    const anonPrompt = document.getElementById('anonPrompt');
-    const usernameInput = document.getElementById('usernameInput');
     const claimBtn = document.getElementById('claimBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const ownerNote = document.getElementById('ownerNote');
-    const suggestionsDiv = document.getElementById('suggestions');
-    const signinBtn = document.getElementById('signinBtn');
-    const loggedInAs = document.getElementById('loggedInAs');
+    const newUsernameInput = document.getElementById('newUsername');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const ownerInfo = document.getElementById('ownerInfo');
+    const signinArea = document.getElementById('signinArea');
+    const errorArea = document.getElementById('errorArea');
 
-    const lookupInput = document.getElementById('lookupInput');
-    const lookupBtn = document.getElementById('lookupBtn');
-    const lookupResult = document.getElementById('lookupResult');
+    // variables set after firebase import
+    let firebaseApp = null;
+    let auth = null;
+    let db = null;
+    let functions = null;
+    let createUsernameCallable = null;
 
-    const adminPanel = document.getElementById('adminPanel');
-    const adminUid = document.getElementById('adminUid');
-    const adminBadge = document.getElementById('adminBadge');
-    const assignBadgeBtn = document.getElementById('assignBadgeBtn');
-    const removeBadgeBtn = document.getElementById('removeBadgeBtn');
-
-    const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const requested = pathParts[0] || null; // desired username from URL
-
-    // Helpers
-    function shortUid(u){ return u ? u.slice(0,6) : ''; }
-    function originLink(u){ return location.origin + '/' + encodeURIComponent(u); }
-    function isValidName(n){ return NAME_RE.test(n) && !RESERVED.has(n.toLowerCase()); }
-
-    async function isAdminUser(user) {
-      if (!user) return false;
+    // Try to dynamically import your firebase.js and adapt to common export patterns.
+    async function loadFirebaseGlue() {
       try {
-        const token = await getIdTokenResult(user);
-        if (token && token.claims && token.claims.admin) return true;
-      } catch(e){ /* ignore */ }
-      if ((user.email || '').toLowerCase() === specialAdminEmail.toLowerCase()) return true;
-      return false;
+        const mod = await import('./js/firebase.js');
+        // try common export names
+        firebaseApp = mod.firebase || mod.app || mod.firebaseApp || mod.default || null;
+
+        // auth / db / functions preferred exported
+        auth = mod.auth || mod.getAuth || null;
+        db = mod.db || mod.getFirestore || null;
+        functions = mod.functions || mod.getFunctions || null;
+
+        // If any are functions (getAuth/getFirestore/getFunctions), call them with the app if available.
+        if (typeof auth === 'function' && firebaseApp) auth = auth(firebaseApp);
+        if (typeof db === 'function' && firebaseApp) db = db(firebaseApp);
+        if (typeof functions === 'function' && firebaseApp) functions = functions(firebaseApp);
+
+        // If exports not provided, fall back to SDK initializers which require firebaseApp to exist
+        if (!auth && firebaseApp) auth = sdkGetAuth(firebaseApp);
+        if (!db && firebaseApp) db = sdkGetFirestore(firebaseApp);
+        if (!functions && firebaseApp) functions = sdkGetFunctions(firebaseApp);
+
+        // If still missing firebaseApp (some firebase.js simply exported auth/db directly),
+        // try to read firebaseApp from default export subfields
+        if (!firebaseApp && mod.default && typeof mod.default === 'object') {
+          firebaseApp = mod.default.app || mod.default.firebaseApp || null;
+        }
+
+        // Last fallback: if any of auth/db/functions still missing, attempt SDK without app (this requires firebase.js to have initialized default app elsewhere)
+        if (!auth) try { auth = sdkGetAuth(); } catch(e){ /* ignore */ }
+        if (!db) try { db = sdkGetFirestore(); } catch(e){ /* ignore */ }
+        if (!functions) try { functions = sdkGetFunctions(); } catch(e){ /* ignore */ }
+
+        // If functions is present, create the callable wrapper
+        if (functions) {
+          createUsernameCallable = sdkHttpsCallable(functions, 'createOrChangeUsername');
+        }
+
+        // final check
+        if (!db || !auth || !functions) {
+          showError(`firebase.js did not expose the required exports (auth, db, functions).
+Please ensure ./js/firebase.js exports at least auth, db, and functions (or initializes the default app).`);
+          throw new Error("Missing firebase exports");
+        }
+
+        return { auth, db, functions };
+      } catch (err) {
+        // if dynamic import fails, inform the user
+        console.error('Failed to import ./js/firebase.js or initialize Firebase:', err);
+        showError('Failed to load ./js/firebase.js or Firebase SDK. Make sure that file exists and exports auth, db, and functions (or that it initializes the default app). Check browser console for details.');
+        throw err;
+      }
     }
 
-    // Fetch profile by username mapping
+    function showError(msg) {
+      errorArea.innerHTML = `<div class="error">${escapeHtml(msg)}</div>`;
+    }
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    // read mapping: /usernames/{name} -> { uid }
     async function fetchProfileByUsername(name) {
       if (!name) return null;
-      const mappingRef = doc(db, 'usernames', name);
-      const mappingSnap = await getDoc(mappingRef);
-      if (!mappingSnap.exists()) return null;
-      const { uid } = mappingSnap.data();
-      const profRef = doc(db, 'profiles', uid);
-      const profSnap = await getDoc(profRef);
-      if (!profSnap.exists()) return { uid, username:name };
-      return { uid, ...profSnap.data() };
+      try {
+        const usernameRef = sdkDoc(db, 'usernames', name);
+        const mappingSnap = await sdkGetDoc(usernameRef);
+        if (!mappingSnap.exists()) return null;
+        const data = mappingSnap.data();
+        const uid = data.uid;
+        if (!uid) return null;
+        const profileRef = sdkDoc(db, 'profiles', uid);
+        const profSnap = await sdkGetDoc(profileRef);
+        if (!profSnap.exists()) return null;
+        return { uid, ...(profSnap.data()) };
+      } catch (err) {
+        console.error('fetchProfileByUsername error', err);
+        showError('Error reading profile. Check Firestore rules / read permissions. See console for details.');
+        return null;
+      }
     }
 
-    // Render profile
-    async function showProfile(profile) {
-      loading.style.display='none';
-      profileCard.style.display='block';
-      avatar.textContent = (profile.displayName || profile.username || profile.uid).slice(0,2).toUpperCase();
-      displayName.textContent = profile.displayName || ('Player ' + shortUid(profile.uid));
-      usernameLine.innerHTML = profile.username ? `<span class="username-url" onclick="window.open('${originLink(profile.username)}','_self')">/${profile.username}</span>` : `<em class="muted">no username</em>`;
+    function showProfile(p) {
+      loading.style.display = 'none';
+      profileTemplate.style.display = 'block';
+      avatarEl.textContent = (p.displayName || p.username || '').slice(0,2).toUpperCase();
+      displayNameEl.textContent = p.displayName || ("Player " + (p.uid ? p.uid.slice(0,6) : 'unknown'));
+      if (p.username) {
+        usernameLine.innerHTML = `<span class="username-url" title="Open profile" onclick="window.location.href='/${encodeURIComponent(p.username)}'">/${escapeHtml(p.username)}</span>`;
+      } else {
+        usernameLine.innerHTML = `<em>no username set</em>`;
+      }
+
       badgesEl.innerHTML = '';
-      (profile.badges || []).forEach(b => {
-        const el = document.createElement('span'); el.className='badge'; el.textContent = b; badgesEl.appendChild(el);
+      (p.badges || []).forEach(b => {
+        const bEl = document.createElement('span');
+        bEl.className = 'badge';
+        bEl.textContent = b;
+        badgesEl.appendChild(bEl);
       });
-      bioEl.textContent = profile.bio || '';
-      uidShort.textContent = shortUid(profile.uid);
 
-      publicActions.innerHTML = '';
+      bioEl.textContent = p.bio || '';
+
+      // public actions
+      actionsEl.innerHTML = '';
       const openBtn = document.createElement('button');
-      openBtn.className='btn secondary'; openBtn.textContent = 'Open in new tab';
-      openBtn.onclick = ()=> window.open(originLink(profile.username || profile.uid), '_blank');
-      publicActions.appendChild(openBtn);
+      openBtn.className = 'btn secondary';
+      openBtn.textContent = 'Open in new tab';
+      openBtn.onclick = () => window.open(location.origin + '/' + (p.username || p.uid), '_blank');
+      actionsEl.appendChild(openBtn);
+
+      // owner controls visibility handled elsewhere based on auth state
+      ownerControls.style.display = 'none';
     }
 
-    // Create profile doc if missing (owner-only call)
-    async function ensureProfileExists(uid){
-      const ref = doc(db, 'profiles', uid);
-      const snap = await getDoc(ref);
-      if (!snap.exists()) {
-        await setDoc(ref, {
-          createdAt: serverTimestamp(),
-          displayName: '',
-          badges: []
-        }, { merge: true });
+    // Initialize page: load firebase, then show profile or available UI
+    async function init() {
+      try {
+        await loadFirebaseGlue(); // sets db, auth, functions, createUsernameCallable
+      } catch (err) {
+        loading.textContent = 'Failed to load Firebase. See error message below.';
+        return;
+      }
+
+      // show sign-in area and attach auth state watcher
+      setupAuthUI();
+
+      // initial profile attempt
+      if (requested) {
+        const profile = await fetchProfileByUsername(requested);
+        if (profile) {
+          showProfile(profile);
+        } else {
+          // username not claimed yet
+          loading.style.display = 'none';
+          profileTemplate.style.display = 'block';
+          displayNameEl.textContent = 'No profile';
+          usernameLine.innerHTML = `<span class="username-url">/${escapeHtml(requested)}</span> — available?`;
+          badgesEl.innerHTML = '';
+          bioEl.textContent = '';
+          ownerControls.style.display = 'none'; // will show if owner is signed in
+        }
+      } else {
+        // no username in path - minimal landing
+        loading.style.display = 'none';
+        profileTemplate.style.display = 'block';
+        displayNameEl.textContent = 'Profile viewer';
+        usernameLine.innerHTML = `<em>Enter a username in the URL (e.g. /iii_dev)</em>`;
+        ownerControls.style.display = 'none';
       }
     }
 
-    // Core: client-side transaction to claim/change username
-    async function claimUsernameAtomic(uid, desiredName, isAdminFlag=false) {
-      if (!desiredName) throw new Error('no username');
-      if (!NAME_RE.test(desiredName)) throw new Error('bad format');
-      if (RESERVED.has(desiredName.toLowerCase())) throw new Error('reserved');
+    function setupAuthUI() {
+      // create sign-in button area
+      signinArea.innerHTML = `
+        <div class="signin" id="signinLine">
+          <button class="btn" id="googleSignBtn">Sign in with Google</button>
+          <div class="small" id="signedAs"></div>
+        </div>
+      `;
+      const googleSignBtn = document.getElementById('googleSignBtn');
+      const signedAs = document.getElementById('signedAs');
 
-      const usernameRef = doc(db, 'usernames', desiredName);
-      const profileRef = doc(db, 'profiles', uid);
-
-      return await runTransaction(db, async (tx) => {
-        const usernameSnap = await tx.get(usernameRef);
-        if (usernameSnap.exists()) throw new Error('username_taken');
-
-        const profileSnap = await tx.get(profileRef);
-        const profileData = profileSnap.exists() ? profileSnap.data() : {};
-
-        // cooldown check (unless admin)
-        if (!isAdminFlag && profileData.lastUsernameChange) {
-          const last = profileData.lastUsernameChange.toDate();
-          const diffDays = (Date.now() - last.getTime()) / (1000*60*60*24);
-          if (diffDays < COOLDOWN_DAYS) throw new Error('cooldown');
+      googleSignBtn.onclick = async () => {
+        try {
+          const provider = new GoogleAuthProvider();
+          await signInWithPopup(auth, provider);
+        } catch (err) {
+          console.error('Sign-in error', err);
+          showError('Sign-in failed: ' + (err.message || err.code || 'unknown'));
         }
+      };
 
-        // delete old mapping if exists
-        if (profileData.username) {
-          const oldName = profileData.username;
-          const oldRef = doc(db, 'usernames', oldName);
-          // ensure oldRef was owned by uid before deleting
-          const oldSnap = await tx.get(oldRef);
-          if (oldSnap.exists() && oldSnap.data().uid === uid) {
-            tx.delete(oldRef);
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          signedAs.textContent = `Signed in as ${user.email || user.uid}`;
+          googleSignBtn.style.display = 'none';
+          // if the requested username is available and the signed-in user wants to claim, show ownerControls
+          const profile = requested ? await fetchProfileByUsername(requested) : null;
+          if (!requested) {
+            // if visiting without username, owner controls remain hidden
+            ownerControls.style.display = 'none';
+          } else if (!profile) {
+            // username is available — allow claim
+            ownerControls.style.display = 'block';
+            newUsernameInput.value = requested;
+            ownerInfo.textContent = `You are logged in as ${user.email || user.uid}.`;
           } else {
-            // if mismatch, don't delete
+            // profile exists: if current user is the owner, show controls to change username
+            if (profile.uid === user.uid) {
+              ownerControls.style.display = 'block';
+              ownerInfo.textContent = `You can change username once every 15 days (unless admin). Current: ${profile.username || '(none)'}`;
+              newUsernameInput.value = profile.username || requested;
+            } else {
+              ownerControls.style.display = 'none';
+            }
           }
+        } else {
+          signedAs.textContent = '';
+          googleSignBtn.style.display = 'inline-block';
+          ownerControls.style.display = 'none';
         }
-
-        // create new mapping and update profile
-        tx.set(usernameRef, { uid: uid, createdAt: serverTimestamp() });
-        tx.set(profileRef, { username: desiredName, lastUsernameChange: serverTimestamp() }, { merge: true });
-
-        return { username: desiredName };
+      }, (err) => {
+        console.error('onAuthStateChanged error', err);
       });
     }
 
-    // Admin badge functions
-    async function adminAssignBadge(targetUid, badgeId) {
-      if (!targetUid || !badgeId) throw new Error('missing params');
-      const profileRef = doc(db, 'profiles', targetUid);
-      await updateDoc(profileRef, { badges: arrayUnion(badgeId) });
-      return true;
-    }
-    async function adminRemoveBadge(targetUid, badgeId) {
-      if (!targetUid || !badgeId) throw new Error('missing params');
-      const profileRef = doc(db, 'profiles', targetUid);
-      await updateDoc(profileRef, { badges: arrayRemove(badgeId) });
-      return true;
-    }
+    // Wire the copy link button
+    copyLinkBtn.onclick = () => {
+      const u = location.origin + '/' + (requested || '');
+      navigator.clipboard.writeText(u).then(()=> {
+        copyLinkBtn.textContent = 'Copied!';
+        setTimeout(()=> copyLinkBtn.textContent = 'Copy profile link', 1500);
+      }).catch(err => {
+        showError('Copy failed: ' + (err.message || err));
+      });
+    };
 
-    // lookup helpers
-    async function lookupByUid(uid) {
-      if(!uid) return null;
-      const ref = doc(db, 'profiles', uid);
-      const snap = await getDoc(ref);
-      if (!snap.exists()) return null;
-      return { uid, ...snap.data() };
-    }
-
-    async function suggestAlternatives(name, count=4) {
-      // simple suggestions: append numbers or underscores
-      const base = name.replace(/[^a-zA-Z0-9_.-]/g,'').slice(0,20);
-      const arr = [];
-      for (let i=1;i<=count;i++){
-        arr.push(base + '_' + i);
-        if (arr.length>=count) break;
-      }
-      return arr;
-    }
-
-    // wire events
+    // Claim button: IMPORTANT — uses the Callable function createOrChangeUsername
     claimBtn.onclick = async () => {
-      const v = usernameInput.value.trim();
-      if (!v) return alert('enter username');
-      if (!NAME_RE.test(v)) return alert('bad format (3-30 a-zA-Z0-9_.-)');
-      if (RESERVED.has(v.toLowerCase())) return alert('reserved username');
+      const v = newUsernameInput.value.trim();
+      if (!v) return alert('Enter a username');
+      if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(v)) return alert('Bad username format (3-30 chars letters/numbers/_/./-)');
 
       claimBtn.disabled = true;
       claimBtn.textContent = 'Claiming…';
+      errorArea.innerHTML = '';
+
       try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('signin_required');
-        const isAdminFlag = await isAdminUser(user);
-        await ensureProfileExists(user.uid);
-        await claimUsernameAtomic(user.uid, v, isAdminFlag);
-        alert('Username claimed: ' + v);
-        window.location.href = '/' + encodeURIComponent(v);
-      } catch (err) {
-        console.error(err);
-        if (err.message === 'username_taken') {
-          alert('That username is already taken. Suggestions shown below.');
-          const sugg = await suggestAlternatives(v);
-          suggestionsDiv.innerHTML = 'Suggestions: ' + sugg.map(s => `<span class="sugg" data-s="${s}">${s}</span>`).join(' ');
-          document.querySelectorAll('.sugg').forEach(el => el.onclick = ()=> { usernameInput.value = el.dataset.s; suggestionsDiv.innerHTML=''; });
-        } else if (err.message === 'cooldown') {
-          alert(`You can only change username once every ${COOLDOWN_DAYS} days (unless admin).`);
-        } else if (err.message === 'signin_required') {
-          alert('Please sign in first.');
+        if (!createUsernameCallable) {
+          throw new Error('Callable function not available. Ensure functions are initialized and createOrChangeUsername deployed.');
+        }
+        const res = await createUsernameCallable({ username: v });
+        // callable returns an object with data in res.data
+        if (res && res.data && res.data.success) {
+          alert('Username claimed: ' + res.data.username);
+          // Redirect to new vanity URL
+          window.location.href = '/' + encodeURIComponent(res.data.username);
         } else {
-          alert('Error: ' + (err.message || JSON.stringify(err)));
+          // unpredictable response shape
+          console.warn('Unexpected callable response', res);
+          showError('Unexpected server response. Check console.');
+        }
+      } catch (err) {
+        console.error('Claim error', err);
+        // Extract helpful message where possible (functions returns errors differently)
+        const msg = err?.message || err?.code || JSON.stringify(err);
+        if (err?.code === 'permission-denied') {
+          showError('Permission denied. Are you authenticated? Does your Cloud Function allow this user?');
+        } else if (err?.code === 'already-exists') {
+          showError('That username is already taken.');
+        } else {
+          showError('Claim failed: ' + msg);
         }
       } finally {
         claimBtn.disabled = false;
-        claimBtn.textContent = 'Claim / Change';
+        claimBtn.textContent = 'Claim / Change Username';
       }
     };
 
-    copyBtn.onclick = () => {
-      const url = originLink(requested || usernameInput.value || '');
-      navigator.clipboard.writeText(url).then(()=> {
-        copyBtn.textContent = 'Copied!';
-        setTimeout(()=> copyBtn.textContent='Copy profile link', 1400);
-      });
-    };
-
-    signinBtn.onclick = async () => {
-      const provider = new GoogleAuthProvider();
-      try {
-        await signInWithPopup(auth, provider);
-      } catch(e){ console.error(e); alert('Sign in failed: ' + (e.message||e)); }
-    };
-
-    lookupBtn.onclick = async () => {
-      const q = lookupInput.value.trim();
-      lookupResult.textContent = 'Searching…';
-      try {
-        if (!q) return lookupResult.textContent = '';
-        // if q matches username pattern, try username mapping
-        if (/^[a-zA-Z0-9_.-]{3,30}$/.test(q)) {
-          const p = await fetchProfileByUsername(q);
-          if (!p) return lookupResult.textContent = 'No profile for that username.';
-          lookupResult.textContent = `Found: UID ${p.uid}, username ${p.username || '(none)'}`;
-          return;
-        }
-        // else treat as uid
-        const p = await lookupByUid(q);
-        if (!p) return lookupResult.textContent = 'No profile for that UID.';
-        lookupResult.textContent = `Found: UID ${p.uid}, username ${p.username || '(none)'}`;
-      } catch (e) {
-        console.error(e);
-        lookupResult.textContent = 'Error: ' + (e.message || e);
-      }
-    };
-
-    assignBadgeBtn.onclick = async () => {
-      const target = adminUid.value.trim();
-      const b = adminBadge.value.trim();
-      if(!target||!b) return alert('need uid and badge id');
-      try {
-        await adminAssignBadge(target,b);
-        alert('Assigned '+b);
-      } catch(e){ console.error(e); alert('Error: ' + (e.message||e)); }
-    };
-    removeBadgeBtn.onclick = async () => {
-      const target = adminUid.value.trim();
-      const b = adminBadge.value.trim();
-      if(!target||!b) return alert('need uid and badge id');
-      try {
-        await adminRemoveBadge(target,b);
-        alert('Removed '+b);
-      } catch(e){ console.error(e); alert('Error: ' + (e.message||e)); }
-    };
-
-    // Auth watcher and initial rendering
-    let currentUser = auth.currentUser || null;
-    async function renderForUser(user) {
-      currentUser = user;
-      const adminFlag = user ? await isAdminUser(user) : false;
-      loggedInAs.textContent = user ? `Signed in as ${user.email || shortUid(user.uid)}${adminFlag ? ' (admin)' : ''}` : 'Not signed in';
-      adminPanel.style.display = adminFlag ? 'block' : 'none';
-
-      if (!user) {
-        anonPrompt.style.display='block';
-        ownerControls.style.display='none';
-      } else {
-        anonPrompt.style.display='none';
-        ownerControls.style.display='block';
-        usernameInput.value = requested || '';
-      }
-    }
-
-    onAuthStateChanged(auth, user => {
-      renderForUser(user).catch(console.error);
-      // Re-init view on change
-      initView().catch(console.error);
+    // boot
+    init().catch(err => {
+      console.error('init error', err);
     });
-
-    // initial view
-    async function initView(){
-      loading.style.display='block';
-      profileCard.style.display='none';
-      // if requested username in path, try load
-      if (requested) {
-        const p = await fetchProfileByUsername(requested);
-        if (!p) {
-          loading.textContent = `No profile found for /${requested}. You can claim it if available.`;
-          profileCard.style.display = 'block';
-          displayName.textContent = 'No profile';
-          usernameLine.innerHTML = `<span class="username-url">/${requested}</span> — available?`;
-          badgesEl.innerHTML = '';
-          ownerNote.textContent = '';
-          // show controls depending on auth
-          if (auth.currentUser) {
-            ownerControls.style.display='block';
-            usernameInput.value = requested;
-            ownerNote.textContent = `You are signed in as ${auth.currentUser.email || shortUid(auth.currentUser.uid)}. Claiming will map this username to your UID.`;
-          } else {
-            anonPrompt.style.display='block';
-            ownerControls.style.display='none';
-          }
-          loading.style.display='none';
-          profileCard.style.display='block';
-          return;
-        }
-        // if profile exists
-        await showProfile(p);
-      } else {
-        // no requested username: show current user's profile if signed in
-        if (auth.currentUser) {
-          const p = await lookupByUid(auth.currentUser.uid);
-          if (p) {
-            await showProfile(p);
-          } else {
-            // create UI for creating a profile
-            loading.textContent = 'No profile data yet. You can claim a username and create a profile.';
-            profileCard.style.display='block';
-            displayName.textContent = 'No profile';
-            usernameLine.innerHTML = `<em class="muted">no username</em>`;
-            badgesEl.innerHTML = '';
-            ownerControls.style.display='block';
-            usernameInput.value = '';
-            ownerNote.textContent = `You are signed in as ${auth.currentUser.email || shortUid(auth.currentUser.uid)}.`;
-          }
-        } else {
-          // not signed in, show prompt
-          loading.textContent = 'Enter a username in the URL (e.g. /iii_dev) or sign in to manage your profile.';
-          profileCard.style.display='block';
-          anonPrompt.style.display='block';
-          ownerControls.style.display='none';
-        }
-      }
-      loading.style.display='none';
-    }
-
-    // initial render
-    await renderForUser(auth.currentUser);
-    await initView();
-
-    // expose some debug helpers to console for admin convenience
-    window._gomega = {
-      claimUsernameAtomic, fetchProfileByUsername, lookupByUid, suggestAlternatives
-    };
-
-  })();
   </script>
 </body>
 </html>
