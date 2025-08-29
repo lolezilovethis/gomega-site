@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TTS — Text to Speech</title>
+  <style>
+    :root {
+      --bg: #0f172a; /* slate-900 */
+      --panel: #111827; /* gray-900 */
+      --muted: #94a3b8; /* slate-400 */
+      --text: #e5e7eb; /* gray-200 */
+      --accent: #2563eb; /* blue-600 */
+      --accent-2: #3b82f6; /* blue-500 */
+      --danger: #ef4444; /* red-500 */
+      --ok: #10b981; /* emerald-500 */
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1000px 600px at 20% -10%, #1f2937 0%, transparent 60%),
+                  radial-gradient(1000px 600px at 120% 10%, #0b3b8d 0%, transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      display: grid; place-items: center; padding: 24px;
+    }
+    .app {
+      width: min(920px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    header {
+      padding: 18px 20px; display: flex; align-items: center; gap: 12px; justify-content: space-between;
+      background: linear-gradient(180deg, rgba(37,99,235,0.25), rgba(37,99,235,0.05));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
+    header .badge { font-size: 12px; color: #cbd5e1; }
+
+    .content { padding: 18px; display: grid; gap: 16px; }
+
+    .row { display: grid; gap: 12px; }
+
+    textarea {
+      width: 100%; min-height: 180px; resize: vertical;
+      padding: 14px 14px 44px 14px; line-height: 1.5; font-size: 16px; color: var(--text);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .toolbar {
+      display: grid; gap: 10px; grid-template-columns: 1fr;
+    }
+
+    .controls {
+      display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .control { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; }
+    .control label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+    .control select, .control input[type="range"], .control input[type="number"] {
+      width: 100%; margin-top: 8px; background: rgba(0,0,0,0.2); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px;
+    }
+
+    .buttons {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    }
+    button {
+      appearance: none; border: none; cursor: pointer; font-weight: 600; letter-spacing: 0.3px;
+      padding: 10px 14px; border-radius: 999px; color: white; transition: transform .04s ease, box-shadow .2s ease;
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      box-shadow: 0 8px 18px rgba(37,99,235,0.35);
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(1px); }
+    button.secondary { background: linear-gradient(180deg, #4b5563, #374151); box-shadow: 0 8px 18px rgba(55,65,81,0.35); }
+    button.ghost { background: rgba(255,255,255,0.08); box-shadow: none; }
+    button.danger { background: linear-gradient(180deg, #f87171, #ef4444); box-shadow: 0 8px 18px rgba(239,68,68,0.35); }
+
+    .statusbar {
+      margin-top: -38px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted);
+      font-size: 12px; padding: 0 12px 8px 12px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; display: inline-block; margin-right: 6px; }
+    .dot.ok { background: var(--ok); }
+    .dot.warn { background: #f59e0b; }
+    .dot.err { background: var(--danger); }
+
+    footer { padding: 12px 18px 18px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    a { color: #c7d2fe; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <h1>Text‑to‑Speech</h1>
+      <div class="badge" id="supportBadge">Checking TTS support…</div>
+    </header>
+
+    <div class="content">
+      <div class="row">
+        <textarea id="text" placeholder="Type or paste text here…"></textarea>
+        <div class="statusbar">
+          <div><span class="dot" id="statusDot"></span><span id="statusText">Idle</span></div>
+          <div id="charCount">0 characters</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="controls">
+          <div class="control">
+            <label>Voice <span id="voiceInfo"></span></label>
+            <select id="voiceSelect"></select>
+          </div>
+          <div class="control">
+            <label>Rate <span><span id="rateVal">1.0</span>x</span></label>
+            <input id="rate" type="range" min="0.5" max="2" step="0.1" value="1" />
+          </div>
+          <div class="control">
+            <label>Pitch <span id="pitchVal">1.0</span></label>
+            <input id="pitch" type="range" min="0" max="2" step="0.1" value="1" />
+          </div>
+          <div class="control">
+            <label>Volume <span id="volVal">1.0</span></label>
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="1" />
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button id="playBtn">▶ Play</button>
+          <button class="secondary" id="pauseBtn">⏸ Pause</button>
+          <button class="danger" id="stopBtn">■ Stop</button>
+          <button class="ghost" id="clearBtn">✕ Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>Uses your browser's built‑in Speech Synthesis API.</div>
+      <div id="tip"></div>
+    </footer>
+  </div>
+
+  <script>
+  (function(){
+    const textEl = document.getElementById('text');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const voiceSelect = document.getElementById('voiceSelect');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const supportBadge = document.getElementById('supportBadge');
+    const charCount = document.getElementById('charCount');
+    const tip = document.getElementById('tip');
+
+    const rate = document.getElementById('rate');
+    const pitch = document.getElementById('pitch');
+    const volume = document.getElementById('volume');
+    const rateVal = document.getElementById('rateVal');
+    const pitchVal = document.getElementById('pitchVal');
+    const volVal = document.getElementById('volVal');
+    const voiceInfo = document.getElementById('voiceInfo');
+
+    let currentUtterance = null;
+    let voicesLoaded = false;
+
+    // Helpers
+    const savePrefs = () => {
+      const prefs = {
+        text: textEl.value,
+        rate: rate.value,
+        pitch: pitch.value,
+        volume: volume.value,
+        voiceURI: voiceSelect.value
+      };
+      localStorage.setItem('tts_prefs', JSON.stringify(prefs));
+    };
+    const loadPrefs = () => {
+      try {
+        const prefs = JSON.parse(localStorage.getItem('tts_prefs')) || {};
+        if (typeof prefs.text === 'string') textEl.value = prefs.text;
+        if (prefs.rate) rate.value = prefs.rate;
+        if (prefs.pitch) pitch.value = prefs.pitch;
+        if (prefs.volume) volume.value = prefs.volume;
+        if (prefs.voiceURI) pendingVoiceURI = prefs.voiceURI;
+        updateMeters();
+      } catch(_){}
+    };
+
+    function updateMeters(){
+      rateVal.textContent = Number(rate.value).toFixed(1);
+      pitchVal.textContent = Number(pitch.value).toFixed(1);
+      volVal.textContent = Number(volume.value).toFixed(2);
+      charCount.textContent = `${textEl.value.length} characters`;
+    }
+
+    function setStatus(kind, msg){
+      statusDot.className = 'dot ' + (kind || '');
+      statusText.textContent = msg || '';
+    }
+
+    function setSupportBadge(){
+      if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window){
+        supportBadge.textContent = 'TTS supported';
+      } else {
+        supportBadge.textContent = 'TTS not supported in this browser';
+        setStatus('err', 'Unsupported browser');
+      }
+    }
+
+    let pendingVoiceURI = null;
+
+    function populateVoices(){
+      const synth = window.speechSynthesis;
+      const voices = synth.getVoices();
+      if (!voices || voices.length === 0) return; // wait for voiceschanged
+      voicesLoaded = true;
+
+      voiceSelect.innerHTML = '';
+      const frag = document.createDocumentFragment();
+
+      // Put default/local voices first, then others
+      const sorted = voices.slice().sort((a,b)=>{
+        if (a.localService !== b.localService) return a.localService ? -1 : 1;
+        if (a.lang !== b.lang) return a.lang.localeCompare(b.lang);
+        return a.name.localeCompare(b.name);
+      });
+
+      sorted.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        opt.textContent = `${v.name} — ${v.lang}${v.localService ? ' (local)' : ''}`;
+        frag.appendChild(opt);
+      });
+      voiceSelect.appendChild(frag);
+
+      // Restore previous voice if available
+      if (pendingVoiceURI){
+        const match = Array.from(voiceSelect.options).find(o => o.value === pendingVoiceURI);
+        if (match) voiceSelect.value = pendingVoiceURI;
+      }
+
+      updateVoiceInfo();
+    }
+
+    function getSelectedVoice(){
+      const uri = voiceSelect.value;
+      return speechSynthesis.getVoices().find(v => v.voiceURI === uri) || null;
+    }
+
+    function updateVoiceInfo(){
+      const v = getSelectedVoice();
+      if (v){
+        voiceInfo.textContent = `${v.name.split(' ')[0]} · ${v.lang}${v.localService ? ' · local' : ''}`;
+      } else {
+        voiceInfo.textContent = '';
+      }
+    }
+
+    function play(){
+      if (!('speechSynthesis' in window)) return alert('Your browser does not support speech synthesis.');
+      const text = (textEl.value || '').trim();
+      if (!text) return alert('Please enter some text to speak.');
+
+      stop(); // cancel any existing speech
+
+      const u = new SpeechSynthesisUtterance(text);
+      currentUtterance = u;
+      u.voice = getSelectedVoice();
+      u.rate = Number(rate.value);
+      u.pitch = Number(pitch.value);
+      u.volume = Number(volume.value);
+
+      u.onstart = () => setStatus('ok', 'Speaking…');
+      u.onend = () => { setStatus('', 'Finished'); currentUtterance = null; };
+      u.onerror = (e) => { console.error(e); setStatus('err', 'Error during speech'); currentUtterance = null; };
+      u.onpause = () => setStatus('warn', 'Paused');
+      u.onresume = () => setStatus('ok', 'Speaking…');
+
+      speechSynthesis.speak(u);
+      textEl.focus();
+    }
+
+    function pauseResume(){
+      if (!('speechSynthesis' in window)) return;
+      const synth = speechSynthesis;
+      if (synth.speaking && !synth.paused){
+        synth.pause();
+        setStatus('warn', 'Paused');
+        pauseBtn.textContent = '▶ Resume';
+      } else if (synth.paused){
+        synth.resume();
+        setStatus('ok', 'Speaking…');
+        pauseBtn.textContent = '⏸ Pause';
+      }
+    }
+
+    function stop(){
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      setStatus('', 'Stopped');
+      pauseBtn.textContent = '⏸ Pause';
+      currentUtterance = null;
+    }
+
+    // Event bindings
+    playBtn.addEventListener('click', play);
+    pauseBtn.addEventListener('click', pauseResume);
+    stopBtn.addEventListener('click', stop);
+    clearBtn.addEventListener('click', () => { textEl.value = ''; updateMeters(); savePrefs(); textEl.focus(); });
+
+    textEl.addEventListener('input', ()=>{ updateMeters(); savePrefs(); });
+    rate.addEventListener('input', ()=>{ updateMeters(); savePrefs(); });
+    pitch.addEventListener('input', ()=>{ updateMeters(); savePrefs(); });
+    volume.addEventListener('input', ()=>{ updateMeters(); savePrefs(); });
+    voiceSelect.addEventListener('change', ()=>{ updateVoiceInfo(); savePrefs(); });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e)=>{
+      if (e.ctrlKey && e.key.toLowerCase() === 'enter'){ e.preventDefault(); play(); }
+      if (e.key === 'Escape'){ stop(); }
+      if (e.code === 'Space' && (document.activeElement === body || document.activeElement === textEl)){
+        e.preventDefault(); pauseResume();
+      }
+    });
+
+    // Voice loading on various browsers
+    if ('speechSynthesis' in window){
+      speechSynthesis.addEventListener('voiceschanged', () => { populateVoices(); });
+      // Some browsers need an initial getVoices() call
+      setTimeout(populateVoices, 50);
+      setTimeout(populateVoices, 500);
+    }
+
+    // Init
+    setSupportBadge();
+    loadPrefs();
+    updateMeters();
+    tip.textContent = 'Tip: Press Ctrl+Enter to Play, Space to Pause/Resume, Esc to Stop.';
+  })();
+  </script>
+</body>
+</html>
